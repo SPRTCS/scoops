@@ -14,6 +14,7 @@ and ask for your approval before anything leaves the house.
 </p>
 
 <p>
+<a href="https://github.com/SPRTCS/scoops/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/SPRTCS/scoops/ci.yml?branch=main&style=flat-square&label=tests"></a>
 <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-7c3aed?style=flat-square"></a>
 <img alt="Platforms" src="https://img.shields.io/badge/iPhone%20·%20iPad%20·%20Mac%20·%20Watch-26%2B-111?style=flat-square&logo=apple">
 <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white">
