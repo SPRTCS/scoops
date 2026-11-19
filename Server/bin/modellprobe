@@ -1,0 +1,9 @@
+#!/bin/zsh
+# Modellprobe (docs/modelle.md): je Modell des Katalogs ein Minimalaufruf mit den API-Schlüsseln dieses Servers.
+#   Server/bin/modellprobe                alle wählbaren Modelle (zusammen deutlich unter einem Cent)
+#   Server/bin/modellprobe gpt-6.2-sol    nur bestimmte
+set -euo pipefail
+PY="$HOME/.local/share/ais-bot/svc/bin/python"
+cd "${0:A:h}/.."
+[[ -x "$PY" ]] || PY=".venv/bin/python"
+AISBOT_SKIP_CONVEX=1 exec "$PY" tests/modellprobe.py "$@"

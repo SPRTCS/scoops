@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions and ideas
+    url: https://github.com/SPRTCS/scoops/discussions
+    about: Ask questions, share setups and discuss ideas.
+  - name: 🔒 Security problem
+    url: https://github.com/SPRTCS/scoops/security/advisories/new
+    about: Please report vulnerabilities privately.

@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""Legt die Demo-Inhalte des Demo-Servers an (docs/demo-server.md): Scoops im neuen Stil, eine Gruppe, Beispiel-Chats,
+eine Routine und eine offene Mail-Karte. Läuft über die HTTP-API mit echtem Modell (Haiku, wenige Cent).
+
+    Server/bin/demo-seed            alles anlegen (nur, wenn es erst den Start-Scoop gibt)
+    Server/bin/demo-seed --karte    nur eine neue offene Mail-Karte (z. B. nachdem ein Prüfer sie freigegeben hat)
+
+Liest das Token aus der Demo-Konfiguration und gibt es nie aus.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+
+BASE_DIR = os.path.expanduser(os.environ.get("DEMO_BASE", "~/.local/share/ais-scoops-demo"))
+CFG = json.load(open(os.path.join(BASE_DIR, "config.json")))
+URL = f"http://127.0.0.1:{CFG.get('port', 8790)}"
+TOKEN = CFG["api_token"]
+
+SCOOPS = [
+    {"name": "Pip", "label": "Assistant",
+     "mascot": {"shape": "heart", "color": "#F72A7A", "eyes": "lashes", "accessory": "none", "gaze": "left", "mouth": "smile"},
+     "character": "Friendly everyday assistant. Cheerful, patient and concise. Keeps track of reminders and routines. "
+                  "Replies in the language the user writes in."},
+    {"name": "Theo", "label": "Research",
+     "mascot": {"shape": "cloud", "color": "#1270E8", "eyes": "dashes", "accessory": "none", "mouth": "smile"},
+     "character": "Curious research scout. Uses web search, cites sources with links, summarizes in short bullet points. "
+                  "Replies in the language the user writes in."},
+    {"name": "Lio", "label": "Writing",
+     "mascot": {"shape": "egg", "color": "#FBBA10", "eyes": "relaxed", "accessory": "beret", "gaze": "right"},
+     "character": "Warm, precise writer. Drafts emails and short texts; for emails always uses mail_vorbereiten so the "
+                  "user can review and send. Replies in the language the user writes in."},
+    {"name": "Nora", "label": "Planning",
+     "mascot": {"shape": "star_soft", "color": "#43C62E", "eyes": "dashes", "accessory": "cap"},
+     "character": "Calm planner and coach. Turns goals into small steps, sets up routines and reminders. "
+                  "Replies in the language the user writes in."},
+]
+
+CHATS = [
+    ("Theo", "What are three surprising facts about the James Webb Space Telescope? Keep it short, with sources."),
+    ("Nora", "Please set up a routine: every weekday at 8:00, send me a short, motivating plan for the day."),
+    ("Pip", "Remember that I prefer short answers and that my favourite color is green."),
+]
+MAIL_PROMPT = ("Draft a short, friendly email to sam@example.com inviting the team to a pizza lunch on Friday at 12:30 "
+               "in the small meeting room. Prepare it with mail_vorbereiten (account Demo) so I can review and send it.")
+GROUP_PROMPT = "Hi team! Quick round: each of you, one sentence on how you could help me plan a small team offsite."
+
+
+def req(method: str, path: str, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    r = urllib.request.Request(URL + path, data=data, method=method,
+                               headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(r, timeout=60) as resp:
+            t = resp.read().decode()
+            return json.loads(t) if t else None
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"{method} {path}: HTTP {e.code} {e.read().decode()[:300]}") from None
+
+
+def wait_idle(timeout: float = 180) -> None:
+    end = time.time() + timeout
+    time.sleep(2)
+    while time.time() < end:
+        h = req("GET", "/api/health")
+        bots = req("GET", "/api/bots")
+        if not h.get("active_runs") and not any(b.get("busy") for b in bots):
+            return
+        time.sleep(2)
+    raise SystemExit("Zeitüberschreitung: Scoops arbeiten noch")
+
+
+def say(chat_path: str, text: str) -> None:
+    req("POST", f"{chat_path}/messages", {"text": text})
+    wait_idle()
+
+
+def main() -> None:
+    bots = {b["name"]: b for b in req("GET", "/api/bots")}
+    if "--karte" in sys.argv:
+        say(f"/api/bots/{bots['Lio']['id']}", MAIL_PROMPT)
+        print("Neue Mail-Karte bei Lio angelegt.")
+        return
+    if set(bots) - {"Pip"}:
+        raise SystemExit("Es gibt schon Demo-Scoops. Für eine neue Karte: --karte")
+    for s in SCOOPS:
+        if s["name"] in bots:
+            bots[s["name"]] = req("PATCH", f"/api/bots/{bots[s['name']]['id']}",
+                                  {k: v for k, v in s.items() if k != "name"})
+        else:
+            bots[s["name"]] = req("POST", "/api/bots", {**s, "model": "claude-haiku-5-5"})
+        print("Scoop:", s["name"])
+    wait_idle()  # neue Scoops stellen sich (auf Deutsch) vor – für die Prüfer leeren wir die Chats danach
+    for name in bots:
+        req("POST", f"/api/bots/{bots[name]['id']}/reset")
+    say(f"/api/bots/{bots['Pip']['id']}", "Hi Pip! What can you do for me? Two sentences, please.")
+    group = req("POST", "/api/groups", {"name": "Team", "member_ids": [bots[n]["id"] for n in ("Pip", "Theo", "Lio")]})
+    print("Gruppe: Team")
+    for name, text in CHATS:
+        say(f"/api/bots/{bots[name]['id']}", text)
+        print("Chat:", name)
+    say(f"/api/groups/{group['id']}", GROUP_PROMPT)
+    print("Chat: Team")
+    say(f"/api/bots/{bots['Lio']['id']}", MAIL_PROMPT)
+    print("Mail-Karte: Lio")
+    print("Routinen bei Nora:", len(req("GET", f"/api/bots/{bots['Nora']['id']}/routines")))
+
+
+if __name__ == "__main__":
+    main()

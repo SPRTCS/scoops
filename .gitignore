@@ -1,0 +1,39 @@
+# Geheimnisse – niemals einchecken
+*.p8
+*.pem
+*.key
+.env
+.env.*
+config.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+.pytest_cache/
+
+# Laufdaten, Logs, lokale Daten
+Server/runs/
+logs/
+*.db
+*.sqlite
+
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xcarchive
+App/AISBot [0-9].xcodeproj/
+
+# Screenshots (groß, teils mit echten Daten) bleiben lokal
+App/Screenshots/
+
+# macOS / iCloud
+.DS_Store
+* [2-9].*
+
+# Convex (Cloud/)
+node_modules
+Cloud/.env.local

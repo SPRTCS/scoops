@@ -1,0 +1,4 @@
+#!/bin/zsh
+# Startet den AIS-Bot-Prototyp. Die Python-Umgebung liegt bewusst außerhalb von iCloud.
+export UV_PROJECT_ENVIRONMENT="$HOME/.local/share/ais-bot/venv"
+cd "${0:A:h}/.." && exec uv run --quiet aisbot "$@"

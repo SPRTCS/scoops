@@ -1,0 +1,171 @@
+#!/bin/zsh
+# Demo-Server für die App-Prüfung (docs/demo-server.md): zweite, abgeschottete Server-Instanz auf diesem Mac.
+#
+#   Server/bin/demo-server install    Code kopieren, Python-Umgebung, Konfiguration, LaunchAgent (startet sofort)
+#   Server/bin/demo-server copy-key   Anthropic-Schlüssel aus Armans Server-Schlüsselbund in den Demo-Eintrag kopieren
+#   Server/bin/demo-server funnel     öffentlich unter https://<mac>.ts.net:10000/demo (Tailscale Funnel, nur dieser Pfad)
+#   Server/bin/demo-server status     Dienst, Gesundheit, Funnel, Kosten heute/Monat
+#   Server/bin/demo-server logs       letzte Protokollzeilen
+#   Server/bin/demo-server stop|start Dienst anhalten bzw. wieder starten (LaunchAgent bootout/bootstrap)
+#   Server/bin/demo-server uninstall --keep-data   dauerhaft aus, Daten bleiben
+#   Server/bin/demo-server uninstall  Abbau nach der Prüfung: Dienst, Funnel-Pfad, Schlüsselbund-Eintrag, Daten
+#
+# Getrennt von Armans Server: eigener Ordner, Port, Token, Schlüsselbund-Präfix, eigene Python-Kopie (keine
+# geerbten Datenschutz-Freigaben), config `demo: true` (aisbot/demo.py) und eine macOS-Sandbox, die Lesen und
+# Schreiben unter /Users nur im Demo-Ordner erlaubt. Gibt nie Schlüssel oder Token aus.
+set -euo pipefail
+SRC="${0:A:h}/.."
+BASE="${DEMO_BASE:-$HOME/.local/share/ais-scoops-demo}"
+LABEL="com.ais-scoops.demo"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+PORT="${DEMO_PORT:-8790}"
+PREFIX="ais-scoops-demo"
+KEY_SERVICE="$PREFIX-anthropic"
+FUNNEL_PORT=10000
+FUNNEL_PATH=/demo
+DOMAIN="gui/$(id -u)"
+
+health() { curl -s -o /dev/null -w '%{http_code}' -m 5 "http://127.0.0.1:$PORT/api/health" || true; }
+
+install_python() {
+  # Eigene Kopie des Interpreters: Datenschutz-Freigaben (TCC) hängen am Programmpfad, Armans Server nutzt dieselbe
+  # uv-Installation – die Kopie erbt also keine Freigaben (Kalender, Bedienungshilfen, Bildschirm …).
+  if [[ ! -x "$BASE/python/bin/python3.12" ]]; then
+    local real; real="$(readlink -f "$(uv python find 3.12)")"
+    rm -rf "$BASE/python"
+    cp -R "${real:h:h}" "$BASE/python"
+  fi
+  if [[ ! -x "$BASE/svc/bin/python" ]]; then
+    "$BASE/python/bin/python3.12" -m venv "$BASE/svc"
+  fi
+  (cd "$SRC" && uv export --quiet --no-hashes --no-emit-project --format requirements-txt > "$BASE/requirements.txt")
+  VIRTUAL_ENV="$BASE/svc" uv pip install --quiet --python "$BASE/svc/bin/python" -r "$BASE/requirements.txt"
+}
+
+write_config() {
+  [[ -f "$BASE/config.json" ]] && return
+  /usr/bin/python3 - "$BASE/config.json" "$PORT" <<'PY'
+import json, secrets, sys
+path, port = sys.argv[1], int(sys.argv[2])
+cfg = {"api_token": secrets.token_urlsafe(32), "edition": "standard", "demo": True, "host": "127.0.0.1", "port": port,
+       "user_name": "Reviewer", "spend_limits": {"daily_usd": 5, "monthly_usd": 25}, "vm_enabled": False}
+with open(path, "w") as f:
+    json.dump(cfg, f, indent=2)
+PY
+  chmod 600 "$BASE/config.json"
+}
+
+write_sandbox() {
+  # Lesen/Schreiben unter /Users nur im Demo-Ordner; keine fremden Temp-Ordner, keine Laufwerke, keine Apple Events,
+  # keine Verbindungen zu anderen lokalen Diensten (Armans Server, T3, Telefonie) außer dem eigenen Port.
+  cat > "$BASE/demo.sb" <<SB
+(version 1)
+(allow default)
+(deny file-read-data file-read-xattr file-write*
+      (require-all (require-any (subpath "/Users") (subpath "/Volumes") (subpath "/private/tmp")
+                                (subpath "/private/var/folders"))
+                   (require-not (subpath "$BASE"))))
+(deny appleevent-send)
+(deny network-outbound (require-all (remote ip "localhost:*") (require-not (remote ip "localhost:$PORT"))))
+SB
+}
+
+write_runner() {
+  mkdir -p "$BASE/bin"
+  cat > "$BASE/bin/run" <<RUN
+#!/bin/zsh
+# Startet den Demo-Server (LaunchAgent $LABEL). Liest den Schlüssel außerhalb der Sandbox aus dem Schlüsselbund.
+set -eu
+KEY=\$(/usr/bin/security find-generic-password -s "$KEY_SERVICE" -a api-key -w 2>/dev/null || true)
+[[ -n "\$KEY" ]] && export ANTHROPIC_API_KEY="\$KEY"
+unset KEY
+export AISBOT_HOME="$BASE" AISBOT_EDITION=standard AISBOT_KEYCHAIN_PREFIX="$PREFIX" AISBOT_PORT="$PORT"
+export AISBOT_CLOUD_KEYCHAIN="$PREFIX-cloud" AISBOT_COMPUTER_URL="http://127.0.0.1:9" AISBOT_WORKSPACE="$BASE/workspace"
+export AISBOT_USAGE_HOME="$BASE/keine-protokolle" AISBOT_CODEX_HOME="$BASE/codex" CLAUDE_CONFIG_DIR="$BASE/claude"
+export HOME="$BASE/home" TMPDIR="$BASE/tmp" PYTHONPATH="$BASE/app/src" PYTHONUNBUFFERED=1
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+cd "$BASE"
+exec /usr/bin/sandbox-exec -f "$BASE/demo.sb" "$BASE/svc/bin/python" -c "from aisbot.server import main; main()"
+RUN
+  chmod 700 "$BASE/bin/run"
+}
+
+write_plist() {
+  cat > "$PLIST" <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key><array><string>/bin/zsh</string><string>$BASE/bin/run</string></array>
+  <key>WorkingDirectory</key><string>$BASE</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>$BASE/logs/server.log</string>
+  <key>StandardErrorPath</key><string>$BASE/logs/server.log</string>
+</dict></plist>
+PL
+}
+
+start() {
+  launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null || { /bin/sleep 2; launchctl bootstrap "$DOMAIN" "$PLIST"; }
+  for i in {1..40}; do [[ "$(health)" == "401" || "$(health)" == "200" ]] && break; /bin/sleep 0.5; done
+  echo "Demo-Server: HTTP $(health) auf 127.0.0.1:$PORT (401 = läuft, Token nötig)"
+}
+
+stop() {
+  launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+  for i in {1..20}; do launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 || break; /bin/sleep 0.5; done
+}
+
+case "${1:-}" in
+  install)
+    mkdir -p "$BASE"/{app,logs,tmp,home,workspace,keine-protokolle,codex,claude}
+    chmod 700 "$BASE"
+    rsync -a --delete --exclude '__pycache__' "$SRC/src/" "$BASE/app/src/"
+    install_python
+    write_config
+    write_sandbox
+    write_runner
+    write_plist
+    stop
+    start
+    ;;
+  copy-key)
+    # Über stdin von `security -i`, damit der Schlüssel in keiner Befehlszeile auftaucht.
+    KEY=$(/usr/bin/security find-generic-password -s ais-bot-anthropic -a api-key -w)
+    /usr/bin/security delete-generic-password -s "$KEY_SERVICE" -a api-key >/dev/null 2>&1 || true
+    print -r -- "add-generic-password -s $KEY_SERVICE -a api-key -w $KEY" | /usr/bin/security -i >/dev/null
+    unset KEY
+    /usr/bin/security find-generic-password -s "$KEY_SERVICE" -a api-key >/dev/null && echo "Schlüssel kopiert ($KEY_SERVICE)."
+    ;;
+  funnel)
+    tailscale funnel --bg --yes --https=$FUNNEL_PORT --set-path=$FUNNEL_PATH "http://127.0.0.1:$PORT"
+    ;;
+  status)
+    launchctl print "$DOMAIN/$LABEL" 2>/dev/null | grep -E "state =|pid =" | head -2 || echo "Dienst nicht geladen"
+    echo "lokal: HTTP $(health)"
+    tailscale funnel status 2>/dev/null | grep -B1 -A1 "$FUNNEL_PATH" || echo "Funnel-Pfad $FUNNEL_PATH nicht aktiv"
+    sqlite3 "$BASE/data/aisbot.db" "SELECT printf('Kosten heute: %.3f \$ · Monat: %.3f \$', \
+      COALESCE(SUM(CASE WHEN substr(created_at,1,10)=date('now','localtime') THEN dollars END),0), \
+      COALESCE(SUM(CASE WHEN substr(created_at,1,7)=strftime('%Y-%m','now','localtime') THEN dollars END),0)) FROM usage" \
+      2>/dev/null || true
+    ;;
+  logs) tail -n "${2:-60}" "$BASE/logs/server.log" ;;
+  stop) stop; echo "Demo-Server angehalten (bis demo-server start oder zur nächsten Anmeldung am Mac)." ;;
+  start) start ;;
+  uninstall)
+    stop
+    rm -f "$PLIST"
+    tailscale funnel --https=$FUNNEL_PORT --set-path=$FUNNEL_PATH off 2>/dev/null || true
+    /usr/bin/security delete-generic-password -s "$KEY_SERVICE" -a api-key >/dev/null 2>&1 || true
+    if [[ "${2:-}" == "--keep-data" ]]; then
+      echo "Daten bleiben in $BASE."
+    else
+      rm -rf "$BASE"
+      echo "Demo-Server vollständig entfernt."
+    fi
+    ;;
+  *) sed -n 2,13p "$0"; exit 2 ;;
+esac

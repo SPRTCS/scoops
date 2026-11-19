@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Bewusst ohne App-Sandbox: Scoops Connect erzeugt Eingaben, startet Prozesse und steuert Lume.
+     Hardened Runtime: Zugriff auf Kalender/Erinnerungen und Kontakte (Apple-Dienste der Scoops, Server 1.17).
+     build-server-dmg.sh signiert die App mit genau dieser Datei. -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.personal-information.addressbook</key>
+	<true/>
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
+</dict>
+</plist>

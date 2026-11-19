@@ -1,0 +1,13 @@
+#!/bin/zsh
+# Probedurchlauf der wichtigsten Scoop-Abläufe (docs/probelauf.md). Vor größeren Änderungen und Releases ausführen.
+#   Server/bin/probelauf           offline: Testserver im Prozess, Fake-Modell, kostenlos, unter einer Minute
+#   Server/bin/probelauf --live    danach zusätzlich mit echtem Modell gegen einen eigenen Testserver (wenige Cent)
+#   Server/bin/probelauf --nur 2,4 nur einzelne Abläufe
+set -euo pipefail
+PY="$HOME/.local/share/ais-bot/svc/bin/python"
+if [[ ! -x "$PY" ]]; then
+  echo "Python-Umgebung fehlt ($PY). Einmal Server/bin/deploy ausführen." >&2
+  exit 2
+fi
+cd "${0:A:h}/.."
+AISBOT_SKIP_CONVEX=1 exec "$PY" tests/probelauf.py "$@"

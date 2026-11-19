@@ -1,0 +1,47 @@
+name: 🐞 Bug report
+description: Something doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please remove private data (names, mails, chat contents, tokens) from logs and screenshots.
+        Security problems go to [SECURITY.md](../blob/main/SECURITY.md), not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+  - type: dropdown
+    id: part
+    attributes:
+      label: Where?
+      multiple: true
+      options: [iPhone app, iPad app, Mac app, Apple Watch, Widgets, Server app for Mac, Server, Cloud, Docs]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: "App 1.2 (129), Server 1.38.2, macOS 26.1"
+  - type: dropdown
+    id: ai
+    attributes:
+      label: AI access
+      options: [Claude subscription, ChatGPT subscription, Anthropic API key, OpenAI API key, Not relevant]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Server log (menu bar → Show log) or Xcode console. Remove private data first.
+      render: text

@@ -1,0 +1,15 @@
+{
+  "Simulator Target Bundle": "com.ais.aisbot",
+  "aps": {
+    "alert": { "title": "Neo", "body": "Hallo! Für mich gibt es noch kein vorgerendertes Bild." },
+    "sound": "default",
+    "mutable-content": 1,
+    "thread-id": "b_neo"
+  },
+  "bot_id": "b_neo",
+  "chat_id": "b_neo",
+  "message_id": "m_test_3",
+  "author_id": "b_neo",
+  "author_name": "Neo",
+  "group_name": null
+}

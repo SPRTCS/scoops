@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Server tests
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: Server/uv.lock
+      - name: Install
+        working-directory: Server
+        run: uv sync --frozen
+      - name: Test
+        working-directory: Server
+        run: bin/test
+
+  cloud:
+    name: Cloud tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Cloud/package-lock.json
+      - name: Install
+        working-directory: Cloud
+        run: npm ci
+      - name: Typecheck
+        working-directory: Cloud
+        run: npm run typecheck
+      - name: Test
+        working-directory: Cloud
+        run: npm test

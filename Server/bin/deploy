@@ -1,0 +1,64 @@
+#!/bin/zsh
+# Installiert/aktualisiert den AIS-Bot-Server als LaunchAgent auf diesem Mac.
+# Code und Laufzeit liegen außerhalb von iCloud/Documents (~/.local/share/ais-bot),
+# weil launchd-Dienste ohne Freigabe nicht auf Documents zugreifen dürfen.
+set -euo pipefail
+SRC="${0:A:h}/.."
+BASE="$HOME/.local/share/ais-bot"
+SVC="$BASE/svc"
+LABEL="com.ais-bot.server"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+
+mkdir -p "$BASE/app" "$BASE/logs"
+rsync -a --delete --exclude '__pycache__' "$SRC/src/" "$BASE/app/src/"
+if [[ ! -x "$SVC/bin/python" ]]; then
+  uv venv --quiet --python 3.12 "$SVC"
+fi
+cd "$SRC" && uv export --quiet --no-hashes --no-emit-project --format requirements-txt > "$BASE/requirements.txt"
+VIRTUAL_ENV="$SVC" uv pip install --quiet -r "$BASE/requirements.txt"
+
+cat > "$PLIST" <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key><array>
+    <string>$SVC/bin/python</string><string>-c</string>
+    <string>from aisbot.server import main; main()</string>
+  </array>
+  <key>EnvironmentVariables</key><dict>
+    <key>PYTHONPATH</key><string>$BASE/app/src</string>
+    <key>PYTHONUNBUFFERED</key><string>1</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>WorkingDirectory</key><string>$BASE</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>$BASE/logs/server.log</string>
+  <key>StandardErrorPath</key><string>$BASE/logs/server.log</string>
+</dict></plist>
+PL
+# Nicht mitten in einen Lauf neu starten: warten, bis kein Scoop mehr arbeitet (höchstens 15 Minuten).
+# Mit DEPLOY_FORCE=1 sofort neu starten.
+if [[ "${DEPLOY_FORCE:-0}" != "1" ]]; then
+  TOKEN=$(/usr/bin/python3 -c "import json;print(json.load(open('$BASE/config.json')).get('api_token',''))" 2>/dev/null || true)
+  for i in {1..180}; do
+    RUNS=$(curl -s -m 3 -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8787/api/health \
+      | /usr/bin/python3 -c "import sys,json;print(json.load(sys.stdin).get('active_runs',0))" 2>/dev/null || echo 0)
+    [[ "$RUNS" == "0" ]] && break
+    (( i == 1 )) && echo "Warte, bis $RUNS laufende(r) Scoop-Lauf/Läufe fertig ist …"
+    /bin/sleep 5
+  done
+fi
+launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+for i in {1..20}; do
+  launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || break
+  /bin/sleep 0.5
+done
+launchctl bootstrap "gui/$(id -u)" "$PLIST" || { /bin/sleep 3; launchctl bootstrap "gui/$(id -u)" "$PLIST"; }
+for i in {1..30}; do
+  curl -s -o /dev/null http://127.0.0.1:8787/api/health && break
+  /bin/sleep 1
+done
+echo "Server: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/api/health) (401 = läuft, Token nötig)"

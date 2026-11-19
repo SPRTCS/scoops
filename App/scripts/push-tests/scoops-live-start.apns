@@ -1,0 +1,64 @@
+{
+  "Simulator Target Bundle": "com.ais.aisbot",
+  "aps": {
+    "timestamp": 1794565766,
+    "event": "start",
+    "attributes-type": "ScoopsLiveAttributes",
+    "attributes": {
+      "title": "AIS Scoops"
+    },
+    "content-state": {
+      "scoops": [
+        {
+          "id": "b_mila",
+          "name": "Mila",
+          "mascot": {
+            "shape": "bean",
+            "color": "#8B5CF6",
+            "eyes": "dots",
+            "accessory": "bowtie"
+          },
+          "state": "running",
+          "statusLine": "Vergleicht drei Angebote",
+          "steps": 4,
+          "startedAt": 816258476
+        },
+        {
+          "id": "b_theo",
+          "name": "Theo",
+          "label": "Recherche",
+          "mascot": {
+            "shape": "cloud",
+            "color": "#3D84F5",
+            "eyes": "ovals",
+            "accessory": "glasses"
+          },
+          "state": "running",
+          "statusLine": "Ist im Browser auf google.com",
+          "steps": 7,
+          "startedAt": 816258266
+        },
+        {
+          "id": "b_lio",
+          "name": "Lio",
+          "mascot": {
+            "shape": "star",
+            "color": "#FFB524",
+            "eyes": "dots",
+            "accessory": "beret"
+          },
+          "state": "done",
+          "statusLine": "Fertig",
+          "steps": 3,
+          "startedAt": 816257966,
+          "finishedAt": 816258536
+        }
+      ],
+      "updatedAt": 816258566
+    },
+    "alert": {
+      "title": "AIS Scoops",
+      "body": "2 Scoops arbeiten"
+    }
+  }
+}

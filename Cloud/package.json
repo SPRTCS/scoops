@@ -1,0 +1,23 @@
+{
+  "name": "ais-scoops-cloud",
+  "private": true,
+  "type": "module",
+  "description": "AIS Scoops – Konten, Server-Verzeichnis und Sitzungen (Convex)",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p convex"
+  },
+  "dependencies": {
+    "convex": "1.50.0",
+    "jose": "6.2.17"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "5.0.0",
+    "@types/node": "^22.20.5",
+    "convex-test": "0.0.71",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}

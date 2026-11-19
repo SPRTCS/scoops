@@ -1,0 +1,446 @@
+name: AISBot
+options:
+  bundleIdPrefix: com.ais
+  deploymentTarget:
+    iOS: "26.0"
+    macOS: "26.0"
+    watchOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: de
+# Sparkle: Selbstaktualisierung der Mac-App „AIS Scoops Server“ (docs/updates.md)
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.9.6"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    MARKETING_VERSION: "1.2"
+    # Build-Nummer: per Kommandozeile überschreibbar (CURRENT_PROJECT_VERSION=$N), gilt für App und Widget.
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: MYXQKK3T2Z
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    ENABLE_HARDENED_RUNTIME: YES
+targets:
+  AISBot:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: AISBot
+        excludes:
+          - "**/* 2.swift"
+          - "**/*.entitlements"
+          - "Info.plist"
+      - path: Shared
+        excludes:
+          - "**/* 2.swift"
+    info:
+      path: AISBot/Info.plist
+      properties:
+        CFBundleDisplayName: AIS Scoops
+        CFBundleName: AIS Scoops
+        CFBundleDevelopmentRegion: de
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        CFBundleURLTypes:
+          - CFBundleURLName: com.ais.aisbot
+            CFBundleURLSchemes:
+              - aisbot
+              # Einladungslinks geteilter Scoops (docs/sharing.md)
+              - aisscoops
+        NSLocalNetworkUsageDescription: AIS Scoops verbindet sich mit deinem Bot-Server im lokalen Netzwerk.
+        NSMicrophoneUsageDescription: AIS Scoops nutzt das Mikrofon, damit du Nachrichten diktieren und im Sprachmodus mit deinen Scoops sprechen kannst.
+        NSSpeechRecognitionUsageDescription: AIS Scoops wandelt deine Sprache auf dem Gerät in Text um, damit du Nachrichten diktieren und im Sprachmodus sprechen kannst.
+        NSFaceIDUsageDescription: AIS Scoops schützt deinen Tresor mit Face ID, damit nur du die gespeicherten Logins sehen und ändern kannst.
+        NSPhotoLibraryUsageDescription: AIS Scoops braucht Zugriff auf deine Fotos, wenn du Bilder an eine Nachricht anhängen möchtest.
+        # Apple-Dienste Phase 2 (API v1.18): Home, Wecker und Standort über das iPhone
+        NSHomeKitUsageDescription: Damit deine Scoops Licht, Steckdosen, Heizung und Szenen in Apple Home schalten können. Schlösser, Türen, Garagentore und die Alarmanlage nur mit deiner Freigabe.
+        NSAlarmKitUsageDescription: Damit deine Scoops Wecker und Timer für dich stellen können.
+        NSLocationWhenInUseUsageDescription: Damit deine Scoops auf Nachfrage wissen, wo du gerade bist (z. B. für Wege oder Orte in der Nähe).
+        NSLocationAlwaysAndWhenInUseUsageDescription: Damit dich deine Scoops an Orte erinnern können („wenn ich im Büro bin“), auch wenn AIS Scoops geschlossen ist. Der Standort wird nur dafür genutzt.
+        # Stille Pushes wecken die App für Befehle an Home, Wecker und Standort (nicht garantiert, siehe docs/API.md v1.18)
+        UIBackgroundModes:
+          - remote-notification
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            ts.net:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
+        # Communication Notifications (Absenderbild in Mitteilungen, Build 15)
+        NSUserActivityTypes:
+          - INSendMessageIntent
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: false
+        CFBundleLocalizations:
+          - de
+    settings:
+      base:
+        PRODUCT_NAME: AIS Scoops
+        PRODUCT_MODULE_NAME: AISBot
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Alternative App-Symbole (nur iOS/iPadOS; auf dem Mac wird das Dock-Symbol zur Laufzeit gesetzt)
+        "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphoneos*]": "AppIcon-Lila-2 AppIcon-Blau-2 AppIcon-Pink-2 AppIcon-Hell-2 AppIcon-Blick-Gelb AppIcon-Blick-Lila AppIcon-Blick-Blau AppIcon-Blick-Pink AppIcon-Blick-Hell"
+        "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphonesimulator*]": "AppIcon-Lila-2 AppIcon-Blau-2 AppIcon-Pink-2 AppIcon-Hell-2 AppIcon-Blick-Gelb AppIcon-Blick-Lila AppIcon-Blick-Blau AppIcon-Blick-Pink AppIcon-Blick-Hell"
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: NO
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+      configs:
+        # Release (Archiv/TestFlight): Push production. Debug: iOS Push development, Mac ohne Push,
+        # damit lokale Mac-Builds ohne registriertes Gerät/Profil laufen.
+        # iOS-Entitlements enthalten seit API v1.18 com.apple.developer.homekit (Capability „HomeKit“ der App-ID
+        # com.ais.aisbot ist im Developer-Portal aktiv).
+        Release:
+          "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": AISBot/Support/AISBot-macOS.entitlements
+          "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": AISBot/Support/AISBot-iOS.entitlements
+          "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": AISBot/Support/AISBot-iOS.entitlements
+        Debug:
+          "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": AISBot/Support/AISBot-macOS-Debug.entitlements
+          "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": AISBot/Support/AISBot-iOS-Debug.entitlements
+          "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": AISBot/Support/AISBot-iOS-Debug.entitlements
+    dependencies:
+      - target: AISBotWidgets
+        embed: true
+      - target: AISBotNotifications
+        embed: true
+      # Apple-Watch-App (docs/watch.md): nur im iOS-Paket (Contents/Watch), nicht in der Mac-App
+      - target: AISBotWatch
+        embed: true
+        destinationFilters: [iOS]
+  AISBotWidgets:
+    type: app-extension
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: AISBotWidgets
+        excludes:
+          - "**/*.entitlements"
+          - "Info.plist"
+      - path: Shared
+        excludes:
+          - "**/* 2.swift"
+    info:
+      path: AISBotWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: AIS Scoops
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: de
+        ITSAppUsesNonExemptEncryption: false
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_NAME: AISBotWidgets
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WIDGET_EXTENSION"
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.widgets
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        SUPPORTS_MACCATALYST: NO
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": AISBotWidgets/AISBotWidgets-macOS.entitlements
+      configs:
+        Release:
+          "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": AISBotWidgets/AISBotWidgets-iOS.entitlements
+          "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": AISBotWidgets/AISBotWidgets-iOS.entitlements
+        Debug:
+          "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": AISBotWidgets/AISBotWidgets-iOS-Debug.entitlements
+          "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": AISBotWidgets/AISBotWidgets-iOS-Debug.entitlements
+  # Notification Service Extension (Build 15): macht Server-Pushes zu Communication Notifications
+  # mit dem Maskottchen des schreibenden Scoops. Liest nur vorgerenderte PNGs aus dem App-Group-Container.
+  AISBotNotifications:
+    type: app-extension
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: AISBotNotifications
+        excludes:
+          - "**/*.entitlements"
+          - "Info.plist"
+      - path: Shared/Notifications
+    info:
+      path: AISBotNotifications/Info.plist
+      properties:
+        CFBundleDisplayName: AIS Scoops Mitteilungen
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: de
+        ITSAppUsesNonExemptEncryption: false
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
+    settings:
+      base:
+        PRODUCT_NAME: AISBotNotifications
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.notifications
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        SUPPORTS_MACCATALYST: NO
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": AISBotNotifications/AISBotNotifications-macOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": AISBotNotifications/AISBotNotifications-iOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": AISBotNotifications/AISBotNotifications-iOS.entitlements
+  # Apple-Watch-App „AIS Scoops“ (docs/watch.md): Scoops, Chats, Eingabe per Diktat, Freigaben. Wird mit der
+  # iOS-App ausgeliefert. Spricht selbst per URLSession mit dem Server (Zugangsdaten per WatchConnectivity).
+  AISBotWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: AISBotWatch
+        excludes:
+          - "**/*.entitlements"
+          - "Info.plist"
+      - path: Shared/Models
+        excludes:
+          - "**/* 2.swift"
+      - path: Shared/Mascot
+      - path: Shared/Support
+      - path: Shared/Theme
+      - path: Shared/Watch
+      - path: Shared/Notifications/ApprovalActions.swift
+    info:
+      path: AISBotWatch/Info.plist
+      properties:
+        CFBundleDisplayName: AIS Scoops
+        CFBundleName: AIS Scoops
+        CFBundleDevelopmentRegion: de
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.ais.aisbot
+        WKRunsIndependentlyOfCompanionApp: false
+        CFBundleURLTypes:
+          - CFBundleURLName: com.ais.aisbot.watch
+            CFBundleURLSchemes:
+              - aisscoops-watch
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            ts.net:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
+        CFBundleLocalizations:
+          - de
+    settings:
+      base:
+        PRODUCT_NAME: AIS Scoops
+        PRODUCT_MODULE_NAME: AISBotWatch
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.watchkitapp
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "4"
+        SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: AISBotWatch/AISBotWatch.entitlements
+        ENABLE_HARDENED_RUNTIME: NO
+    dependencies:
+      - target: AISBotWatchWidgets
+        embed: true
+  # Komplikationen der Uhr: „Offene Freigaben“ und „Scoop“ (konfigurierbar). Liest nur die Daten, die die
+  # Uhren-App in die App-Gruppe schreibt (Shared/Watch/WatchWidgetData.swift).
+  AISBotWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: AISBotWatchWidgets
+        excludes:
+          - "**/*.entitlements"
+          - "Info.plist"
+      - path: Shared/Watch/WatchWidgetData.swift
+    info:
+      path: AISBotWatchWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: AIS Scoops
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: de
+        ITSAppUsesNonExemptEncryption: false
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_NAME: AISBotWatchWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.watchkitapp.widgets
+        TARGETED_DEVICE_FAMILY: "4"
+        SKIP_INSTALL: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        CODE_SIGN_ENTITLEMENTS: AISBotWatchWidgets/AISBotWatchWidgets.entitlements
+        ENABLE_HARDENED_RUNTIME: NO
+  # Tests der reinen Uhren-Logik (Kürzen, Markdown, Freigaben, Deep Links, Zugangsdaten) – laufen auf dem Mac.
+  WatchLogicTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: WatchLogicTests
+      - path: Shared/Models
+        excludes:
+          - "**/* 2.swift"
+      - path: Shared/Mascot
+      - path: Shared/Support
+      - path: Shared/Theme
+      - path: Shared/Watch
+      - path: Shared/Notifications/ApprovalActions.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.watchlogictests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: Apple Development
+  # AIS Scoops Server (früher Scoops Connect): Menüleisten-App, die den Python-Server mitbringt und betreibt
+  # (Edition „standard“, siehe docs/installation.md) und Macs als Scoop-Rechner an einen Server koppelt
+  # (docs/scoops-connect.md). Ohne Sandbox, weil sie Eingaben erzeugt, Prozesse startet und Lume steuert.
+  # Das Python-Paket (Contents/Resources/server) fügt scripts/build-server-dmg.sh beim Release-Build ein.
+  ScoopsConnect:
+    type: application
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: ScoopsConnect
+        excludes:
+          - "Tests/**"
+          - "**/*.entitlements"
+          - "Info.plist"
+    info:
+      path: ScoopsConnect/Info.plist
+      properties:
+        CFBundleDisplayName: AIS Scoops Server
+        CFBundleName: AIS Scoops Server
+        CFBundleDevelopmentRegion: de
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSUIElement: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.ais.scoopsconnect
+            CFBundleURLSchemes:
+              - scoopsconnect
+        LSMinimumSystemVersion: "26.0"
+        NSLocalNetworkUsageDescription: Scoops Connect spricht im VM-Modus mit dem Computer-Server in der virtuellen Maschine.
+        NSRemindersFullAccessUsageDescription: Damit deine Scoops Erinnerungen lesen, anlegen, ändern und abhaken können. Gelöscht wird nur mit deiner Freigabe in AIS Scoops.
+        NSCalendarsFullAccessUsageDescription: Damit deine Scoops Termine in deinem Kalender lesen und neue eintragen können. Gelöscht wird nur mit deiner Freigabe in AIS Scoops.
+        NSContactsUsageDescription: Damit deine Scoops Telefonnummern, Mailadressen und Geburtstage aus deinen Kontakten nachschlagen können (nur lesen).
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            ts.net:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
+        CFBundleLocalizations:
+          - de
+        # Sparkle (docs/updates.md): Feed im öffentlichen Release-Repo SPRTCS/ais-scoops-server, automatisch
+        # prüfen und laden, still installieren, sobald kein Scoop arbeitet (App/AppUpdater.swift).
+        SUFeedURL: https://github.com/SPRTCS/ais-scoops-server/releases/latest/download/appcast.xml
+        SUPublicEDKey: J60skE7jfRsTs8ht70eHMTY/vTyQAqeM3IvEcrmO4/E=  # gitleaks:allow (öffentlicher Schlüssel)
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: true
+        SUAllowsAutomaticUpdates: true
+        SUScheduledCheckInterval: 10800
+        SUVerifyUpdateBeforeExtraction: true
+    dependencies:
+      - package: Sparkle
+    settings:
+      base:
+        PRODUCT_NAME: AIS Scoops Server
+        PRODUCT_MODULE_NAME: ScoopsConnect
+        MARKETING_VERSION: "2.0"
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.scoopsconnect
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_IDENTITY: Apple Development
+        CODE_SIGN_ENTITLEMENTS: ScoopsConnect/ScoopsConnect.entitlements
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+  # Unit-Tests für die reine Logik (Tasten-Mapping, JSON, SSE, Zeitgrenzen, Dateizugriff) ohne App-Host.
+  ScoopsConnectTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: ScoopsConnect/Tests
+        excludes:
+          - "*.py"
+      - path: ScoopsConnect/Core/KeyMapping.swift
+      - path: ScoopsConnect/Core/JSONValue.swift
+      - path: ScoopsConnect/Core/SSE.swift
+      - path: ScoopsConnect/Core/CommandRunner.swift
+      - path: ScoopsConnect/Core/CommandExecutor.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.scoopsconnect.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: Apple Development
+  # Oberflächentests der Einführung (docs/onboarding.md): tippen den Ablauf im iOS-Simulator durch und legen
+  # Screenshots als Testanhänge ab. Gegen den Demo-Modus und optional gegen einen lokalen Testserver.
+  AISBotUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: AISBotUITests
+    dependencies:
+      - target: AISBot
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: AISBot
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+schemes:
+  AISBotUITests:
+    build:
+      targets:
+        AISBotUITests: [test]
+    test:
+      targets:
+        - AISBotUITests
+  AISBot:
+    build:
+      targets:
+        AISBot: all
+    run:
+      commandLineArguments:
+        "-mock": false
+  AISBotWatch:
+    build:
+      targets:
+        AISBotWatch: all
+    run:
+      commandLineArguments:
+        "-demo": false
+  WatchLogicTests:
+    build:
+      targets:
+        WatchLogicTests: [test]
+    test:
+      targets:
+        - WatchLogicTests
+  ScoopsConnect:
+    build:
+      targets:
+        ScoopsConnect: all
+    test:
+      targets:
+        - ScoopsConnectTests

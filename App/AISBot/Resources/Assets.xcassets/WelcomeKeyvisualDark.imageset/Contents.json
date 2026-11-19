@@ -1,0 +1,6 @@
+{
+  "images" : [
+    { "filename" : "welcome-keyvisual-dark.jpg", "idiom" : "universal" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}

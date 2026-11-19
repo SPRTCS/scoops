@@ -1,0 +1,27 @@
+#!/bin/zsh
+# Alle Server-Tests nacheinander ausführen (ohne Netz, ohne echte Schlüssel).
+#   Server/bin/test               alle tests/test_*.py
+#   Server/bin/test sharing abos  nur test_sharing.py und test_abos.py
+# Exit-Code 1, sobald ein Test fehlschlägt.
+set -u
+cd "${0:A:h:h}"
+typeset -a files failed
+if (( $# )); then
+  for n in "$@"; do files+=("tests/test_${n#test_}.py"); done
+else
+  files=(tests/test_*.py(N))
+  files=(${files:#* [0-9].py})   # iCloud-Duplikate wie „test_x 2.py“ überspringen
+fi
+start=$SECONDS
+for f in $files; do
+  out=$(uv run --quiet python "$f" 2>&1); rc=$?
+  last=${${(f)out}[-1]}
+  if (( rc )); then
+    failed+=("$f"); print -P "%F{red}✗%f ${f:t}  $last"
+    print -r -- "$out" | tail -20 | sed 's/^/    /'
+  else
+    print -P "%F{green}✓%f ${f:t}  $last"
+  fi
+done
+print "\n${#files} Testdateien in $(( SECONDS - start )) s, ${#failed} fehlgeschlagen."
+(( ${#failed} == 0 ))

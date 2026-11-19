@@ -1,0 +1,15 @@
+{
+  "Simulator Target Bundle": "com.ais.aisbot",
+  "aps": {
+    "alert": { "title": "Mila in Launch-Team", "body": "Die Landingpage ist fertig, Theo kann jetzt die Texte prüfen." },
+    "sound": "default",
+    "mutable-content": 1,
+    "thread-id": "g_team"
+  },
+  "bot_id": "g_team",
+  "chat_id": "g_team",
+  "message_id": "m_test_2",
+  "author_id": "b_mila",
+  "author_name": "Mila",
+  "group_name": "Launch-Team"
+}

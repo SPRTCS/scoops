@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleDisplayName</key>
+	<string>AIS Scoops Server</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>AIS Scoops Server</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.ais.scoopsconnect</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>scoopsconnect</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>ts.net</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Damit deine Scoops Termine in deinem Kalender lesen und neue eintragen können. Gelöscht wird nur mit deiner Freigabe in AIS Scoops.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Damit deine Scoops Telefonnummern, Mailadressen und Geburtstage aus deinen Kontakten nachschlagen können (nur lesen).</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Scoops Connect spricht im VM-Modus mit dem Computer-Server in der virtuellen Maschine.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Damit deine Scoops Erinnerungen lesen, anlegen, ändern und abhaken können. Gelöscht wird nur mit deiner Freigabe in AIS Scoops.</string>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/SPRTCS/ais-scoops-server/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>J60skE7jfRsTs8ht70eHMTY/vTyQAqeM3IvEcrmO4/E=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>10800</integer>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+</dict>
+</plist>

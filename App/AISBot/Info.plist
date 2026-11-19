@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleDisplayName</key>
+	<string>AIS Scoops</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>AIS Scoops</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.ais.aisbot</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>aisbot</string>
+				<string>aisscoops</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Damit deine Scoops Wecker und Timer für dich stellen können.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>ts.net</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>AIS Scoops schützt deinen Tresor mit Face ID, damit nur du die gespeicherten Logins sehen und ändern kannst.</string>
+	<key>NSHomeKitUsageDescription</key>
+	<string>Damit deine Scoops Licht, Steckdosen, Heizung und Szenen in Apple Home schalten können. Schlösser, Türen, Garagentore und die Alarmanlage nur mit deiner Freigabe.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>AIS Scoops verbindet sich mit deinem Bot-Server im lokalen Netzwerk.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Damit dich deine Scoops an Orte erinnern können („wenn ich im Büro bin“), auch wenn AIS Scoops geschlossen ist. Der Standort wird nur dafür genutzt.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Damit deine Scoops auf Nachfrage wissen, wo du gerade bist (z. B. für Wege oder Orte in der Nähe).</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AIS Scoops nutzt das Mikrofon, damit du Nachrichten diktieren und im Sprachmodus mit deinen Scoops sprechen kannst.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AIS Scoops braucht Zugriff auf deine Fotos, wenn du Bilder an eine Nachricht anhängen möchtest.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>AIS Scoops wandelt deine Sprache auf dem Gerät in Text um, damit du Nachrichten diktieren und im Sprachmodus sprechen kannst.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<false/>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>
