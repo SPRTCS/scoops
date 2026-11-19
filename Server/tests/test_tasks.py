@@ -337,7 +337,7 @@ def test_stop_and_limits(bid: str) -> None:
     ok(service.bot_json(bid)["busy"], "Scoop gilt als beschäftigt, solange die Aufgabe läuft")
     r = http.post(f"/api/bots/{bid}/stop", headers=H)
     wait_for(lambda: tasks.row(tid)["state"] == "stopped", msg="gestoppt")
-    ok(gate.is_set(), "Stopp-Knopf unterbricht den Agenten")
+    ok(gate.wait(10), "Stopp-Knopf unterbricht den Agenten")
     ev = [m for m in db.messages(bid, limit=10) if (m["meta"] or {}).get("task_id") == tid and m["role"] == "event"]
     ok(ev and "prompt" not in ev[-1]["meta"], "nach Stopp kein Abschlussbericht-Lauf")
     # Zeitlimit

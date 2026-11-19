@@ -14,7 +14,9 @@ else
 fi
 start=$SECONDS
 for f in $files; do
-  out=$(uv run --quiet python "$f" 2>&1); rc=$?
+  # Zeitlimit pro Datei (Standard 300 s, AISBOT_TEST_TIMEOUT), damit ein hängender Test die CI nicht blockiert
+  out=$(perl -e 'alarm shift; exec @ARGV' "${AISBOT_TEST_TIMEOUT:-300}" uv run --quiet python "$f" 2>&1); rc=$?
+  (( rc == 142 )) && out+=$'\nZeitlimit überschritten'
   last=${${(f)out}[-1]}
   if (( rc )); then
     failed+=("$f"); print -P "%F{red}✗%f ${f:t}  $last"

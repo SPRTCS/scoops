@@ -258,8 +258,8 @@ def main() -> None:
     wait_for(lambda: not phone.locked, msg="entriegelt nach Freigabe")
     ok(phone.commands[-1]["params"].get("confirmed") is True, "freigegebener Befehl trägt confirmed")
     wait_for(lambda: any(e[1] == bid for e in enqueued), msg="Scoop fortgesetzt")
-    ev = server.db.one("SELECT * FROM messages WHERE bot_id=? AND role='event' ORDER BY seq DESC LIMIT 1", (bid,))
-    ok("Haustür" in ev["text"], "Ereignis nach dem Schalten")
+    last_event = lambda: server.db.one("SELECT * FROM messages WHERE bot_id=? AND role='event' ORDER BY seq DESC LIMIT 1", (bid,))
+    ok(wait_for(lambda: "Haustür" in (last_event() or {"text": ""})["text"], msg="Ereignis"), "Ereignis nach dem Schalten")
     out = home({"aktion": "szene", "id": "Abend"})
     ok(phone.commands[-1]["command"] == "apple.home.scene" and phone.commands[-1]["params"] == {"id": "sc_abend"},
        "harmlose Szene per Name direkt")

@@ -732,8 +732,8 @@ def main() -> None:
     print(f"Testinstanz auf {BASE}, Daten in {TMP}")
     w = setup_world()
     part_fake(w)
-    if os.environ.get("AISBOT_SKIP_CONVEX") == "1":
-        print("Teil Convex-Dev übersprungen (AISBOT_SKIP_CONVEX=1)")
+    if os.environ.get("AISBOT_SKIP_CONVEX") == "1" or not (CLOUD_DIR / ".env.local").exists():
+        print("Teil Convex-Dev übersprungen (AISBOT_SKIP_CONVEX=1 oder kein Cloud/.env.local)")
     else:
         part_convex_dev()
     srv.should_exit = True

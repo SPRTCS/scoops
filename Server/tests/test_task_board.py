@@ -38,6 +38,11 @@ from aisbot.config import Usage, UsageBook  # noqa: E402
 from aisbot.db import TZ  # noqa: E402
 from aisbot.engine import Outcome  # noqa: E402
 from aisbot.sharing import Principal  # noqa: E402
+from aisbot import abos  # noqa: E402
+
+# Unabhängig vom Rechner: so tun, als wären API-Schlüssel hinterlegt (sonst hängt „Modell ändern“ am Schlüsselbund).
+abos.mode = lambda name: "api"
+abos.has_api_key = lambda name: True
 
 assert str(server.db.path).startswith(str(TMP)), "Test darf nie die echte Datenbank benutzen"
 db, service, tasks = server.db, server.service, server.tasks
@@ -210,7 +215,7 @@ def test_planned(bid: str) -> None:
     # Ändern
     r = http.patch(f"/api/tasks/{tid}", headers=H, json={"title": "Wochenbericht KW 47", "model": "claude-sonnet-5-5",
                                                        "scheduled_at": iso(later + timedelta(hours=1))})
-    ok(r.status_code == 200 and r.json()["title"] == "Wochenbericht KW 47", "Titel geändert")
+    ok(r.status_code == 200 and r.json()["title"] == "Wochenbericht KW 47", f"Titel geändert ({r.status_code} {r.text[:200]})")
     ok(r.json()["model_choice"] == "claude-sonnet-5-5" and r.json()["model"] == "claude-sonnet-5-5", "Modell geändert")
     ok(tasks_mod.parse_when(r.json()["scheduled_at"]) == (later + timedelta(hours=1)).replace(microsecond=0),
        "Termin geändert (Zeitzone korrekt)")

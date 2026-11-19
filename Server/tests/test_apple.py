@@ -244,8 +244,8 @@ def main() -> None:
     wait_for(lambda: "R1" not in node.reminders, msg="gelöscht nach Freigabe")
     ok(node.commands[-1]["command"] == "apple.reminders.delete", "nach Freigabe → apple.reminders.delete")
     wait_for(lambda: any(e[1] == bid for e in enqueued), msg="Scoop fortgesetzt")
-    ev = server.db.one("SELECT * FROM messages WHERE bot_id=? AND role='event' ORDER BY seq DESC LIMIT 1", (bid,))
-    ok("gelöscht" in ev["text"], "Ereignis „Erinnerung gelöscht“")
+    last_event = lambda: server.db.one("SELECT * FROM messages WHERE bot_id=? AND role='event' ORDER BY seq DESC LIMIT 1", (bid,))
+    ok(wait_for(lambda: "gelöscht" in (last_event() or {"text": ""})["text"], msg="Ereignis"), "Ereignis „Erinnerung gelöscht“")
 
     print("Kalender, Kontakte")
     cal = tools_of(bid)["apple_kalender"].handler
