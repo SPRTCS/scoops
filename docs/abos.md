@@ -68,11 +68,12 @@ Arbeitsordner mit Hinweis auf `AUFTRAG.md` (eine Session gehört zu einem Weg).
 | Bildschirm von OpenAI-Scoops im Codex-Weg am Server-Mac | **Abo** (Computer Use von Codex, ab 1.36) | VM/anderer Mac: `bildschirm` wie bisher |
 | Gruppen-Routing (wer antwortet) | **Abo** (Claude Code, ein kurzer Aufruf) | bei Fehlern API |
 | Initiative des Haupt-Scoops, Erinnerungen, Freigabe-Fortsetzungen | **Abo** | normale Chat-Läufe |
-| Gast-Läufe geteilter Scoops | API | Abo ist persönlich |
+| Gast-Läufe geteilter Scoops | API | Abo ist persönlich (auch keine Bildwerkzeuge) |
 | „Mach weiter“ nach abgebrochenem **API**-Lauf | API | setzt den gespeicherten API-Verlauf fort |
 | Sprechmodus (`live_voice.py`, GPT-Live-1), Telefon (Lucy) | API | kein Abo-Weg |
 | Diktat (`/api/transcribe`) | API | kein Abo-Weg |
-| Bildgenerierung, Embeddings | API | der Server nutzt beides derzeit nicht |
+| Bilder erstellen und bearbeiten (ab 1.39) | **nur ChatGPT-Abo** (Codex, eingebautes Bildwerkzeug) | ChatGPT-Scoops im Codex-Weg direkt im Chat, alle anderen Läufe über `bild_erstellen`/`bild_bearbeiten` (eigener Codex-Lauf); kein API-Weg, ohne ChatGPT-Login keine Werkzeuge; Details [`docs/bilder.md`](bilder.md) |
+| Embeddings | – | der Server nutzt sie derzeit nicht |
 | OpenAI-Scoop am Rechner im API-Weg (`openai_native_computer: false`) | API | Claude-Teilaufgabe wie bisher |
 
 ## Chat über Claude Code (`engine_abo.ClaudeCodeEngine`)

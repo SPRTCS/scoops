@@ -62,7 +62,7 @@ nonisolated struct MCPAddRequest: Encodable, Sendable {
 
 extension BotService {
     func mcpServers() async throws -> MCPServerList {
-        throw APIError(status: 404, message: "Dein Server kennt eigene MCP-Server noch nicht. Bitte den Server aktualisieren (ab 1.35).")
+        throw APIError(status: 404, message: String(localized: "Dein Server kennt eigene MCP-Server noch nicht. Bitte den Server aktualisieren (ab 1.35)."))
     }
     func probeMCP(url: String) async throws -> MCPProbe { _ = try await mcpServers(); throw CancellationError() }
     func addMCP(_ request: MCPAddRequest) async throws -> MCPAddResult { _ = try await mcpServers(); throw CancellationError() }
@@ -102,10 +102,13 @@ final class LoopbackCatcher: @unchecked Sendable {
                 let target = parts.count >= 2 ? String(parts[1]) : ""
                 let url = URL(string: "http://127.0.0.1:\(port)\(target)")
                 let match = url.map { $0.path == path } ?? false
+                let title = String(localized: "Angemeldet")
+                let text = String(localized: "Du kannst dieses Fenster schließen und zu AIS Scoops zurückkehren.")
+                let notFound = String(localized: "Nicht gefunden", comment: "Browserseite: falsche Rücksprung-Adresse")
                 let html = match
-                    ? "<html><meta charset=utf-8><body style='font-family:-apple-system;padding:40px'><h2>Angemeldet</h2>"
-                        + "<p>Du kannst dieses Fenster schließen und zu AIS Scoops zurückkehren.</p></body></html>"
-                    : "<html><body>Nicht gefunden</body></html>"
+                    ? "<html><meta charset=utf-8><body style='font-family:-apple-system;padding:40px'><h2>\(title)</h2>"
+                        + "<p>\(text)</p></body></html>"
+                    : "<html><body>\(notFound)</body></html>"
                 let body = Data(html.utf8)
                 let response = "HTTP/1.1 \(match ? "200 OK" : "404 Not Found")\r\nContent-Type: text/html; charset=utf-8\r\n"
                     + "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"
@@ -136,7 +139,7 @@ final class LoopbackCatcher: @unchecked Sendable {
 enum MCPLogin {
     static func run(_ link: MCPLoginLink, login: WebLoginSession, store: AppStore) async -> String? {
         if store.isMock { try? await Task.sleep(for: .milliseconds(600)); return nil }  // Demo: ohne Browser
-        guard let url = URL(string: link.url) else { return "Der Server hat keinen gültigen Anmelde-Link geliefert." }
+        guard let url = URL(string: link.url) else { return String(localized: "Der Server hat keinen gültigen Anmelde-Link geliefert.") }
         let callback: URL? = await withCheckedContinuation { cont in
             if let port = link.loopbackPort, port > 0, port < 65536 {
                 login.start(url: url, loopbackPort: UInt16(port), path: link.loopbackPath ?? "/oauth/mcp") { cont.resume(returning: $0) }
@@ -174,7 +177,7 @@ struct CustomMCPSection: View {
     private var args: [String] { ProcessInfo.processInfo.arguments }
 
     var body: some View {
-        GroupedSection("Eigene MCP-Server", footer: footer, dividerInset: 68) {
+        GroupedSection(String(localized: "Eigene MCP-Server"), footer: footer, dividerInset: 68) {
             if unsupported {
                 GroupedLabelRow(icon: "arrow.triangle.2.circlepath", iconColor: theme.textSecondary,
                                 title: "Server aktualisieren",
@@ -213,7 +216,7 @@ struct CustomMCPSection: View {
         } message: {
             Text("Das Token geht direkt in den Schlüsselbund deines Servers. Die Scoops sehen es nie.")
         }
-        .confirmationDialog(deleteTarget.map { "„\($0.name)“ entfernen?" } ?? "",
+        .confirmationDialog(deleteTarget.map { t in String(localized: "„\(t.name)“ entfernen?") } ?? "",
                             isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }),
                             titleVisibility: .visible) {
             Button("Entfernen", role: .destructive) {
@@ -229,7 +232,7 @@ struct CustomMCPSection: View {
     private var footer: String? {
         if unsupported { return nil }
         if let error { return error }
-        return "Werkzeuge, die etwas ändern, laufen immer über eine Freigabe-Karte. Du kannst einen Scoop auch bitten: „Verbinde den Qonto-MCP“."
+        return String(localized: "Werkzeuge, die etwas ändern, laufen immer über eine Freigabe-Karte. Du kannst einen Scoop auch bitten: „Verbinde den Qonto-MCP“.")
     }
 
     private var addButton: some View {
@@ -238,12 +241,13 @@ struct CustomMCPSection: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .semibold))
+                    .appFont(16, weight: .semibold)
                     .foregroundStyle(theme.accent)
+                    .dynamicTypeSize(...AppFont.controlCap)
                     .frame(width: 40, height: 40)
                     .background(theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 Text("MCP-Server hinzufügen")
-                    .font(.system(size: 15, weight: .semibold))
+                    .appFont(15, weight: .semibold)
                     .foregroundStyle(theme.accent)
                 Spacer(minLength: 0)
                 if !loaded { ProgressView().controlSize(.small) }
@@ -257,19 +261,30 @@ struct CustomMCPSection: View {
     }
 
     private func row(_ s: CustomMCPServer) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: s.kind == "stdio" ? "terminal.fill" : "server.rack")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(theme.textSecondary)
-                .frame(width: 40, height: 40)
-                .background(theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(s.name).font(.system(size: 15)).foregroundStyle(theme.textPrimary).lineLimit(1)
-                Text(detail(s)).font(.system(size: 12))
-                    .foregroundStyle(s.status == "ok" ? theme.textSecondary : (s.status == "login" ? theme.warning : theme.danger))
-                    .lineLimit(2)
+        // Große Schrift: Status, Anmelden und Menü unter Name und Beschreibung
+        AdaptiveRow(spacing: 12, minSpacer: 6, trailingIndent: 52) {
+            HStack(spacing: 12) {
+                Image(systemName: s.kind == "stdio" ? "terminal.fill" : "server.rack")
+                    .appFont(16, weight: .semibold)
+                    .foregroundStyle(theme.textSecondary)
+                    .dynamicTypeSize(...AppFont.controlCap)
+                    .frame(width: 40, height: 40)
+                    .background(theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(s.name).appFont(15).foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
+                    Text(detail(s)).appFont(12)
+                        .foregroundStyle(s.status == "ok" ? theme.textSecondary : (s.status == "login" ? theme.warning : theme.danger))
+                        .adaptiveLineLimit(2)
+                }
             }
-            Spacer(minLength: 6)
+        } trailing: {
+            rowControls(s)
+        }
+        .groupedRow(vertical: 9)
+    }
+
+    @ViewBuilder private func rowControls(_ s: CustomMCPServer) -> some View {
+        HStack(spacing: 12) {
             if busyID == s.id {
                 ProgressView().controlSize(.small)
             } else if s.status == "login" {
@@ -278,8 +293,8 @@ struct CustomMCPSection: View {
                     .fixedSize()
                     .disabled(login.isActive)
             } else if s.tools > 0 {
-                Text(s.tools == 1 ? "1 Werkzeug" : "\(s.tools) Werkzeuge")
-                    .font(.system(size: 12)).foregroundStyle(theme.textTertiary).monospacedDigit()
+                Text("\(s.tools) Werkzeuge")
+                    .appFont(12).foregroundStyle(theme.textTertiary).monospacedDigit()
                     .lineLimit(1).fixedSize()
             }
             Circle().fill(dotColor(s.status)).frame(width: 9, height: 9)
@@ -298,9 +313,9 @@ struct CustomMCPSection: View {
                 Button(role: .destructive) { deleteTarget = s } label: { Label("Entfernen", systemImage: "trash") }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 14, weight: .semibold))
+                    .appFont(14, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
-                    .frame(width: 30, height: 30)
+                    .scaledFrame(30)
                     .contentShape(Rectangle())
             }
             .menuStyle(.button)
@@ -309,15 +324,23 @@ struct CustomMCPSection: View {
             .fixedSize()
             .accessibilityLabel("Aktionen für \(s.name)")
         }
-        .groupedRow(vertical: 9)
     }
 
     private func detail(_ s: CustomMCPServer) -> String {
         switch s.status {
-        case "login": return "Anmeldung nötig · \(s.subtitle)"
-        case "error": return s.error.map { "Fehler: \($0)" } ?? "Nicht erreichbar"
+        case "login": return String(localized: "Anmeldung nötig · \(s.subtitle)")
+        case "error": return s.error.map { e in String(localized: "Fehler: \(e)") } ?? String(localized: "Nicht erreichbar")
         default:
-            let auth = s.kind == "stdio" ? "Lokal" : ["token": "Token", "oauth": "Angemeldet"][s.auth] ?? "Ohne Anmeldung"
+            let auth: String
+            if s.kind == "stdio" {
+                auth = String(localized: "Lokal", comment: "Eigener MCP-Server: lokaler Befehl auf dem Server-Mac")
+            } else {
+                switch s.auth {
+                case "token": auth = "Token"
+                case "oauth": auth = String(localized: "Angemeldet")
+                default: auth = String(localized: "Ohne Anmeldung")
+                }
+            }
             return "\(auth) · \(s.subtitle)"
         }
     }
@@ -356,10 +379,11 @@ struct CustomMCPSection: View {
             busyID = server.id
             let err = await MCPLogin.run(link, login: login, store: store)
             busyID = nil
-            if let err, !err.isEmpty { error = err } else if err == nil { onToast("\(server.name) verbunden") }
+            if let err, !err.isEmpty { error = err } else if err == nil { onToast(String(localized: "\(server.name) verbunden")) }
             await load()
         } else if result.test?.ok == true {
-            onToast("\(server.name) verbunden · \(result.test?.tools ?? 0) Werkzeuge")
+            let tools = result.test?.tools ?? 0
+            onToast(String(localized: "\(server.name) verbunden · \(tools) Werkzeuge"))
         } else if let e = result.error ?? result.test?.error {
             error = "\(server.name): \(e)"
         }
@@ -372,7 +396,7 @@ struct CustomMCPSection: View {
         do {
             let link = try await service.loginMCP(id: s.id)
             let err = await MCPLogin.run(link, login: login, store: store)
-            if let err, !err.isEmpty { error = err } else if err == nil { onToast("Bei \(s.name) angemeldet"); error = nil }
+            if let err, !err.isEmpty { error = err } else if err == nil { onToast(String(localized: "Bei \(s.name) angemeldet")); error = nil }
         } catch {
             self.error = store.message(error)
         }
@@ -398,7 +422,13 @@ struct CustomMCPSection: View {
         defer { busyID = nil }
         do {
             let r = try await service.testMCP(id: s.id)
-            if r.ok { onToast("\(s.name): \(r.tools ?? 0) Werkzeuge"); error = nil } else { error = "\(s.name): \(r.error ?? "Fehler")" }
+            if r.ok {
+                let tools = r.tools ?? 0
+                onToast(String(localized: "\(s.name): \(tools) Werkzeuge"))
+                error = nil
+            } else {
+                error = "\(s.name): \(r.error ?? String(localized: "Fehler"))"
+            }
         } catch {
             self.error = store.message(error)
         }
@@ -411,7 +441,7 @@ struct CustomMCPSection: View {
         defer { busyID = nil }
         do {
             servers = try await service.deleteMCP(id: s.id).servers
-            onToast("\(s.name) entfernt")
+            onToast(String(localized: "\(s.name) entfernt"))
         } catch {
             self.error = store.message(error)
         }
@@ -432,13 +462,13 @@ struct MCPAddSheet: View {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .none: "Keine"
+            case .none: String(localized: "Keine", comment: "MCP-Server: Art der Anmeldung (keine)")
             case .token: "Token"
-            case .oauth: "Anmeldung (OAuth)"
+            case .oauth: String(localized: "Anmeldung (OAuth)")
             }
         }
         /// Kurz für die Segmente (iPhone-Breite)
-        var short: String { self == .oauth ? "Anmeldung" : title }
+        var short: String { self == .oauth ? String(localized: "Anmeldung", comment: "MCP-Server: Art der Anmeldung (Abschnitt bzw. Segment)") : title }
     }
 
     @State private var name = ""
@@ -469,7 +499,7 @@ struct MCPAddSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: GroupedMetrics.sectionSpacing) {
                     GroupedSection(footer: local ? nil : "Adresse des MCP-Servers (Streamable HTTP), z. B. https://mcp.qonto.com/mcp") {
-                        field("Name", text: $name, placeholder: "z. B. Qonto", key: "name")
+                        field("Name", text: $name, placeholder: String(localized: "z. B. Qonto"), key: "name")
                         if !local {
                             field("Adresse", text: $url, placeholder: "https://…/mcp", key: "url", url: true)
                         }
@@ -481,15 +511,15 @@ struct MCPAddSheet: View {
                     }
                     Toggle(isOn: $local.animation(.snappy)) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Erweitert: lokaler Befehl").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                            Text("Erweitert: lokaler Befehl").appFont(15).foregroundStyle(theme.textPrimary)
                             Text("Startet ein Programm auf dem Server-Mac (stdio), z. B. Atrium --mcp.")
-                                .font(.system(size: 12)).foregroundStyle(theme.textSecondary)
+                                .appFont(12).foregroundStyle(theme.textSecondary)
                         }
                     }
                     .padding(.horizontal, GroupedMetrics.rowInset)
                     if let error {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 13.5)).foregroundStyle(theme.textPrimary)
+                            .appFont(13.5).foregroundStyle(theme.textPrimary)
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(theme.warning.opacity(0.12),
@@ -497,7 +527,7 @@ struct MCPAddSheet: View {
                     }
                     Label("Zugangsdaten gehen direkt in den Schlüsselbund deines Servers. Werkzeuge, die etwas ändern, laufen immer über eine Freigabe-Karte.",
                           systemImage: "lock.fill")
-                        .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                        .appFont(12.5).foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, GroupedMetrics.rowInset)
                 }
@@ -505,7 +535,7 @@ struct MCPAddSheet: View {
                 .padding(.vertical, 8)
             }
             .scrollDismissesKeyboard(.interactively)
-            HStack(spacing: 10) {
+            AdaptiveButtonRow(spacing: 10, stretchWhenStacked: true) {
                 Button("Abbrechen") { dismiss() }.buttonStyle(PillButtonStyle(kind: .secondary))
                 Spacer()
                 Button { submit() } label: {
@@ -517,6 +547,8 @@ struct MCPAddSheet: View {
                 .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("mcp.submit")
             }
+            // Fußzeile eines Blatts: wächst bis zur größten normalen Stufe mit, bleibt so in einer Zeile
+            .dynamicTypeSize(...AppFont.controlCap)
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
         }
@@ -538,7 +570,7 @@ struct MCPAddSheet: View {
     }
 
     private var authSection: some View {
-        GroupedSection("Anmeldung", footer: authFooter) {
+        GroupedSection(String(localized: "Anmeldung", comment: "MCP-Server: Art der Anmeldung (Abschnitt bzw. Segment)"), footer: authFooter) {
             Picker("Anmeldung", selection: $auth) {
                 ForEach(Auth.allCases) { Text($0.short).tag($0) }
             }
@@ -547,9 +579,9 @@ struct MCPAddSheet: View {
             .groupedRow()
             if auth == .token {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Token").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.textSecondary)
+                    Text("Token").appFont(12.5, weight: .semibold).foregroundStyle(theme.textSecondary)
                     SecureField("Token oder API-Schlüssel", text: $token)
-                        .textFieldStyle(.plain).font(.system(size: 15.5))
+                        .textFieldStyle(.plain).appFont(15.5)
                         .focused($focus, equals: "token")
                 }
                 .groupedRow(vertical: 11)
@@ -559,14 +591,14 @@ struct MCPAddSheet: View {
     }
 
     private var authFooter: String {
-        if probing { return "Prüfe, ob der Server eine Anmeldung braucht …" }
+        if probing { return String(localized: "Prüfe, ob der Server eine Anmeldung braucht …") }
         let hint: String
         switch auth {
-        case .none: hint = "Der Server braucht keine Anmeldung."
-        case .token: hint = "Das Token geht als „Authorization: Bearer …“ mit, oder unter dem angegebenen Header."
-        case .oauth: hint = "Nach „Weiter“ meldest du dich beim Anbieter an. Die Scoops bekommen nur den Zugang, nie dein Passwort."
+        case .none: hint = String(localized: "Der Server braucht keine Anmeldung.")
+        case .token: hint = String(localized: "Das Token geht als „Authorization: Bearer …“ mit, oder unter dem angegebenen Header.")
+        case .oauth: hint = String(localized: "Nach „Weiter“ meldest du dich beim Anbieter an. Die Scoops bekommen nur den Zugang, nie dein Passwort.")
         }
-        return detected.map { "Automatisch erkannt: \($0.title). " + hint } ?? hint
+        return detected.map { d in String(localized: "Automatisch erkannt: \(d.title).") + " " + hint } ?? hint
     }
 
     private var localSection: some View {
@@ -576,20 +608,20 @@ struct MCPAddSheet: View {
             ForEach(env.indices, id: \.self) { i in
                 HStack(spacing: 8) {
                     TextField("NAME", text: $env[i].key)
-                        .textFieldStyle(.plain).font(.system(size: 14, design: .monospaced))
+                        .textFieldStyle(.plain).appFont(14, design: .monospaced)
                         .autocorrectionDisabled()
                         #if os(iOS)
                         .textInputAutocapitalization(.characters)
                         #endif
                         .frame(maxWidth: 140)
-                    SecureField("Wert", text: $env[i].value).textFieldStyle(.plain).font(.system(size: 14))
+                    SecureField("Wert", text: $env[i].value).textFieldStyle(.plain).appFont(14)
                     Button { env.remove(at: i) } label: { Image(systemName: "minus.circle.fill").foregroundStyle(theme.textTertiary) }
                         .buttonStyle(.plain)
                 }
                 .groupedRow()
             }
             Button { env.append(KeyValue(key: "", value: "")) } label: {
-                Label("Umgebungsvariable", systemImage: "plus").font(.system(size: 14, weight: .medium))
+                Label("Umgebungsvariable", systemImage: "plus").appFont(14, weight: .medium)
             }
             .buttonStyle(.plain)
             .foregroundStyle(theme.accent)
@@ -597,11 +629,11 @@ struct MCPAddSheet: View {
         }
     }
 
-    private func field(_ label: String, text: Binding<String>, placeholder: String, key: String, url: Bool = false) -> some View {
+    private func field(_ label: LocalizedStringKey, text: Binding<String>, placeholder: String, key: String, url: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.textSecondary)
+            Text(label).appFont(12.5, weight: .semibold).foregroundStyle(theme.textSecondary)
             TextField(placeholder, text: text)
-                .textFieldStyle(.plain).font(.system(size: 15.5)).foregroundStyle(theme.textPrimary)
+                .textFieldStyle(.plain).appFont(15.5).foregroundStyle(theme.textPrimary)
                 .autocorrectionDisabled()
                 #if os(iOS)
                 .textInputAutocapitalization(.never)
@@ -636,7 +668,7 @@ struct MCPAddSheet: View {
     }
 
     private func submit() {
-        guard let service = store.service else { error = "Keine Verbindung zum Server."; return }
+        guard let service = store.service else { error = String(localized: "Keine Verbindung zum Server."); return }
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
         var req = MCPAddRequest(name: n.isEmpty ? nil : n)
         if local {

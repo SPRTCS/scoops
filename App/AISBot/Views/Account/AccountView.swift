@@ -16,8 +16,8 @@ struct AccountSettingsSection: View {
                     HStack(spacing: 12) {
                         AccountAvatar(user: user, size: 38)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(user.displayName).font(.system(size: 15, weight: .semibold)).foregroundStyle(theme.textPrimary)
-                            Text(user.email ?? "Mit Apple angemeldet").font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                            Text(user.displayName).appFont(15, weight: .semibold).foregroundStyle(theme.textPrimary)
+                            Text(user.email ?? String(localized: "Mit Apple angemeldet")).appFont(12.5).foregroundStyle(theme.textSecondary)
                         }
                         Spacer()
                         DisclosureChevron()
@@ -26,7 +26,7 @@ struct AccountSettingsSection: View {
                 }
                 .buttonStyle(.plain)
                 Button { showServers = true } label: {
-                    GroupedLabelRow(icon: "server.rack", iconColor: theme.accent, title: "Deine Server", subtitle: serversSummary) {
+                    GroupedLabelRow(icon: "server.rack", iconColor: theme.accent, title: String(localized: "Deine Server"), subtitle: serversSummary) {
                         DisclosureChevron()
                     }
                     .padding(.leading, 9)
@@ -46,7 +46,7 @@ struct AccountSettingsSection: View {
                     AppleSignInButton(height: 44)
                     if let error = account.errorMessage {
                         Label(error, systemImage: "exclamationmark.circle")
-                            .font(.system(size: 12.5))
+                            .appFont(12.5)
                             .foregroundStyle(theme.danger)
                     }
                 }
@@ -57,13 +57,15 @@ struct AccountSettingsSection: View {
 
     private var serversSummary: String {
         let servers = store.account.servers
-        guard !servers.isEmpty else { return store.account.serversLoaded ? "Noch kein Server gekoppelt" : "Lade …" }
-        let online = servers.filter(\.online).count
-        let total = "\(servers.count) \(servers.count == 1 ? "Server" : "Server")"
-        if let current = store.settings.cloudServerName, store.settings.usesAccount {
-            return "Verbunden mit \(current) · \(online) von \(total) online"
+        guard !servers.isEmpty else {
+            return store.account.serversLoaded ? String(localized: "Noch kein Server gekoppelt") : String(localized: "Lade …")
         }
-        return "\(online) von \(total) online"
+        let online = servers.filter(\.online).count
+        let total = servers.count
+        if let current = store.settings.cloudServerName, store.settings.usesAccount {
+            return String(localized: "Verbunden mit \(current) · \(online) von \(total) Server online")
+        }
+        return String(localized: "\(online) von \(total) Server online")
     }
 }
 
@@ -75,7 +77,7 @@ struct AccountAvatar: View {
 
     var body: some View {
         Text(initials)
-            .font(.system(size: size * 0.38, weight: .semibold, design: .rounded))
+            .font(.fixed(size * 0.38, weight: .semibold, design: .rounded))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(LinearGradient(colors: [Color(hex: "#8B5CF6"), Color(hex: "#3D84F5")],
@@ -150,7 +152,7 @@ struct AccountSheet: View {
         } message: {
             Text("Das lässt sich nicht rückgängig machen. Dein Konto, deine Server-Liste und alle Anmeldungen werden gelöscht. Deine Server und ihre Daten bleiben auf deinen Macs.")
         }
-        .confirmationDialog(revoking.map { "„\($0.deviceName)“ abmelden?" } ?? "",
+        .confirmationDialog(revoking.map { String(localized: "„\($0.deviceName)“ abmelden?") } ?? "",
                             isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
                             titleVisibility: .visible) {
             Button("Abmelden", role: .destructive) {
@@ -158,7 +160,7 @@ struct AccountSheet: View {
                 revoking = nil
                 Task {
                     do { try await account.revoke(session) }
-                    catch { store.errorMessage = "Abmelden fehlgeschlagen: \(error.localizedDescription)" }
+                    catch { store.errorMessage = String(localized: "Abmelden fehlgeschlagen: \(error.localizedDescription)") }
                 }
             }
         } message: {
@@ -173,12 +175,12 @@ struct AccountSheet: View {
         VStack(spacing: 10) {
             AccountAvatar(user: user, size: 72)
             VStack(spacing: 3) {
-                Text(user.displayName).font(.system(size: 20, weight: .bold, design: .rounded)).foregroundStyle(theme.textPrimary)
+                Text(user.displayName).appFont(20, weight: .bold, design: .rounded).foregroundStyle(theme.textPrimary)
                 if let email = user.email {
-                    Text(email).font(.system(size: 14)).foregroundStyle(theme.textSecondary)
+                    Text(email).appFont(14).foregroundStyle(theme.textSecondary)
                 }
                 Label("Mit Apple angemeldet", systemImage: "apple.logo")
-                    .font(.system(size: 12))
+                    .appFont(12)
                     .foregroundStyle(theme.textTertiary)
                     .padding(.top, 2)
             }
@@ -194,19 +196,19 @@ struct AccountSheet: View {
                 HStack(spacing: 10) {
                     if account.loadingSessions { ProgressView().controlSize(.small) }
                     Text(account.loadingSessions ? "Lade …" : "Keine Geräte gefunden")
-                        .font(.system(size: 15)).foregroundStyle(theme.textSecondary)
+                        .appFont(15).foregroundStyle(theme.textSecondary)
                 }
                 .groupedRow()
             } else {
                 ForEach(account.sessions) { session in
                     HStack(spacing: 12) {
                         Image(systemName: session.platformIcon)
-                            .font(.system(size: 16, weight: .medium))
+                            .appFont(16, weight: .medium)
                             .foregroundStyle(theme.textSecondary)
-                            .frame(width: 22)
+                            .scaledFrame(width: 22)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(session.deviceName).font(.system(size: 15)).foregroundStyle(theme.textPrimary)
-                            Text(detail(session)).font(.system(size: 12.5)).foregroundStyle(session.current ? theme.success : theme.textSecondary)
+                            Text(session.deviceName).appFont(15).foregroundStyle(theme.textPrimary)
+                            Text(detail(session)).appFont(12.5).foregroundStyle(session.current ? theme.success : theme.textSecondary)
                         }
                         Spacer()
                         if !session.current {
@@ -221,9 +223,10 @@ struct AccountSheet: View {
     }
 
     private func detail(_ session: CloudSession) -> String {
-        if session.current { return "Dieses Gerät" }
-        guard let used = session.lastUsedAt else { return "Angemeldet" }
-        return "Zuletzt aktiv \(used.formatted(.relative(presentation: .named)))"
+        if session.current { return String(localized: "Dieses Gerät") }
+        guard let used = session.lastUsedAt else { return String(localized: "Angemeldet", comment: "Geräteliste: Gerät ist angemeldet, ohne bekannte letzte Nutzung") }
+        let relative = used.formatted(.relative(presentation: .named).locale(.app))
+        return String(localized: "Zuletzt aktiv \(relative)")
     }
 
     private func deleteAccount() {
@@ -231,9 +234,9 @@ struct AccountSheet: View {
         Task {
             do {
                 try await store.account.deleteAccount()
-                store.showToast("Konto gelöscht")
+                store.showToast(String(localized: "Konto gelöscht"))
             } catch {
-                store.errorMessage = "Konto konnte nicht gelöscht werden: \(error.localizedDescription)"
+                store.errorMessage = String(localized: "Konto konnte nicht gelöscht werden: \(error.localizedDescription)")
             }
             deleting = false
         }

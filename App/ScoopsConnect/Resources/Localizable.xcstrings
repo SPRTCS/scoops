@@ -1,0 +1,5566 @@
+{
+  "sourceLanguage" : "de",
+  "strings" : {
+    "%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
+    },
+    "%@ arbeitet gerade" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is working"
+          }
+        }
+      }
+    },
+    "%@ für Scoops nutzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use %@ for Scoops"
+          }
+        }
+      }
+    },
+    "%@ → %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ → %@"
+          }
+        }
+      }
+    },
+    "%@-Abo" : {
+      "comment" : "z. B. „Claude-Abo“: Anbieter",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ subscription"
+          }
+        }
+      }
+    },
+    "%@-Abo (%@)" : {
+      "comment" : "z. B. „Claude-Abo (Max)“: Anbieter, Tarif",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@-Abo (%2$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ subscription (%2$@)"
+          }
+        }
+      }
+    },
+    "%@: Fehler" : {
+      "comment" : "Zustand der VM",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: Error"
+          }
+        }
+      }
+    },
+    "%@: bereit" : {
+      "comment" : "Zustand der VM",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: Ready"
+          }
+        }
+      }
+    },
+    "%@: startet …" : {
+      "comment" : "Zustand der VM",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: Starting…"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld alte(r) Eintrag/Einträge dieses Macs zusammengeführt" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld alte(r) Eintrag/Einträge dieses Macs zusammengeführt"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld alte(r) Eintrag/Einträge dieses Macs zusammengeführt"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Merged %lld old entry for this Mac"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Merged %lld old entries for this Mac"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld."
+          }
+        }
+      }
+    },
+    "(im Testmodus gesperrt)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(locked in test mode)"
+          }
+        }
+      }
+    },
+    "**%@** ist als Rechner für deine Scoops angeschlossen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**%@** is connected as a computer for your Scoops."
+          }
+        }
+      }
+    },
+    "**%@** ist bereit. Schreib ihm in AIS Scoops, wobei er dir helfen soll." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**%@** is ready. Message it in AIS Scoops and tell it what you need help with."
+          }
+        }
+      }
+    },
+    "**AIS Scoops aus dem App Store** auf iPhone, iPad oder Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**AIS Scoops from the App Store** on iPhone, iPad, or Mac"
+          }
+        }
+      }
+    },
+    "**KI-Zugang steht:** %@. Deine Scoops können loslegen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**AI access is set up:** %@. Your Scoops are ready to go."
+          }
+        }
+      }
+    },
+    "**Testmodus:** Rechte werden nur angezeigt; die Kopplung wird geprüft, die Steuerung aber nicht verbunden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**Test mode:** Permissions are only displayed. Pairing is tested, but control of this Mac isn’t connected."
+          }
+        }
+      }
+    },
+    "**Testmodus:** Tailscale- und Netzwerkänderungen sind deaktiviert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**Test mode:** Tailscale and network changes are turned off."
+          }
+        }
+      }
+    },
+    "**Testmodus:** eigener Datenordner, Port %@, Konto-Dienst Dev. Dieser Mac wird nicht wirklich gesteuert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**Test mode:** separate data folder, port %@, development account service. This Mac isn’t actually controlled."
+          }
+        }
+      }
+    },
+    "1. Abo abschließen: **Claude** unter claude.ai (Pro oder Max) oder **ChatGPT** unter chatgpt.com (Plus oder Pro)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Get a subscription: **Claude** at claude.ai (Pro or Max) or **ChatGPT** at chatgpt.com (Plus or Pro)."
+          }
+        }
+      }
+    },
+    "1. Lade Tailscale für Mac und iPhone.\n2. Melde dich auf beiden mit demselben Konto an.\n3. Komm hierher zurück, der Assistent erkennt Tailscale von selbst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Download Tailscale for Mac and iPhone.\n2. Sign in on both with the same account.\n3. Come back here. The setup assistant detects Tailscale automatically."
+          }
+        }
+      }
+    },
+    "1. Mit dem Server verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Connect to the Server"
+          }
+        }
+      }
+    },
+    "1. Rechte erteilen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Grant Permissions"
+          }
+        }
+      }
+    },
+    "1. Öffne **AIS Scoops** und wähle unter **Deine Server** diesen Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Open **AIS Scoops** and choose this Mac under **Your Servers**."
+          }
+        }
+      }
+    },
+    "2. Diesen Mac anschließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. Connect This Mac"
+          }
+        }
+      }
+    },
+    "2. Hier auf **Mit Claude anmelden** bzw. **Mit ChatGPT anmelden** klicken. Ein Terminal-Fenster öffnet die offizielle Anmeldung, meist geht dazu der Browser auf." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. Click **Sign In with Claude** or **Sign In with ChatGPT** here. A Terminal window opens the official sign-in, usually in your browser."
+          }
+        }
+      }
+    },
+    "2. Tippe auf **+** (Neuer Scoop)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. Tap **+** (New Scoop)."
+          }
+        }
+      }
+    },
+    "2. Wie sollen die Scoops diesen Mac nutzen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. How Should Scoops Use This Mac?"
+          }
+        }
+      }
+    },
+    "3. Berechtigungen erteilen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3. Grant Permissions"
+          }
+        }
+      }
+    },
+    "3. Gib ihm einen Namen und einen Charakter, zum Beispiel „Kiwi, hilft mir beim Kochen“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3. Give it a name and a personality, for example “Kiwi, helps me cook.”"
+          }
+        }
+      }
+    },
+    "3. Im Browser anmelden und bestätigen. Der Stand hier aktualisiert sich von selbst, sobald du zurückkommst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3. Sign in and confirm in your browser. The status here updates automatically when you come back."
+          }
+        }
+      }
+    },
+    "3. Virtuelle Maschine einrichten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3. Set Up the Virtual Machine"
+          }
+        }
+      }
+    },
+    "4. Schreib ihm deine erste Nachricht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4. Send it your first message."
+          }
+        }
+      }
+    },
+    "AIS Scoops Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops Server"
+          }
+        }
+      }
+    },
+    "AIS Scoops Server – %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops Server – %@"
+          }
+        }
+      }
+    },
+    "AIS Scoops Server: Scoops sollen jederzeit arbeiten können" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops Server: Keeping Scoops ready to work at any time"
+          }
+        }
+      }
+    },
+    "AIS Scoops ist mit diesem Server verbunden, Konto von **%@**." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops is connected to this server with **%@**’s account."
+          }
+        }
+      }
+    },
+    "AIS Scoops ist mit diesem Server verbunden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops is connected to this server."
+          }
+        }
+      }
+    },
+    "AIS Scoops sieht deine Anmeldedaten nie, sie bleiben im Programm des Anbieters (Claude Code bzw. Codex)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops never sees your sign-in details. They stay in the provider’s app (Claude Code or Codex)."
+          }
+        }
+      }
+    },
+    "API-Schlüssel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API Key"
+          }
+        }
+      }
+    },
+    "API-Schlüssel von %@" : {
+      "comment" : "Aufzählung der Anbieter, z. B. „Anthropic und OpenAI“",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API key from %@"
+          }
+        }
+      }
+    },
+    "Abbrechen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "Abgebrochen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Canceled"
+          }
+        }
+      }
+    },
+    "Abgelehnt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denied"
+          }
+        }
+      }
+    },
+    "Abgeschirmte VM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Isolated VM"
+          }
+        }
+      }
+    },
+    "Abo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription"
+          }
+        }
+      }
+    },
+    "Abo, bei Limit API" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription, Then API"
+          }
+        }
+      }
+    },
+    "Abo-Auslastung %lld %%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription usage %lld%%"
+          }
+        }
+      }
+    },
+    "Abo-Auslastung %lld %% (5-Stunden-Fenster)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription usage %lld%% (5-hour window)"
+          }
+        }
+      }
+    },
+    "Abo-Auslastung %lld %% (Woche)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription usage %lld%% (week)"
+          }
+        }
+      }
+    },
+    "Abo-Limit erreicht – läuft bis %@ über den API-Schlüssel." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription limit reached. Using the API key until %@."
+          }
+        }
+      }
+    },
+    "Abo-Limit erreicht – läuft bis später über den API-Schlüssel." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription limit reached. Using the API key for now."
+          }
+        }
+      }
+    },
+    "Abrechnung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Billing"
+          }
+        }
+      }
+    },
+    "Adresse" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Address"
+          }
+        }
+      }
+    },
+    "Adresse %@ nicht gefunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Address %@ not found"
+          }
+        }
+      }
+    },
+    "Aktiv (eigener Push-Schlüssel)" : {
+      "comment" : "Mitteilungen",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On (your own push key)"
+          }
+        }
+      }
+    },
+    "Aktiv (über AIS Scoops Cloud)" : {
+      "comment" : "Mitteilungen",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On (via AIS Scoops Cloud)"
+          }
+        }
+      }
+    },
+    "Aktualisieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh"
+          }
+        }
+      }
+    },
+    "Alles bereit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Set"
+          }
+        }
+      }
+    },
+    "Allgemein" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        }
+      }
+    },
+    "Alte Installation deaktivieren …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off Old Installation…"
+          }
+        }
+      }
+    },
+    "Am einfachsten geht das mit **Tailscale** (kostenlos). Du kannst diesen Schritt auch überspringen und später in den Einstellungen nachholen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The easiest way is **Tailscale** (free). You can also skip this step and set it up later in Settings."
+          }
+        }
+      }
+    },
+    "Angemeldet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in"
+          }
+        }
+      }
+    },
+    "Angemeldet ohne Abo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in, no subscription"
+          }
+        }
+      }
+    },
+    "Angemeldet · %@" : {
+      "comment" : "Abo: angemeldet, mit Tarif",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in · %@"
+          }
+        }
+      }
+    },
+    "Anlegen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create"
+          }
+        }
+      }
+    },
+    "Anmeldeobjekt: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login item: %@"
+          }
+        }
+      }
+    },
+    "Ansprache (Vorname)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What Scoops call you (first name)"
+          }
+        }
+      }
+    },
+    "App %@ · %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App %1$@ · %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Apple-Dienste" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Services"
+          }
+        }
+      }
+    },
+    "Arbeitsordner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workspace"
+          }
+        }
+      }
+    },
+    "Auch wenn die App einmal nicht läuft. macOS fragt dafür nach deinem Passwort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Even when the app isn’t running. macOS asks for your password."
+          }
+        }
+      }
+    },
+    "Auf console.anthropic.com anmelden oder ein Konto anlegen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in or create an account at console.anthropic.com."
+          }
+        }
+      }
+    },
+    "Auf diesem Mac ist noch eine **ältere AIS-Bot-Installation** eingerichtet (Hintergrunddienst „%@“). Sie startet bei jeder Anmeldung einen eigenen Server, der Port 8787 belegen kann." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An **older AIS Bot installation** is still set up on this Mac (background service “%@”). Each time you log in, it starts its own server, which can block port 8787."
+          }
+        }
+      }
+    },
+    "Auf platform.composio.dev anmelden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in at platform.composio.dev."
+          }
+        }
+      }
+    },
+    "Auf platform.openai.com anmelden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in at platform.openai.com."
+          }
+        }
+      }
+    },
+    "Aus" : {
+      "comment" : "Mitteilungen",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        }
+      }
+    },
+    "Aus – erst mit Konto verbinden" : {
+      "comment" : "Mitteilungen",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off (connect an account first)"
+          }
+        }
+      }
+    },
+    "Ausschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off"
+          }
+        }
+      }
+    },
+    "Ausschalten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off…"
+          }
+        }
+      }
+    },
+    "Auswählen" : {
+      "comment" : "Knopf im Ordner-Dialog",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose"
+          }
+        }
+      }
+    },
+    "Auswählen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose…"
+          }
+        }
+      }
+    },
+    "Bedienungshilfen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accessibility"
+          }
+        }
+      }
+    },
+    "Beenden (stoppt den Server)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit (Stops the Server)"
+          }
+        }
+      }
+    },
+    "Beheben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fix"
+          }
+        }
+      }
+    },
+    "Beheben: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fix: %@"
+          }
+        }
+      }
+    },
+    "Beim Anmelden starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open at Login"
+          }
+        }
+      }
+    },
+    "Berechtigungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permissions"
+          }
+        }
+      }
+    },
+    "Bildschirm anlassen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep display on"
+          }
+        }
+      }
+    },
+    "Bildschirmaufnahme" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screen Recording"
+          }
+        }
+      }
+    },
+    "Bildschirmsperre" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock Screen"
+          }
+        }
+      }
+    },
+    "Bitte Maus und Tastatur nicht benutzen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please don’t use the mouse or keyboard."
+          }
+        }
+      }
+    },
+    "Bitte eine gültige Server-Adresse eingeben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a valid server address."
+          }
+        }
+      }
+    },
+    "ChatGPT Plus oder Pro. GPT-Scoops, Aufgaben und Routinen laufen dann über Codex mit deinem Abo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT Plus or Pro. GPT Scoops, tasks, and routines then run through Codex with your subscription."
+          }
+        }
+      }
+    },
+    "Claude Pro oder Max. Claude-Scoops, Aufgaben und Routinen laufen dann über Claude Code mit deinem Abo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Pro or Max. Claude Scoops, tasks, and routines then run through Claude Code with your subscription."
+          }
+        }
+      }
+    },
+    "Code" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code"
+          }
+        }
+      }
+    },
+    "Code konnte nicht angefordert werden: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t request a code: %@"
+          }
+        }
+      }
+    },
+    "Code wird angefordert …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requesting code…"
+          }
+        }
+      }
+    },
+    "Composio (Gmail, Kalender, Notion …)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Composio (Gmail, Calendar, Notion, and more)"
+          }
+        }
+      }
+    },
+    "Computer-Server der VM bereit (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VM computer server ready (%@)"
+          }
+        }
+      }
+    },
+    "Dafür sollte der Mac wach bleiben. Am besten steht er am Strom." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Mac needs to stay awake for this, ideally plugged in."
+          }
+        }
+      }
+    },
+    "Damit AIS Scoops auf iPhone, iPad oder Mac diesen Server findet und dir Mitteilungen schicken kann." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So AIS Scoops on iPhone, iPad, or Mac can find this server and send you notifications."
+          }
+        }
+      }
+    },
+    "Damit Scoops Maus und Tastatur bedienen können." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets Scoops use the mouse and keyboard."
+          }
+        }
+      }
+    },
+    "Damit Scoops auf diesem Mac Programme öffnen, klicken und tippen können. Ohne diesen Schritt chatten sie nur." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So Scoops can open apps, click, and type on this Mac. Without this step, they can only chat."
+          }
+        }
+      }
+    },
+    "Damit Scoops in deinen Projektordnern und im Home arbeiten können, ohne dass macOS bei jedem Ordner neu fragt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets Scoops work in your project folders and home folder without macOS asking again for every folder."
+          }
+        }
+      }
+    },
+    "Damit Scoops sehen, was auf dem Bildschirm passiert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets Scoops see what’s happening on the screen."
+          }
+        }
+      }
+    },
+    "Damit deine Scoops immer können" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Your Scoops Ready"
+          }
+        }
+      }
+    },
+    "Danach können deine Scoops diesen Mac als Rechner nutzen. Den Namen siehst du später in AIS Scoops." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Scoops can then use this Mac as a computer. You’ll see its name in AIS Scoops."
+          }
+        }
+      }
+    },
+    "Das brauchst du" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What You Need"
+          }
+        }
+      }
+    },
+    "Das lässt sich später in den Einstellungen ändern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can change this later in Settings."
+          }
+        }
+      }
+    },
+    "Das sieht nicht wie ein API-Schlüssel aus." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That doesn’t look like an API key."
+          }
+        }
+      }
+    },
+    "Datenordner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data Folder"
+          }
+        }
+      }
+    },
+    "Datenordner nicht beschreibbar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can’t write to the data folder: %@"
+          }
+        }
+      }
+    },
+    "Dauerbetrieb" : {
+      "comment" : "Schritt des Einrichtungsassistenten (Seitenleiste)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always On"
+          }
+        }
+      }
+    },
+    "Deaktivieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off"
+          }
+        }
+      }
+    },
+    "Dein Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Server"
+          }
+        }
+      }
+    },
+    "Dein Start-Scoop **Pip** wartet dort auch schon und erklärt dir gern alles." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your starter Scoop **Pip** is already waiting there and is happy to explain everything."
+          }
+        }
+      }
+    },
+    "Dein Vorname für die Scoops" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your first name for Scoops"
+          }
+        }
+      }
+    },
+    "Deine Scoops denken mit einem KI-Modell. Ohne Abo oder Schlüssel können sie nicht antworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Scoops think with an AI model. Without a subscription or key, they can’t reply."
+          }
+        }
+      }
+    },
+    "Deine eigenen Scoops, auf deinem Mac. Der Assistent begleitet dich Schritt für Schritt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your own Scoops, on your Mac. The setup assistant guides you step by step."
+          }
+        }
+      }
+    },
+    "Der Code ist ungültig oder abgelaufen. Erzeuge in AIS Scoops einen neuen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code is invalid or has expired. Create a new one in AIS Scoops."
+          }
+        }
+      }
+    },
+    "Der Computer-Server der VM antwortet nicht mehr." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The VM’s computer server stopped responding."
+          }
+        }
+      }
+    },
+    "Der Computer-Server in der VM antwortet nicht auf %@:8000/status." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The computer server in the VM isn’t responding at %@:8000/status."
+          }
+        }
+      }
+    },
+    "Der Hintergrunddienst „%@“ wird gestoppt und startet nicht mehr bei der Anmeldung. Gelöscht wird nichts: Die Startdatei in ~/Library/LaunchAgents wird nur umbenannt, die Daten bleiben. Rückgängig: Datei zurückbenennen und neu anmelden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The background service “%@” will be stopped and won’t start at login anymore. Nothing is deleted: the launch file in ~/Library/LaunchAgents is just renamed, and your data stays. To undo, rename the file back and log in again."
+          }
+        }
+      }
+    },
+    "Der Schlüssel konnte nicht im Schlüsselbund gespeichert werden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The key couldn’t be saved in the keychain."
+          }
+        }
+      }
+    },
+    "Der Schlüssel wurde abgelehnt. Bitte prüfen und neu einfügen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The key was rejected. Check it and paste it again."
+          }
+        }
+      }
+    },
+    "Der Server fehlt in dieser App. Bitte AIS Scoops Server neu herunterladen und installieren." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server is missing from this app. Download and install AIS Scoops Server again."
+          }
+        }
+      }
+    },
+    "Der Server hat den Rechner entfernt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server removed this computer."
+          }
+        }
+      }
+    },
+    "Der Server hat den Rechner entfernt: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server removed this computer: %@"
+          }
+        }
+      }
+    },
+    "Der Server hat mit Fehler %@ geantwortet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server responded with error %@."
+          }
+        }
+      }
+    },
+    "Der Server ist gerade nicht bereit." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server isn’t ready right now."
+          }
+        }
+      }
+    },
+    "Der Server kennt dieses Token nicht mehr. Bitte neu koppeln." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server no longer recognizes this token. Pair again."
+          }
+        }
+      }
+    },
+    "Der Server läuft nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server isn’t running."
+          }
+        }
+      }
+    },
+    "Der Server läuft weiter, solange oben in der Menüleiste das Symbol zu sehen ist. Dort findest du Einstellungen, Protokoll und „Einrichtung erneut öffnen“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server keeps running as long as its icon appears in the menu bar. There you’ll find Settings, the log, and “Open Setup Again.”"
+          }
+        }
+      }
+    },
+    "Der Server startet. Das dauert beim ersten Mal bis zu einer Minute." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server is starting. The first time, this can take up to a minute."
+          }
+        }
+      }
+    },
+    "Der Server stürzt immer wieder ab (Code %@). Details im Protokoll." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server keeps crashing (code %@). See the log for details."
+          }
+        }
+      }
+    },
+    "Der alte Code war abgelaufen, das hier ist ein neuer. Läuft er ab, kommt automatisch der nächste." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The old code expired, so here’s a new one. When it expires, the next one appears automatically."
+          }
+        }
+      }
+    },
+    "Die Antwort des Servers war unvollständig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server’s response was incomplete."
+          }
+        }
+      }
+    },
+    "Die Datei %@ ließ sich nicht umbenennen: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Datei %1$@ ließ sich nicht umbenennen: %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t rename the file %1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Die Server-Adresse ist ungültig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server address is invalid."
+          }
+        }
+      }
+    },
+    "Die VM hat keine IP-Adresse bekommen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The VM didn’t get an IP address."
+          }
+        }
+      }
+    },
+    "Die VM hat sich direkt wieder beendet. Details: ~/Library/Logs/lume" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The VM quit right after starting. Details: ~/Library/Logs/lume"
+          }
+        }
+      }
+    },
+    "Diese Adresse funktioniert nur, wenn das iPhone im selben WLAN ist. Für unterwegs: „Erreichbarkeit einrichten …“ → Tailscale." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This address only works when your iPhone is on the same Wi-Fi network. Away from home: “Set Up Remote Access…” → Tailscale."
+          }
+        }
+      }
+    },
+    "Diese VM nutzt der AIS-Scoops-Server direkt. Scoops Connect startet, stoppt oder verändert sie nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The AIS Scoops server uses this VM directly. Scoops Connect doesn’t start, stop, or change it."
+          }
+        }
+      }
+    },
+    "Diesen Mac als Rechner für deine Scoops anschließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect this Mac as a computer for your Scoops"
+          }
+        }
+      }
+    },
+    "Diesen Mac anschließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect This Mac"
+          }
+        }
+      }
+    },
+    "Diesen Mac anschließen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect This Mac…"
+          }
+        }
+      }
+    },
+    "Diesen Mac direkt steuern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Control This Mac Directly"
+          }
+        }
+      }
+    },
+    "Diesen Mac freigeben" : {
+      "comment" : "Schritt des Einrichtungsassistenten (Seitenleiste)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share This Mac"
+          }
+        }
+      }
+    },
+    "Diesen Mac für die Scoops freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share This Mac with Your Scoops"
+          }
+        }
+      }
+    },
+    "Dieser Mac als Rechner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac as a Computer"
+          }
+        }
+      }
+    },
+    "Dieser Mac ist freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac is shared"
+          }
+        }
+      }
+    },
+    "Dieser Mac ist nicht freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac isn’t shared"
+          }
+        }
+      }
+    },
+    "Direkt" : {
+      "comment" : "Modus, kurz",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Direct"
+          }
+        }
+      }
+    },
+    "Du hast schon %lld eigene Scoops." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Du hast schon %lld eigene Scoops."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Du hast schon %lld eigene Scoops."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You already have %lld Scoop of your own."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You already have %lld Scoops of your own."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Du hast zwei Möglichkeiten. **Eine davon reicht.**" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have two options. **One of them is enough.**"
+          }
+        }
+      }
+    },
+    "Ein **Apple-Konto**, damit du dich in AIS Scoops mit „Mit Apple anmelden“ anmeldest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An **Apple Account** to use “Sign in with Apple” in AIS Scoops"
+          }
+        }
+      }
+    },
+    "Ein **KI-Abo** (Claude Pro oder Max, ChatGPT Plus oder Pro) **oder** einen API-Schlüssel von Anthropic oder OpenAI" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An **AI subscription** (Claude Pro or Max, ChatGPT Plus or Pro) **or** an API key from Anthropic or OpenAI"
+          }
+        }
+      }
+    },
+    "Ein Scoop steuert gerade" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Scoop is in control"
+          }
+        }
+      }
+    },
+    "Ein Terminal-Fenster mit der Anmeldung von %@ ist offen. Melde dich dort bzw. im Browser an; der Status hier aktualisiert sich von selbst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Terminal window with the %@ sign-in is open. Sign in there or in your browser. The status here updates automatically."
+          }
+        }
+      }
+    },
+    "Eine VM namens „%@“ gibt es schon." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A VM named “%@” already exists."
+          }
+        }
+      }
+    },
+    "Einrichten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Up"
+          }
+        }
+      }
+    },
+    "Einrichten: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up: %@"
+          }
+        }
+      }
+    },
+    "Einrichtung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setup"
+          }
+        }
+      }
+    },
+    "Einrichtung erneut öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Setup Again"
+          }
+        }
+      }
+    },
+    "Einrichtung erneut öffnen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Setup Again…"
+          }
+        }
+      }
+    },
+    "Einrichtung fortsetzen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue Setup…"
+          }
+        }
+      }
+    },
+    "Einrichtung noch nicht abgeschlossen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setup isn’t finished yet"
+          }
+        }
+      }
+    },
+    "Einstellungen öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        }
+      }
+    },
+    "Einstellungen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings…"
+          }
+        }
+      }
+    },
+    "Empfohlen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recommended"
+          }
+        }
+      }
+    },
+    "Er ist bereit. Schreib ihm in AIS Scoops, wobei er dir helfen soll." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It’s ready. Message it in AIS Scoops and tell it what you need help with."
+          }
+        }
+      }
+    },
+    "Erinnerungen" : {
+      "comment" : "Apple-Dienst (Name der App in macOS)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders"
+          }
+        }
+      }
+    },
+    "Erlauben …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow…"
+          }
+        }
+      }
+    },
+    "Erlaubt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allowed"
+          }
+        }
+      }
+    },
+    "Erneut prüfen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Again"
+          }
+        }
+      }
+    },
+    "Erneut starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart"
+          }
+        }
+      }
+    },
+    "Erneut versuchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Again"
+          }
+        }
+      }
+    },
+    "Erreichbarkeit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote Access"
+          }
+        }
+      }
+    },
+    "Erreichbarkeit einrichten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Up Remote Access…"
+          }
+        }
+      }
+    },
+    "Erst Abo verbinden oder Schlüssel speichern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect a subscription or save a key first."
+          }
+        }
+      }
+    },
+    "Erstelle jetzt deinen ersten Scoop in AIS Scoops" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now Create Your First Scoop in AIS Scoops"
+          }
+        }
+      }
+    },
+    "Es wird „pmset -a sleep 0“ ausgeführt. macOS zeigt dafür den Passwort-Dialog. Rückgängig: Systemeinstellungen → Energie." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS asks for your password to run “pmset -a sleep 0” for this. To undo, go to System Settings → Energy."
+          }
+        }
+      }
+    },
+    "Fehlt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing"
+          }
+        }
+      }
+    },
+    "Fertig" : {
+      "comment" : "Schritt des Einrichtungsassistenten (Seitenleiste)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "Festplattenvollzugriff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full Disk Access"
+          }
+        }
+      }
+    },
+    "Fortschritt der Einrichtung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setup progress"
+          }
+        }
+      }
+    },
+    "Fortsetzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume"
+          }
+        }
+      }
+    },
+    "Freigabe aktiv, aber die Adresse ließ sich nicht speichern: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sharing is on, but the address couldn’t be saved: %@"
+          }
+        }
+      }
+    },
+    "Freigabe zurücknehmen (nur dieser Mac)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Sharing (This Mac Only)"
+          }
+        }
+      }
+    },
+    "Freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        }
+      }
+    },
+    "Freigeben …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow…"
+          }
+        }
+      }
+    },
+    "Freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allowed"
+          }
+        }
+      }
+    },
+    "Frühere Dateien liegen weiter in %@ (%@). Sie wurden nicht verschoben." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frühere Dateien liegen weiter in %1$@ (%2$@). Sie wurden nicht verschoben."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Earlier files are still in %1$@ (%2$@). They weren’t moved."
+          }
+        }
+      }
+    },
+    "Funnel %@ → Port %@ (vorher %@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funnel %1$@ → Port %2$@ (vorher %3$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funnel %1$@ → port %2$@ (previously %3$@)"
+          }
+        }
+      }
+    },
+    "Funnel ist in deinem Tailnet noch nicht erlaubt. Öffne den Link, erlaube Funnel für diesen Mac und klicke danach erneut auf „Öffentlich freigeben“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funnel isn’t allowed in your tailnet yet. Open the link, allow Funnel for this Mac, then click “Share Publicly” again."
+          }
+        }
+      }
+    },
+    "Für Claude-Modelle. Der Schlüssel beginnt mit „sk-ant-“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For Claude models. The key starts with “sk-ant-”."
+          }
+        }
+      }
+    },
+    "Für GPT-Modelle und Diktat." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For GPT models and dictation."
+          }
+        }
+      }
+    },
+    "Für Scoops nutzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use for Scoops"
+          }
+        }
+      }
+    },
+    "Für einen Mac, an dem du selbst arbeitest. Die Scoops arbeiten abgeschirmt in einer virtuellen Maschine (Lume) und sehen deinen Bildschirm nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For a Mac you use yourself. Scoops work in an isolated virtual machine (Lume) and can’t see your screen."
+          }
+        }
+      }
+    },
+    "Für einen Mac, der nur für die Scoops da ist. Sie bedienen diesen Bildschirm, Maus und Tastatur direkt. Hier sollte nichts Privates angemeldet sein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For a Mac that’s just for Scoops. They use this screen, mouse, and keyboard directly. Don’t sign in to anything private on it."
+          }
+        }
+      }
+    },
+    "Für meine Geräte freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share with My Devices"
+          }
+        }
+      }
+    },
+    "GPT-Modelle, Sprechmodus und Diktat. platform.openai.com → API keys." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GPT models, voice mode, and dictation. platform.openai.com → API keys."
+          }
+        }
+      }
+    },
+    "Gekoppelt (Testmodus, nicht verbunden)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired (test mode, not connected)"
+          }
+        }
+      }
+    },
+    "Geprüft und im Schlüsselbund gespeichert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verified and saved in the keychain."
+          }
+        }
+      }
+    },
+    "Gespeichert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved"
+          }
+        }
+      }
+    },
+    "Getrennt – neuer Versuch in %lld s" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnected, retrying in %lld s"
+          }
+        }
+      }
+    },
+    "Getrennt: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnected: %@"
+          }
+        }
+      }
+    },
+    "Glückwunsch zu deinem ersten Scoop!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Congratulations on Your First Scoop!"
+          }
+        }
+      }
+    },
+    "Gültig noch %lld:%@ Min." : {
+      "comment" : "Restzeit des Kopplungscodes, Minuten:Sekunden",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gültig noch %1$lld:%2$@ Min."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expires in %1$lld:%2$@"
+          }
+        }
+      }
+    },
+    "HTTPS-Zertifikate sind in deinem Tailnet nicht aktiviert. Öffne den Link (oder Tailscale-Adminkonsole → DNS → HTTPS-Zertifikate aktivieren) und versuche es dann erneut." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTPS certificates aren’t enabled in your tailnet. Open the link (or Tailscale admin console → DNS → Enable HTTPS certificates), then try again."
+          }
+        }
+      }
+    },
+    "Hast du **Claude Pro oder Max** oder **ChatGPT Plus oder Pro**, arbeiten deine Scoops über dein Abo. Das kostet nichts extra, zählt aber auf die Limits deines Abos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you have **Claude Pro or Max** or **ChatGPT Plus or Pro**, your Scoops work through your subscription. It costs nothing extra but counts toward your subscription’s limits."
+          }
+        }
+      }
+    },
+    "Hast du ein Claude- oder ChatGPT-Abo, können deine Scoops darüber arbeiten statt über einen API-Schlüssel. Du meldest dich dafür im offiziellen Programm an (Claude Code bzw. Codex); AIS Scoops sieht deine Anmeldedaten nie." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you have a Claude or ChatGPT subscription, your Scoops can work through it instead of an API key. You sign in to the official app (Claude Code or Codex); AIS Scoops never sees your sign-in details."
+          }
+        }
+      }
+    },
+    "Heim-WLAN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home Wi-Fi"
+          }
+        }
+      }
+    },
+    "Homebrew fehlt – zuerst von brew.sh installieren." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Homebrew is missing. Install it from brew.sh first."
+          }
+        }
+      }
+    },
+    "Homebrew fehlt. Installiere es von brew.sh oder Lume von cua.ai/docs/lume." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Homebrew is missing. Install it from brew.sh, or install Lume from cua.ai/docs/lume."
+          }
+        }
+      }
+    },
+    "Im App Store öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in the App Store"
+          }
+        }
+      }
+    },
+    "Im Finder zeigen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in Finder"
+          }
+        }
+      }
+    },
+    "Im Moment nur auf diesem Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only on this Mac for now."
+          }
+        }
+      }
+    },
+    "Im Schlüsselbund gespeichert (ohne Prüfung)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved in the keychain (not verified)."
+          }
+        }
+      }
+    },
+    "Im Testmodus deaktiviert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turned off in test mode."
+          }
+        }
+      }
+    },
+    "Im lokalen Netz freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share on Local Network"
+          }
+        }
+      }
+    },
+    "In Tailscale öffnen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Tailscale: %@"
+          }
+        }
+      }
+    },
+    "In den Systemeinstellungen unter Datenschutz & Sicherheit → %@ „AIS Scoops Server“ erlauben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In System Settings, go to Privacy & Security → %@ and allow “AIS Scoops Server.”"
+          }
+        }
+      }
+    },
+    "In der App findest du ihn unter **Deine Server**. Mitteilungen deiner Scoops kommen ab jetzt auch, wenn die App zu ist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’ll find it in the app under **Your Servers**. From now on, your Scoops’ notifications arrive even when the app is closed."
+          }
+        }
+      }
+    },
+    "Installiere Lume …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installing Lume…"
+          }
+        }
+      }
+    },
+    "Ist ausgeschaltet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turned off."
+          }
+        }
+      }
+    },
+    "Ist der Mac gesperrt, können Scoops nicht klicken. Stell unter Sperrbildschirm „Passwort anfordern“ auf einen langen Zeitraum, aber nur auf einem Mac, der sicher steht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When your Mac is locked, Scoops can’t click. In Lock Screen settings, set “Require password” to a long delay, but only on a Mac kept in a secure place."
+          }
+        }
+      }
+    },
+    "Jeder Scoop hat hier einen eigenen Ordner. Dateien, die er speichert, und Ergebnisse seiner Aufgaben landen dort zusätzlich zur Bibliothek (Unterordner „Dateien“ und „Aufgaben“)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each Scoop has its own folder here. Files it saves and its task results also go there, in addition to the library (subfolders “Dateien” and “Aufgaben”)."
+          }
+        }
+      }
+    },
+    "Jetzt verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Now"
+          }
+        }
+      }
+    },
+    "KI-Abos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Subscriptions"
+          }
+        }
+      }
+    },
+    "KI-Schlüssel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Keys"
+          }
+        }
+      }
+    },
+    "KI-Zugang" : {
+      "comment" : "Schritt des Einrichtungsassistenten (Seitenleiste)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Access"
+          }
+        }
+      }
+    },
+    "KI-Zugang einrichten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Up AI Access"
+          }
+        }
+      }
+    },
+    "KI-Zugang ok" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI access OK"
+          }
+        }
+      }
+    },
+    "Kalender" : {
+      "comment" : "Apple-Dienst (Name der App in macOS)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendar"
+          }
+        }
+      }
+    },
+    "Kein Kopplungscode erhalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pairing code received"
+          }
+        }
+      }
+    },
+    "Keine Antwort vom Server seit 60 s" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No response from the server for 60 s"
+          }
+        }
+      }
+    },
+    "Keine Antwort von %@ (Status %@)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Antwort von %1$@ (Status %2$@)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No response from %1$@ (status %2$@)."
+          }
+        }
+      }
+    },
+    "Keine Internetverbindung zur Prüfung. Du kannst ihn trotzdem speichern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can’t verify without an internet connection. You can save it anyway."
+          }
+        }
+      }
+    },
+    "Keine Netzwerkverbindung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No network connection"
+          }
+        }
+      }
+    },
+    "Keine VM gewählt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No VM selected"
+          }
+        }
+      }
+    },
+    "Kontakte" : {
+      "comment" : "Apple-Dienst (Name der App in macOS)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contacts"
+          }
+        }
+      }
+    },
+    "Konten verbindest du danach in AIS Scoops unter Einstellungen → Apps verbinden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Then connect your accounts in AIS Scoops under Settings → Connect Apps."
+          }
+        }
+      }
+    },
+    "Konto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
+          }
+        }
+      }
+    },
+    "Konto verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account connected"
+          }
+        }
+      }
+    },
+    "Konto von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@’s account"
+          }
+        }
+      }
+    },
+    "Konto: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account: %@"
+          }
+        }
+      }
+    },
+    "Konto: verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account: connected"
+          }
+        }
+      }
+    },
+    "Kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "Kopiert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        }
+      }
+    },
+    "Koppeln" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair"
+          }
+        }
+      }
+    },
+    "Kopplungscode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing code"
+          }
+        }
+      }
+    },
+    "Lade **AIS Scoops aus dem App Store** auf dein iPhone, iPad oder deinen Mac und öffne die App." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download **AIS Scoops from the App Store** on your iPhone, iPad, or Mac and open the app."
+          }
+        }
+      }
+    },
+    "Lade Cua-macOS-Image (%@) als „%@“ …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lade Cua-macOS-Image (%1$@) als „%2$@“ …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading Cua macOS image (%1$@) as “%2$@”…"
+          }
+        }
+      }
+    },
+    "Legt den Kopplungscode in die Zwischenablage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies the pairing code to the clipboard"
+          }
+        }
+      }
+    },
+    "Liegt in Schreibtisch/Dokumente: Mit iCloud-Synchronisierung siehst du die Dateien auch auf anderen Geräten. macOS fragt beim ersten Zugriff einmal, ob der Server dort Dateien ablegen darf – bitte „Erlauben“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It’s in Desktop/Documents, so with iCloud sync you can also see the files on your other devices. The first time, macOS asks whether the server may store files there. Click “Allow.”"
+          }
+        }
+      }
+    },
+    "Lokal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local"
+          }
+        }
+      }
+    },
+    "Lume %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lume %@"
+          }
+        }
+      }
+    },
+    "Lume betreibt die virtuelle Maschine. Scoops Connect installiert es über Homebrew (`brew install lume`)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lume runs the virtual machine. Scoops Connect installs it with Homebrew (`brew install lume`)."
+          }
+        }
+      }
+    },
+    "Lume installieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install Lume"
+          }
+        }
+      }
+    },
+    "Lume ist nicht installiert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lume Isn’t Installed"
+          }
+        }
+      }
+    },
+    "Lume ist nicht installiert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lume isn’t installed."
+          }
+        }
+      }
+    },
+    "Lädt `%@` (macOS mit vorinstalliertem Computer-Server). Großer Download – mehrere Dutzend GB, je nach Leitung eine Weile." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads `%@` (macOS with a preinstalled computer server). This is a large download (several dozen GB) and may take a while, depending on your connection."
+          }
+        }
+      }
+    },
+    "Läuft auf diesem Mac. Klick auf **Weiter**." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running on this Mac. Click **Continue**."
+          }
+        }
+      }
+    },
+    "Läuft der Code ab, erscheint automatisch ein neuer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When the code expires, a new one appears automatically."
+          }
+        }
+      }
+    },
+    "Mac wach halten, solange der Server läuft" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Mac awake while the server is running"
+          }
+        }
+      }
+    },
+    "Melde dich mit **Mit Apple anmelden** an." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use **Sign in with Apple** to sign in."
+          }
+        }
+      }
+    },
+    "Menü-Vorschau" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menu Preview"
+          }
+        }
+      }
+    },
+    "Mit **AIS Scoops Server** wohnen deine Scoops auf diesem Mac, mit deinen Daten und deinem eigenen KI-Zugang. In der App **AIS Scoops** auf iPhone, iPad oder Mac chattest du dann mit ihnen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With **AIS Scoops Server**, your Scoops live on this Mac, with your data and your own AI access. You then chat with them in the **AIS Scoops** app on iPhone, iPad, or Mac."
+          }
+        }
+      }
+    },
+    "Mit AIS Scoops verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect to AIS Scoops"
+          }
+        }
+      }
+    },
+    "Mit AIS Scoops verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected to AIS Scoops"
+          }
+        }
+      }
+    },
+    "Mit API-Schlüssel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With an API Key"
+          }
+        }
+      }
+    },
+    "Mit ChatGPT anmelden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign In with ChatGPT"
+          }
+        }
+      }
+    },
+    "Mit Claude anmelden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign In with Claude"
+          }
+        }
+      }
+    },
+    "Mit Konto verbinden …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Account…"
+          }
+        }
+      }
+    },
+    "Mit anderem Konto verbinden …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect a Different Account…"
+          }
+        }
+      }
+    },
+    "Mit der App verbinden" : {
+      "comment" : "Schritt des Einrichtungsassistenten (Seitenleiste)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect the App"
+          }
+        }
+      }
+    },
+    "Mit einem anderen Konto verbinden …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect a Different Account…"
+          }
+        }
+      }
+    },
+    "Mit einem eigenen Schlüssel zahlst du direkt beim Anbieter, was deine Scoops verbrauchen. Eine normale Chat-Antwort kostet meist weniger als einen Cent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With your own key, you pay the provider directly for what your Scoops use. A typical chat reply costs less than a cent."
+          }
+        }
+      }
+    },
+    "Mit meinem KI-Abo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With My AI Subscription"
+          }
+        }
+      }
+    },
+    "Mitteilungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
+          }
+        }
+      }
+    },
+    "Mitteilungen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications: %@"
+          }
+        }
+      }
+    },
+    "Modus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode"
+          }
+        }
+      }
+    },
+    "Nach Updates suchen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check for Updates…"
+          }
+        }
+      }
+    },
+    "Nach dem Erlauben der Bildschirmaufnahme verlangt macOS manchmal einen Neustart der App." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After you allow Screen Recording, macOS sometimes requires restarting the app."
+          }
+        }
+      }
+    },
+    "Nach einem Neustart des Macs (z. B. Update oder Stromausfall) meldest du dich einmal selbst an. Danach startet AIS Scoops Server von allein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After your Mac restarts (for example, after an update or a power outage), you need to log in once. Then AIS Scoops Server starts on its own."
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        }
+      }
+    },
+    "Name dieses Macs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name of this Mac"
+          }
+        }
+      }
+    },
+    "Neu anmelden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign In Again"
+          }
+        }
+      }
+    },
+    "Neu starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart"
+          }
+        }
+      }
+    },
+    "Neu verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnect"
+          }
+        }
+      }
+    },
+    "Neue VM aus dem Cua-macOS-Image anlegen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a New VM from the Cua macOS Image"
+          }
+        }
+      }
+    },
+    "Neue Versionen werden automatisch geladen und installiert, sobald kein Scoop arbeitet. Der Server startet danach von selbst neu." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New versions are downloaded and installed automatically when no Scoop is working. The server then restarts on its own."
+          }
+        }
+      }
+    },
+    "Neuen Schlüssel einfügen, um ihn zu ersetzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste a new key to replace it"
+          }
+        }
+      }
+    },
+    "Nicht angemeldet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not signed in"
+          }
+        }
+      }
+    },
+    "Nicht gekoppelt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not paired"
+          }
+        }
+      }
+    },
+    "Nicht verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not connected"
+          }
+        }
+      }
+    },
+    "Noch kein KI-Zugang" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No AI access yet"
+          }
+        }
+      }
+    },
+    "Noch kein KI-Zugang. Füge einen Schlüssel ein und klick auf **Prüfen und speichern**." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No AI access yet. Paste a key and click **Verify and Save**."
+          }
+        }
+      }
+    },
+    "Noch kein KI-Zugang. Melde dich oben mit deinem Abo an, oder wechsle zu **Mit API-Schlüssel**." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No AI access yet. Sign in with your subscription above, or switch to **With an API Key**."
+          }
+        }
+      }
+    },
+    "Noch keine VM vorhanden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No VMs yet."
+          }
+        }
+      }
+    },
+    "Noch nicht angemeldet: Bis dahin läuft alles über den API-Schlüssel." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not signed in yet. Until then, everything uses the API key."
+          }
+        }
+      }
+    },
+    "Noch nicht angemeldet: Bis dahin schlagen Läufe mit einem Hinweis fehl." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not signed in yet. Until then, runs fail and show a notice."
+          }
+        }
+      }
+    },
+    "Noch nicht freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not allowed yet"
+          }
+        }
+      }
+    },
+    "Noch nicht mit AIS Scoops verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not connected to AIS Scoops yet"
+          }
+        }
+      }
+    },
+    "Noch nicht mit einem Konto verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not connected to an account yet"
+          }
+        }
+      }
+    },
+    "Noch offen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not done yet"
+          }
+        }
+      }
+    },
+    "Nur Schreibzugriff erteilt. Für die Scoops bitte vollen Zugriff erlauben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only write access is granted. Allow full access for Scoops."
+          }
+        }
+      }
+    },
+    "Nur als Rechner für einen anderen Server …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Only as a Computer for Another Server…"
+          }
+        }
+      }
+    },
+    "Nur auf diesem Mac erreichbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reachable only on this Mac"
+          }
+        }
+      }
+    },
+    "Nur hier am Mac. Optional, lässt sich jederzeit nachholen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only on this Mac for now. Optional, and you can set it up anytime."
+          }
+        }
+      }
+    },
+    "Nur im WLAN zu Hause" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home Wi-Fi Only"
+          }
+        }
+      }
+    },
+    "Nur im selben WLAN wie dieser Mac (%@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only on the same Wi-Fi network as this Mac (%@)."
+          }
+        }
+      }
+    },
+    "Nur nötig, wenn Scoops am Bildschirm arbeiten sollen, während du weg bist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only needed if you want Scoops to use the screen while you’re away."
+          }
+        }
+      }
+    },
+    "Nächster Schritt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Step"
+          }
+        }
+      }
+    },
+    "Nötig" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Required"
+          }
+        }
+      }
+    },
+    "Ohne Abo brauchen deine Scoops einen eigenen Schlüssel. Die Kosten laufen direkt über dein Konto beim Anbieter (eine normale Chat-Antwort kostet meist weniger als einen Cent). Für Sprechmodus und Diktat braucht es den Schlüssel auch mit Abo, Bilder entstehen nur über das ChatGPT-Abo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without a subscription, your Scoops need their own key. Costs are billed directly to your account with the provider (a typical chat reply costs less than a cent). Voice mode and dictation need the key even with a subscription. Images are created only with a ChatGPT subscription."
+          }
+        }
+      }
+    },
+    "Ohne Abo oder Schlüssel können die Scoops nicht antworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without a subscription or key, Scoops can’t reply."
+          }
+        }
+      }
+    },
+    "Ohne Festplattenvollzugriff arbeiten Scoops weiter im Arbeitsordner; für Ordner in Schreibtisch, Dokumente oder iCloud fragt macOS dann einzeln nach." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without Full Disk Access, Scoops still work in the workspace. For folders in Desktop, Documents, or iCloud, macOS asks separately."
+          }
+        }
+      }
+    },
+    "Ohne Tailscale: Die App erreicht den Server nur, wenn iPhone und Mac im selben WLAN sind." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without Tailscale, the app can reach the server only when your iPhone and Mac are on the same Wi-Fi network."
+          }
+        }
+      }
+    },
+    "Ohne Verbindung findet die App diesen Server nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without a connection, the app can’t find this server."
+          }
+        }
+      }
+    },
+    "Ohne diesen Schritt erreicht AIS Scoops den Server nur, wenn du direkt an diesem Mac bist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without this step, AIS Scoops can reach the server only when you’re right at this Mac."
+          }
+        }
+      }
+    },
+    "OpenAI (GPT, Diktat)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI (GPT, dictation)"
+          }
+        }
+      }
+    },
+    "Optional" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional"
+          }
+        }
+      }
+    },
+    "Optional. Die Scoops chatten trotzdem." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional. Scoops can still chat."
+          }
+        }
+      }
+    },
+    "Optional: **Tailscale**, wenn du deine Scoops auch unterwegs nutzen möchtest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional: **Tailscale**, if you want to use your Scoops on the go"
+          }
+        }
+      }
+    },
+    "Optional: Gmail, Kalender, Notion & Co. verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional: Connect Gmail, Calendar, Notion, and More"
+          }
+        }
+      }
+    },
+    "Ordner für die Dateien deiner Scoops wählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a folder for your Scoops’ files"
+          }
+        }
+      }
+    },
+    "Pausieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause"
+          }
+        }
+      }
+    },
+    "Pausieren (Scoops dürfen gerade nichts tun)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause (Scoops can’t do anything for now)"
+          }
+        }
+      }
+    },
+    "Pausiert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused"
+          }
+        }
+      }
+    },
+    "Port %@ ist belegt durch ein anderes Programm. Der Server läuft deshalb auf Port %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port %1$@ ist belegt durch ein anderes Programm. Der Server läuft deshalb auf Port %2$@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port %1$@ is in use by another app, so the server is running on port %2$@."
+          }
+        }
+      }
+    },
+    "Port %@ ist belegt durch „%@“ (PID %@), %@. Der Server läuft deshalb auf Port %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port %1$@ ist belegt durch „%2$@“ (PID %3$@), %4$@. Der Server läuft deshalb auf Port %5$@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port %1$@ is in use by “%2$@” (PID %3$@), %4$@, so the server is running on port %5$@."
+          }
+        }
+      }
+    },
+    "Port %@ ist belegt durch „%@“ (PID %@). Der Server läuft deshalb auf Port %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port %1$@ ist belegt durch „%2$@“ (PID %3$@). Der Server läuft deshalb auf Port %4$@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port %1$@ is in use by “%2$@” (PID %3$@), so the server is running on port %4$@."
+          }
+        }
+      }
+    },
+    "Programm fehlt in der Server-Runtime. Bitte AIS Scoops Server aktualisieren." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A required program is missing from the server runtime. Update AIS Scoops Server."
+          }
+        }
+      }
+    },
+    "Protokoll öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Log"
+          }
+        }
+      }
+    },
+    "Prüfe kurz, ob alles steht. Danach geht es in der App weiter." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quickly check that everything’s in place. Then continue in the app."
+          }
+        }
+      }
+    },
+    "Prüfe …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifying…"
+          }
+        }
+      }
+    },
+    "Prüfen und speichern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify and Save"
+          }
+        }
+      }
+    },
+    "Prüfung nicht eindeutig (Fehler %@). Du kannst ihn trotzdem speichern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verification was inconclusive (error %@). You can save it anyway."
+          }
+        }
+      }
+    },
+    "Rechner koppeln …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair Computer…"
+          }
+        }
+      }
+    },
+    "Rechner trennen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect Computer…"
+          }
+        }
+      }
+    },
+    "Rechner trennen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect This Computer?"
+          }
+        }
+      }
+    },
+    "Rechner-ID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computer ID"
+          }
+        }
+      }
+    },
+    "Rechner-Verbindung auf %@ umgestellt (vorher %@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechner-Verbindung auf %1$@ umgestellt (vorher %2$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switched the computer connection to %1$@ (previously %2$@)"
+          }
+        }
+      }
+    },
+    "Rechner: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computer: %@"
+          }
+        }
+      }
+    },
+    "Rechner: Test" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computer: Test"
+          }
+        }
+      }
+    },
+    "Rechner: nicht angeschlossen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computer: not connected"
+          }
+        }
+      }
+    },
+    "Richte Funnel auf Port %@ ein …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setting up Funnel on port %@…"
+          }
+        }
+      }
+    },
+    "Richte Tailscale Serve auf Port %@ ein …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setting up Tailscale Serve on port %@…"
+          }
+        }
+      }
+    },
+    "Ruhezustand ausschalten?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off Sleep?"
+          }
+        }
+      }
+    },
+    "Ruhezustand dauerhaft ausschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off sleep permanently"
+          }
+        }
+      }
+    },
+    "Schlüssel einfügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste key"
+          }
+        }
+      }
+    },
+    "Schlüssel entfernen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Key"
+          }
+        }
+      }
+    },
+    "Schlüssel erstellen unter console.anthropic.com → API Keys." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a key at console.anthropic.com → API Keys."
+          }
+        }
+      }
+    },
+    "Schlüssel für %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key for %@"
+          }
+        }
+      }
+    },
+    "Schlüssel für %@ entfernen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove key for %@"
+          }
+        }
+      }
+    },
+    "Schlüssel für %@ holen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get key for %@"
+          }
+        }
+      }
+    },
+    "Schlüssel holen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Key"
+          }
+        }
+      }
+    },
+    "Schlüssel liegen nur im **Schlüsselbund dieses Macs**, nicht in der Cloud und nicht bei AIS. Für Sprechmodus und Diktat braucht es einen Schlüssel auch mit Abo, Bilder entstehen nur über das ChatGPT-Abo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keys are stored only in **this Mac’s keychain**, not in the cloud and not with AIS. Voice mode and dictation need a key even with a subscription. Images are created only with a ChatGPT subscription."
+          }
+        }
+      }
+    },
+    "Schlüssel werden nur im **Schlüsselbund dieses Macs** gespeichert, nicht in der Cloud und nicht bei AIS." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keys are stored only in **this Mac’s keychain**, not in the cloud and not with AIS."
+          }
+        }
+      }
+    },
+    "Schritt %lld von %lld" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt %1$lld von %2$lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Schritt %lld von %lld · etwa 10 Minuten insgesamt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt %1$lld von %2$lld · etwa 10 Minuten insgesamt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %1$lld of %2$lld · about 10 minutes in total"
+          }
+        }
+      }
+    },
+    "Schritt %lld von 3" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %lld of 3"
+          }
+        }
+      }
+    },
+    "Schritt %lld: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt %1$lld: %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %1$lld: %2$@"
+          }
+        }
+      }
+    },
+    "Scoops Connect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops Connect"
+          }
+        }
+      }
+    },
+    "Scoops Connect beenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit Scoops Connect"
+          }
+        }
+      }
+    },
+    "Scoops Connect vergisst die Kopplung mit dem Server. Die Scoops können diesen Rechner dann nicht mehr nutzen, bis du ihn neu koppelst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops Connect forgets the pairing with the server. Scoops then can’t use this computer until you pair it again."
+          }
+        }
+      }
+    },
+    "Scoops Connect – %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops Connect – %@"
+          }
+        }
+      }
+    },
+    "Scoops arbeiten auch, wenn du nicht am Mac sitzt, etwa für Erinnerungen oder Aufgaben von unterwegs." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops keep working when you’re away from your Mac, for example, on reminders or tasks you send on the go."
+          }
+        }
+      }
+    },
+    "Scoops können hier klicken und tippen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops can click and type here."
+          }
+        }
+      }
+    },
+    "Scoops lesen Termine und tragen neue ein. Löschen nur mit deiner Freigabe in AIS Scoops." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops read events and add new ones. They delete events only with your approval in AIS Scoops."
+          }
+        }
+      }
+    },
+    "Scoops lesen, legen an, ändern und haken ab. Löschen nur mit deiner Freigabe in AIS Scoops." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops read, create, edit, and complete reminders. They delete reminders only with your approval in AIS Scoops."
+          }
+        }
+      }
+    },
+    "Scoops schlagen Telefonnummern, Mailadressen und Geburtstage nach (nur lesen)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops look up phone numbers, email addresses, and birthdays (read only)."
+          }
+        }
+      }
+    },
+    "Serve %@ → Port %@ (vorher %@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serve %1$@ → Port %2$@ (vorher %3$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serve %1$@ → port %2$@ (previously %3$@)"
+          }
+        }
+      }
+    },
+    "Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server"
+          }
+        }
+      }
+    },
+    "Server antwortet mit Fehler %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server responded with error %@"
+          }
+        }
+      }
+    },
+    "Server gestoppt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server stopped"
+          }
+        }
+      }
+    },
+    "Server lehnt das Token ab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server rejected the token"
+          }
+        }
+      }
+    },
+    "Server ließ sich nicht starten: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t start the server: %@"
+          }
+        }
+      }
+    },
+    "Server läuft" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server running"
+          }
+        }
+      }
+    },
+    "Server neu starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart Server"
+          }
+        }
+      }
+    },
+    "Server nicht erreichbar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can’t reach the server: %@"
+          }
+        }
+      }
+    },
+    "Server startet …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server starting…"
+          }
+        }
+      }
+    },
+    "Server öffentlich freigeben?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Server Publicly?"
+          }
+        }
+      }
+    },
+    "Server-Adresse" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server address"
+          }
+        }
+      }
+    },
+    "Server-Fehler" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server error"
+          }
+        }
+      }
+    },
+    "So geht es weiter (etwa 10 Minuten)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What’s Next (About 10 Minutes)"
+          }
+        }
+      }
+    },
+    "So geht’s: Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff → „%@“ einschalten. Fehlt der Eintrag, mit „+“ die App aus dem Programme-Ordner hinzufügen. Danach den Server einmal neu starten. Die Freigabe bleibt bei Updates erhalten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Here’s how: System Settings → Privacy & Security → Full Disk Access → turn on “%@”. If it isn’t listed, click “+” and add the app from the Applications folder. Then restart the server once. The permission stays in place after updates."
+          }
+        }
+      }
+    },
+    "Sobald dein Scoop da ist, siehst du es hier." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As soon as your Scoop is ready, you’ll see it here."
+          }
+        }
+      }
+    },
+    "Speichern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "Sprechmodus und Diktat laufen weiter über den API-Schlüssel, Bilder nur über das ChatGPT-Abo. Abo-Läufe kosten nichts extra, zählen aber auf die Limits deines Abos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice mode and dictation still use the API key. Images are created only with a ChatGPT subscription. Subscription runs cost nothing extra but count toward your subscription’s limits."
+          }
+        }
+      }
+    },
+    "Später verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Later"
+          }
+        }
+      }
+    },
+    "Starte „%@“ …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starting “%@”…"
+          }
+        }
+      }
+    },
+    "Starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
+          }
+        }
+      }
+    },
+    "Startet nach dem Anmelden am Mac von selbst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts on its own when you log in to your Mac."
+          }
+        }
+      }
+    },
+    "Stattdessen eigenen AIS Scoops Server auf diesem Mac betreiben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run Your Own AIS Scoops Server on This Mac Instead"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        }
+      }
+    },
+    "Stoppen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        }
+      }
+    },
+    "Strich" : {
+      "comment" : "Bedienungshilfen: Bindestrich im Kopplungscode",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dash"
+          }
+        }
+      }
+    },
+    "Systemeinstellungen öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open System Settings"
+          }
+        }
+      }
+    },
+    "TESTMODUS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TEST MODE"
+          }
+        }
+      }
+    },
+    "Tailnet (Tailscale Serve)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailnet (Tailscale Serve)"
+          }
+        }
+      }
+    },
+    "Tailscale" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale"
+          }
+        }
+      }
+    },
+    "Tailscale (empfohlen)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale (Recommended)"
+          }
+        }
+      }
+    },
+    "Tailscale Funnel macht den Server unter einer https-Adresse im Internet erreichbar. Nutzen kann ihn nur, wer mit deinem Konto angemeldet ist. Funnel muss in deinem Tailscale-Konto erlaubt sein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale Funnel makes the server reachable on the internet at an https address. Only people signed in with your account can use it. Funnel must be allowed in your Tailscale account."
+          }
+        }
+      }
+    },
+    "Tailscale braucht eine Bestätigung im Browser. Öffne den Link und versuche es danach erneut." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale needs confirmation in your browser. Open the link, then try again."
+          }
+        }
+      }
+    },
+    "Tailscale hat die Freigabe nicht übernommen (Funnel auf Port %@ → %@ fehlt). %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale hat die Freigabe nicht übernommen (Funnel auf Port %1$@ → %2$@ fehlt). %3$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale didn’t apply the sharing setting (Funnel on port %1$@ → %2$@ is missing). %3$@"
+          }
+        }
+      }
+    },
+    "Tailscale hat die Freigabe nicht übernommen (Serve auf Port %@ → %@ fehlt). %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale hat die Freigabe nicht übernommen (Serve auf Port %1$@ → %2$@ fehlt). %3$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale didn’t apply the sharing setting (Serve on port %1$@ → %2$@ is missing). %3$@"
+          }
+        }
+      }
+    },
+    "Tailscale hat nicht geantwortet (Zeitüberschreitung). Ist Tailscale angemeldet und verbunden?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale didn’t respond (timed out). Is Tailscale signed in and connected?"
+          }
+        }
+      }
+    },
+    "Tailscale ist angemeldet (%@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale is signed in (%@)."
+          }
+        }
+      }
+    },
+    "Tailscale ist installiert, aber nicht angemeldet. Öffne Tailscale und melde dich an. Kommst du zurück, prüft der Assistent von selbst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale is installed but not signed in. Open Tailscale and sign in. When you come back, the setup assistant checks again automatically."
+          }
+        }
+      }
+    },
+    "Tailscale ist nicht angemeldet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale isn’t signed in."
+          }
+        }
+      }
+    },
+    "Tailscale laden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download Tailscale"
+          }
+        }
+      }
+    },
+    "Tailscale meldet den Zustand „%@“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale reports the state “%@”."
+          }
+        }
+      }
+    },
+    "Tailscale meldet: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale reports: %@"
+          }
+        }
+      }
+    },
+    "Tailscale prüfen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Tailscale"
+          }
+        }
+      }
+    },
+    "Tailscale umgestellt: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated Tailscale: %@"
+          }
+        }
+      }
+    },
+    "Tailscale-Fehler %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale error %@"
+          }
+        }
+      }
+    },
+    "Tippe auf **Deine Server → Server hinzufügen** (beim ersten Start fragt dich die App selbst danach) und gib diesen **Kopplungscode** ein:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap **Your Servers → Add Server** (the app asks for this on first launch) and enter this **pairing code**:"
+          }
+        }
+      }
+    },
+    "Token konnte nicht im Schlüsselbund gespeichert werden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save the token in the keychain."
+          }
+        }
+      }
+    },
+    "Token ungültig" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid token"
+          }
+        }
+      }
+    },
+    "Trennen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect"
+          }
+        }
+      }
+    },
+    "Trotzdem speichern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Anyway"
+          }
+        }
+      }
+    },
+    "Unbekannter Fehler" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown error"
+          }
+        }
+      }
+    },
+    "Unerwartete Antwort vom Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unexpected response from the server"
+          }
+        }
+      }
+    },
+    "Unerwartete Antwort vom Server (Port %@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unexpected response from the server (port %@)"
+          }
+        }
+      }
+    },
+    "Ungültige Server-Adresse" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid server address"
+          }
+        }
+      }
+    },
+    "Ungültiger VM-Name (nur a–z, 0–9, - und _)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid VM name (only a–z, 0–9, -, and _)."
+          }
+        }
+      }
+    },
+    "Unter **API Keys** auf **Create Key** klicken, den Schlüssel kopieren und hier einfügen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Under **API Keys**, click **Create Key**, copy the key, and paste it here."
+          }
+        }
+      }
+    },
+    "Unter **API Keys** einen Schlüssel erstellen und hier einfügen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Under **API Keys**, create a key and paste it here."
+          }
+        }
+      }
+    },
+    "Unter **API keys** auf **Create new secret key** klicken und den Schlüssel hier einfügen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Under **API keys**, click **Create new secret key** and paste the key here."
+          }
+        }
+      }
+    },
+    "Unter **Billing** Guthaben aufladen, zum Beispiel 10 $, und am besten ein Monatslimit setzen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Under **Billing**, add credit (for example, $10) and ideally set a monthly limit."
+          }
+        }
+      }
+    },
+    "Unter **Billing** Guthaben aufladen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Under **Billing**, add credit."
+          }
+        }
+      }
+    },
+    "Update %@ ist geladen und wird installiert, sobald kein Scoop arbeitet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update %@ has been downloaded and will be installed when no Scoop is working."
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates"
+          }
+        }
+      }
+    },
+    "VM starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start VM"
+          }
+        }
+      }
+    },
+    "VM „%@“ nicht gefunden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VM “%@” not found."
+          }
+        }
+      }
+    },
+    "Verbinde …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting…"
+          }
+        }
+      }
+    },
+    "Verbindet Gmail, Kalender, Notion & Co. platform.composio.dev → API Keys." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connects Gmail, Calendar, Notion, and more. platform.composio.dev → API Keys."
+          }
+        }
+      }
+    },
+    "Verbindet mit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting to %@"
+          }
+        }
+      }
+    },
+    "Verbindung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection"
+          }
+        }
+      }
+    },
+    "Verbindung abgelehnt (Port %@) – dort läuft kein Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection refused (port %@). No server is running there."
+          }
+        }
+      }
+    },
+    "Verbindung abgelehnt – dort läuft kein Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection refused. No server is running there."
+          }
+        }
+      }
+    },
+    "Verbindung getrennt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection lost"
+          }
+        }
+      }
+    },
+    "Verbindung vom Server geschlossen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection closed by the server"
+          }
+        }
+      }
+    },
+    "Verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected"
+          }
+        }
+      }
+    },
+    "Verbunden (%@)" : {
+      "comment" : "Konto: verbunden, mit Name des Kontos",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected (%@)"
+          }
+        }
+      }
+    },
+    "Verbunden!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected!"
+          }
+        }
+      }
+    },
+    "Verhindert den Ruhezustand bei Inaktivität. Am Netzteil empfohlen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevents sleep when idle. Recommended when plugged in."
+          }
+        }
+      }
+    },
+    "Version" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
+    "Version %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@"
+          }
+        }
+      }
+    },
+    "Version %@ · %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %1$@ · %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Version %@ · Update %@ wird installiert, sobald kein Scoop arbeitet" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %1$@ · Update %2$@ wird installiert, sobald kein Scoop arbeitet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %1$@ · Update %2$@ will be installed when no Scoop is working"
+          }
+        }
+      }
+    },
+    "Virtuelle Maschine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Virtual Machine"
+          }
+        }
+      }
+    },
+    "Virtuelle Maschinen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Virtual Machines"
+          }
+        }
+      }
+    },
+    "Vom Server direkt genutzt – nur Anzeige" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used directly by the server (view only)"
+          }
+        }
+      }
+    },
+    "Von unterwegs erreichbar" : {
+      "comment" : "Schritt des Einrichtungsassistenten (Seitenleiste)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote Access"
+          }
+        }
+      }
+    },
+    "Von unterwegs erreichbar machen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Up Remote Access"
+          }
+        }
+      }
+    },
+    "Von unterwegs erreichbar: Ja" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reachable on the go: Yes"
+          }
+        }
+      }
+    },
+    "Von unterwegs erreichbar: Nein" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reachable on the go: No"
+          }
+        }
+      }
+    },
+    "Vorname" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First name"
+          }
+        }
+      }
+    },
+    "Vorschau: keine Verbindung zum Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview: no connection to the server"
+          }
+        }
+      }
+    },
+    "Warte auf den Computer-Server in der VM (%@:8000) …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the computer server in the VM (%@:8000)…"
+          }
+        }
+      }
+    },
+    "Warte auf den Server …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the server…"
+          }
+        }
+      }
+    },
+    "Warte auf die Eingabe in AIS Scoops …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for you to enter it in AIS Scoops…"
+          }
+        }
+      }
+    },
+    "Warte auf die IP-Adresse der VM …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the VM’s IP address…"
+          }
+        }
+      }
+    },
+    "Warte, bis der Server läuft …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the server to start…"
+          }
+        }
+      }
+    },
+    "Was auf diesem Mac angemeldet ist, können die Scoops sehen. Arbeitest du gerade selbst am Mac, drück oben in der Menüleiste auf **Pausieren**." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoops can see everything that’s signed in on this Mac. If you’re using the Mac yourself, click **Pause** in the menu bar."
+          }
+        }
+      }
+    },
+    "Weg zum KI-Modell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access to the AI model"
+          }
+        }
+      }
+    },
+    "Weiter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
+    "Weiter, sobald AIS Scoops verbunden ist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can continue once AIS Scoops is connected."
+          }
+        }
+      }
+    },
+    "Weitere Tipps …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More Tips…"
+          }
+        }
+      }
+    },
+    "Wie sollen dich deine Scoops nennen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What Should Your Scoops Call You?"
+          }
+        }
+      }
+    },
+    "Willkommen" : {
+      "comment" : "Schritt des Einrichtungsassistenten (Seitenleiste)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome"
+          }
+        }
+      }
+    },
+    "Willkommen bei AIS Scoops Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome to AIS Scoops Server"
+          }
+        }
+      }
+    },
+    "Wird über AIS Scoops gesteuert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Being controlled from AIS Scoops"
+          }
+        }
+      }
+    },
+    "Wo bekomme ich den Schlüssel?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where do I get a key?"
+          }
+        }
+      }
+    },
+    "Wo bekomme ich ein Abo, und wie melde ich mich an?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where do I get a subscription, and how do I sign in?"
+          }
+        }
+      }
+    },
+    "Zeitüberschreitung bei %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timed out connecting to %@"
+          }
+        }
+      }
+    },
+    "Zeitüberschreitung bei %@ (Port %@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeitüberschreitung bei %1$@ (Port %2$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timed out connecting to %1$@ (port %2$@)"
+          }
+        }
+      }
+    },
+    "Zu viele Versuche. Bitte eine Minute warten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many attempts. Wait a minute and try again."
+          }
+        }
+      }
+    },
+    "Zuletzt genutzt: %@ · %@" : {
+      "comment" : "Dienst · Uhrzeit",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zuletzt genutzt: %1$@ · %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last used: %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Zum Beispiel dein Vorname. Lässt sich später in den Einstellungen ändern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For example, your first name. You can change this later in Settings."
+          }
+        }
+      }
+    },
+    "Zum Beispiel, um im Browser etwas nachzusehen oder ein Formular auszufüllen. Dafür braucht die App zwei Rechte von macOS. Du erteilst sie selbst in den Systemeinstellungen; kommst du zurück, erkennt der Assistent die Freigabe von allein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For example, to look something up in the browser or fill out a form. The app needs two macOS permissions for this. You grant them yourself in System Settings, and when you come back, the setup assistant detects them automatically."
+          }
+        }
+      }
+    },
+    "Zurück" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        }
+      }
+    },
+    "Zusätzlich" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Additional"
+          }
+        }
+      }
+    },
+    "Zusätzlich schaltest du jeden Dienst in AIS Scoops unter **Apps verbinden → Apple** ein. Änderungen landen per iCloud sofort auf deinem iPhone. Gäste geteilter Scoops bekommen nie Zugriff." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You also turn on each service in AIS Scoops under **Connect Apps → Apple**. Changes reach your iPhone right away through iCloud. Guests of shared Scoops never get access."
+          }
+        }
+      }
+    },
+    "aktueller Schritt" : {
+      "comment" : "Bedienungshilfen: Zustand eines Schritts",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "current step"
+          }
+        }
+      }
+    },
+    "aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "off"
+          }
+        }
+      }
+    },
+    "bereit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ready"
+          }
+        }
+      }
+    },
+    "brew install lume ist fehlgeschlagen (Code %@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "brew install lume failed (code %@)."
+          }
+        }
+      }
+    },
+    "chatgpt.com öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open chatgpt.com"
+          }
+        }
+      }
+    },
+    "claude.ai öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open claude.ai"
+          }
+        }
+      }
+    },
+    "erledigt" : {
+      "comment" : "Bedienungshilfen: Zustand eines Schritts",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "done"
+          }
+        }
+      }
+    },
+    "https://dein-server.example" : {
+      "comment" : "Beispieladresse als Platzhalter",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://your-server.example"
+          }
+        }
+      }
+    },
+    "keine Freigabe aktiv" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "not sharing"
+          }
+        }
+      }
+    },
+    "lume pull ist fehlgeschlagen (Code %@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lume pull failed (code %@)."
+          }
+        }
+      }
+    },
+    "lume run konnte nicht gestartet werden: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t start lume run: %@"
+          }
+        }
+      }
+    },
+    "läuft" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "running"
+          }
+        }
+      }
+    },
+    "macOS fragt einmalig nach zwei Rechten. Scoops Connect erteilt sie nie selbst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS asks once for two permissions. Scoops Connect never grants them itself."
+          }
+        }
+      }
+    },
+    "noch nicht erreicht" : {
+      "comment" : "Bedienungshilfen: Zustand eines Schritts",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "not reached yet"
+          }
+        }
+      }
+    },
+    "noch offen" : {
+      "comment" : "Bedienungshilfen: Zustand eines Schritts",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "not done yet"
+          }
+        }
+      }
+    },
+    "nur auf diesem Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "only on this Mac"
+          }
+        }
+      }
+    },
+    "nur im Heim-WLAN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "home Wi-Fi only"
+          }
+        }
+      }
+    },
+    "optional, noch nicht erreicht" : {
+      "comment" : "Bedienungshilfen: Zustand eines Schritts",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "optional, not reached yet"
+          }
+        }
+      }
+    },
+    "unbekannt" : {
+      "comment" : "Unbekannter Wert (Programmname, Zustand von Tailscale)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unknown"
+          }
+        }
+      }
+    },
+    "verbunden" : {
+      "comment" : "VM: mit dem Computer-Server verbunden",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "connected"
+          }
+        }
+      }
+    },
+    "zeigt auf Port %@, der Server läuft auf %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zeigt auf Port %@, der Server läuft auf %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "points to port %1$@, but the server is running on %2$@"
+          }
+        }
+      }
+    },
+    "· %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· %@"
+          }
+        }
+      }
+    },
+    "· Port %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· Port %@"
+          }
+        }
+      }
+    },
+    "· Version %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· Version %@"
+          }
+        }
+      }
+    },
+    "Ältere AIS-Bot-Installation deaktivieren?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off Older AIS Bot Installation?"
+          }
+        }
+      }
+    },
+    "Öffentlich freigeben (Funnel) …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Publicly (Funnel)…"
+          }
+        }
+      }
+    },
+    "Öffentliche Adresse kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Public Address"
+          }
+        }
+      }
+    },
+    "Öffne in AIS Scoops **Einstellungen → Rechner → Rechner hinzufügen** und gib den angezeigten Code hier ein. Er gilt 10 Minuten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In AIS Scoops, open **Settings → Computers → Add Computer** and enter the code it shows here. It’s valid for 10 minutes."
+          }
+        }
+      }
+    },
+    "Öffnet …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening…"
+          }
+        }
+      }
+    },
+    "Überspringen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip"
+          }
+        }
+      }
+    },
+    "Übersprungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped"
+          }
+        }
+      }
+    },
+    "öffentlich" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "public"
+          }
+        }
+      }
+    },
+    "öffentlich (Tailscale Funnel)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "public (Tailscale Funnel)"
+          }
+        }
+      }
+    },
+    "übersprungen" : {
+      "comment" : "Bedienungshilfen: Zustand eines Schritts",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "skipped"
+          }
+        }
+      }
+    },
+    "„%@“ wird vom Server direkt genutzt und bleibt unangetastet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” is used directly by the server and won’t be changed."
+          }
+        }
+      }
+    },
+    "„Abo, bei Limit API“: Ist das Abo-Limit erreicht, arbeiten die Scoops mit einem kurzen Hinweis über den API-Schlüssel weiter." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Subscription, Then API”: When the subscription limit is reached, Scoops continue with the API key and show a short notice."
+          }
+        }
+      }
+    },
+    "„Für meine Geräte“: Das iPhone braucht ebenfalls Tailscale. „Öffentlich“: geht ohne Tailscale auf dem iPhone; der Server ist dann im Internet erreichbar, aber nur mit Anmeldung nutzbar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Share with My Devices”: Your iPhone needs Tailscale too. “Share Publicly”: No Tailscale needed on your iPhone. The server is then reachable on the internet, but only usable after signing in."
+          }
+        }
+      }
+    },
+    "✓ Deaktiviert. Die Datei heißt jetzt „%@.plist.deaktiviert“; Daten unter ~/.local/share/ais-bot bleiben erhalten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Turned off. The file is now named “%@.plist.deaktiviert”; data in ~/.local/share/ais-bot is kept."
+          }
+        }
+      }
+    },
+    "✓ Erreichbar unter %@. AIS Scoops bekommt die Adresse in wenigen Sekunden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Reachable at %@. AIS Scoops will get the address in a few seconds."
+          }
+        }
+      }
+    },
+    "✓ Gespeichert. Der Server startet kurz neu." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Saved. The server will briefly restart."
+          }
+        }
+      }
+    },
+    "✓ Gespeichert. Der Server startet kurz neu; die öffentliche Adresse %@ bleibt bestehen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Saved. The server will briefly restart; the public address %@ stays the same."
+          }
+        }
+      }
+    },
+    "🎉" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🎉"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -15,7 +15,7 @@ struct OnboardingPurpose: Identifiable, Hashable {
     static func == (a: OnboardingPurpose, b: OnboardingPurpose) -> Bool { a.id == b.id }
     func hash(into h: inout Hasher) { h.combine(id) }
 
-    static let all: [OnboardingPurpose] = [
+    static var all: [OnboardingPurpose] { [
         .init(id: "alltag", title: "Alltag und Erinnerungen", icon: "checklist", label: String(localized: "Alltag"),
               character: String(localized: "freundlich, praktisch, denkt mit und erinnert mich an Dinge"),
               starters: [String(localized: "Was kannst du alles für mich tun?"),
@@ -45,7 +45,7 @@ struct OnboardingPurpose: Identifiable, Hashable {
               starters: [String(localized: "Hallo! Wer bist du?"),
                          String(localized: "Was kannst du alles für mich tun?"),
                          String(localized: "Erzähl mir einen guten Witz")]),
-    ]
+    ] }
 
     static func find(_ id: String?) -> OnboardingPurpose? { all.first { $0.id == id } }
 }

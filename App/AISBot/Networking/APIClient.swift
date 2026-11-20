@@ -26,6 +26,8 @@ final class APIClient: BotService {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 20
         config.waitsForConnectivity = false
+        // Sprache der App (docs/sprache.md): Fehler, Hinweise und Kataloge kommen in derselben Sprache
+        config.httpAdditionalHeaders = ["Accept-Language": AppLanguage.acceptLanguage]
         self.session = URLSession(configuration: config)
     }
 
@@ -91,9 +93,7 @@ final class APIClient: BotService {
             return req
         }
         guard (200..<300).contains(status) else {
-            let message = (try? decoder.decode(APIErrorBody.self, from: data))?.error
-                ?? HTTPURLResponse.localizedString(forStatusCode: status)
-            throw APIError(status: status, message: message)
+            throw APIError(status: status, body: data, decoder: decoder)
         }
         if T.self == OKResponse.self, data.isEmpty { return OKResponse(ok: true) as! T }
         return try decoder.decode(T.self, from: data)
@@ -103,6 +103,16 @@ final class APIClient: BotService {
     private func ok(_ method: String, _ path: String, query: [URLQueryItem] = [],
                     body: (any Encodable)? = nil) async throws -> OKResponse {
         try await request(method, path, query: query, body: body, as: OKResponse.self)
+    }
+
+    /// Für Erweiterungen in eigenen Dateien (z. B. `APIClient+Ruhe.swift`): JSON-Anfrage wie `request`.
+    func call<T: Decodable>(_ method: String, _ path: String, body: (any Encodable)? = nil, as type: T.Type) async throws -> T {
+        try await request(method, path, body: body, as: type)
+    }
+
+    /// Wie `call`, aber mit fertigen Rohdaten als Body (z. B. eine Vorlagen-Datei, unverändert an den Server).
+    func call<T: Decodable>(_ method: String, _ path: String, rawBody: Data, as type: T.Type) async throws -> T {
+        try decoder.decode(T.self, from: try await rawJSON(method, path, body: rawBody))
     }
 
     /// Gast-Verbindung (geteilter Scoop): Rechner, Diktat und Stimmprobe gelten für diesen Scoop (`?bot=`).
@@ -137,6 +147,28 @@ final class APIClient: BotService {
         var q = [URLQueryItem(name: "limit", value: String(limit))]
         if let before { q.insert(URLQueryItem(name: "before", value: before), at: 0) }
         return try await request("GET", "\(chatBase(chatID))/messages", query: q, as: [Message].self)
+    }
+
+    // Suche und Chat-Komfort (App 1.3, `ChatComfortService` in Search/SearchModels.swift)
+
+    func searchMessages(query: String, chatID: String?, limit: Int) async throws -> SearchResponse {
+        var q = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "limit", value: String(limit))]
+        if let chatID { q.append(URLQueryItem(name: "chat", value: chatID)) }
+        return try await request("GET", "/api/search", query: q, as: SearchResponse.self)
+    }
+
+    func messagesAround(chatID: String, messageID: String, before: Int, after: Int) async throws -> MessageWindow {
+        let q = [URLQueryItem(name: "before", value: String(before)), URLQueryItem(name: "after", value: String(after))]
+        return try await request("GET", "/api/chats/\(chatID)/messages/around/\(messageID)", query: q, as: MessageWindow.self)
+    }
+
+    func messagesAfter(chatID: String, messageID: String, limit: Int) async throws -> [Message] {
+        let q = [URLQueryItem(name: "after", value: messageID), URLQueryItem(name: "limit", value: String(limit))]
+        return try await request("GET", "\(chatBase(chatID))/messages", query: q, as: [Message].self)
+    }
+
+    func editMessage(id: String, text: String) async throws -> Message {
+        try await request("PATCH", "/api/messages/\(id)", body: MessageEdit(text: text), as: Message.self)
     }
 
     func send(chatID: String, message: OutgoingMessage) async throws -> Message {
@@ -305,9 +337,7 @@ final class APIClient: BotService {
         let (body, response) = try await session.upload(for: req, from: data, delegate: delegate)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            let message = (try? decoder.decode(APIErrorBody.self, from: body))?.error
-                ?? HTTPURLResponse.localizedString(forStatusCode: status)
-            throw APIError(status: status, message: message)
+            throw APIError(status: status, body: body, decoder: decoder)
         }
         progress(1)
         return try decoder.decode(LibraryFile.self, from: body)
@@ -323,7 +353,7 @@ final class APIClient: BotService {
         let target = url("/api/files/\(file.id)")
         let (data, status) = try await send { _ in URLRequest(url: target) }
         guard status == 200 else {
-            throw APIError(status: status, message: "Datei konnte nicht geladen werden.")
+            throw APIError(status: status, message: String(localized: "Datei konnte nicht geladen werden."))
         }
         return try FileCache.store(data, name: file.name, id: file.id)
     }
@@ -341,9 +371,7 @@ final class APIClient: BotService {
             return req
         }
         guard (200..<300).contains(status) else {
-            let message = (try? decoder.decode(APIErrorBody.self, from: body))?.error
-                ?? HTTPURLResponse.localizedString(forStatusCode: status)
-            throw APIError(status: status, message: message)
+            throw APIError(status: status, body: body, decoder: decoder)
         }
         return try decoder.decode(Bot.self, from: body)
     }
@@ -355,7 +383,7 @@ final class APIClient: BotService {
     func avatarData(botID: String, version: Int) async throws -> Data {
         let target = url("/api/bots/\(botID)/avatar", query: [URLQueryItem(name: "v", value: String(version))])
         let (data, status) = try await send { _ in URLRequest(url: target) }
-        guard status == 200 else { throw APIError(status: status, message: "Bild konnte nicht geladen werden.") }
+        guard status == 200 else { throw APIError(status: status, message: String(localized: "Bild konnte nicht geladen werden.")) }
         return data
     }
 
@@ -440,7 +468,7 @@ final class APIClient: BotService {
     func connectionLogo(app: String) async throws -> Data {
         let target = url("/api/connections/logo/\(app)")
         let (data, status) = try await send { _ in URLRequest(url: target) }
-        guard status == 200 else { throw APIError(status: status, message: "Kein Logo.") }
+        guard status == 200 else { throw APIError(status: status, message: String(localized: "Kein Logo.")) }
         return data
     }
 
@@ -537,9 +565,7 @@ final class APIClient: BotService {
         let (body, response) = try await session.upload(for: req, from: audio)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            let message = (try? decoder.decode(APIErrorBody.self, from: body))?.error
-                ?? HTTPURLResponse.localizedString(forStatusCode: status)
-            throw APIError(status: status, message: message)
+            throw APIError(status: status, body: body, decoder: decoder)
         }
         struct Result: Decodable { var text: String }
         return try decoder.decode(Result.self, from: body).text
@@ -559,9 +585,11 @@ final class APIClient: BotService {
         let bearer = try await auth.valid()
         var comps = URLComponents(url: baseURL.appending(path: "/api/voice/live"), resolvingAgainstBaseURL: false)!
         comps.scheme = (baseURL.scheme == "https") ? "wss" : "ws"
-        comps.queryItems = [URLQueryItem(name: "chat", value: chatID)]
+        // Sprache (docs/sprache.md): Ohne gespeicherte Sprache nimmt der Server `lang` bzw. `Accept-Language`
+        comps.queryItems = [URLQueryItem(name: "chat", value: chatID), URLQueryItem(name: "lang", value: AppLanguage.code)]
         var req = URLRequest(url: comps.url!)
         req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
         req.timeoutInterval = 20
         return req
     }
@@ -576,9 +604,7 @@ final class APIClient: BotService {
         let (body, response) = try await session.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            let message = (try? decoder.decode(APIErrorBody.self, from: body))?.error
-                ?? HTTPURLResponse.localizedString(forStatusCode: status)
-            throw APIError(status: status, message: message)
+            throw APIError(status: status, body: body, decoder: decoder)
         }
         return body
     }
@@ -626,9 +652,7 @@ final class APIClient: BotService {
             return req
         }
         guard (200..<300).contains(status) else {
-            let message = (try? decoder.decode(APIErrorBody.self, from: data))?.error
-                ?? HTTPURLResponse.localizedString(forStatusCode: status)
-            throw APIError(status: status, message: message)
+            throw APIError(status: status, body: data, decoder: decoder)
         }
         return data
     }
@@ -677,9 +701,7 @@ final class APIClient: BotService {
             return req
         }
         guard (200..<300).contains(status) else {
-            let message = (try? decoder.decode(APIErrorBody.self, from: data))?.error
-                ?? HTTPURLResponse.localizedString(forStatusCode: status)
-            throw APIError(status: status, message: message)
+            throw APIError(status: status, body: data, decoder: decoder)
         }
         return try ScoopsLiveStatus.decode(data)
     }
@@ -725,6 +747,7 @@ final class APIClient: BotService {
         c.timeoutIntervalForResource = 8
         c.httpMaximumConnectionsPerHost = 1
         c.waitsForConnectivity = false
+        c.httpAdditionalHeaders = ["Accept-Language": AppLanguage.acceptLanguage]
         return URLSession(configuration: c)
     }()
 }
@@ -751,6 +774,15 @@ nonisolated enum FileCache {
         let url = dir.appending(path: safe.isEmpty ? "Datei" : safe)
         try data.write(to: url, options: .atomic)
         return url
+    }
+}
+
+// MARK: - Seite „Heute“
+
+extension APIClient: TodayService {
+    func todayOverview(since: Date?) async throws -> TodayOverview {
+        let query = since.map { [URLQueryItem(name: "since", value: ISO8601DateFormatter().string(from: $0))] } ?? []
+        return try await request("GET", "/api/today", query: query, as: TodayOverview.self)
     }
 }
 

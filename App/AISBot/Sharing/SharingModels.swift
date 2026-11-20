@@ -201,7 +201,7 @@ nonisolated struct InviteInfo: Decodable, Sendable, Equatable {
         botName = (try? c.decodeIfPresent(String.self, forKey: .botName)) ?? "Scoop"
         botMascot = SharedMascot.decode(c, .botMascot)
         botLabel = try? c.decodeIfPresent(String.self, forKey: .botLabel)
-        ownerName = (try? c.decodeIfPresent(String.self, forKey: .ownerName)) ?? "Jemand"
+        ownerName = (try? c.decodeIfPresent(String.self, forKey: .ownerName)) ?? String(localized: "Jemand")
         role = (try? c.decodeIfPresent(ShareRole.self, forKey: .role)) ?? .write
         computer = (try? c.decodeIfPresent(ComputerAccess.self, forKey: .computer)) ?? .noAccess
         expiresAt = SharingDate.decode(c, .expiresAt)
@@ -220,11 +220,11 @@ nonisolated struct InviteInfo: Decodable, Sendable, Equatable {
     var problem: String? {
         switch status {
         case "ok", "valid", "pending": nil
-        case "expired": "Diese Einladung ist abgelaufen. Bitte frag nach einem neuen Link."
-        case "used", "accepted": "Diese Einladung wurde schon angenommen. Jeder Link gilt nur einmal."
-        case "revoked": "Diese Einladung wurde zurückgezogen."
-        case "own", "self", "owner", "own_scoop": "Das ist dein eigener Scoop."
-        default: "Diese Einladung ist ungültig."
+        case "expired": String(localized: "Diese Einladung ist abgelaufen. Bitte frag nach einem neuen Link.")
+        case "used", "accepted": String(localized: "Diese Einladung wurde schon angenommen. Jeder Link gilt nur einmal.")
+        case "revoked": String(localized: "Diese Einladung wurde zurückgezogen.")
+        case "own", "self", "owner", "own_scoop": String(localized: "Das ist dein eigener Scoop.")
+        default: String(localized: "Diese Einladung ist ungültig.")
         }
     }
 }
@@ -322,7 +322,7 @@ nonisolated struct BotUsage: Decodable, Equatable, Sendable {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             userId = try? c.decodeIfPresent(String.self, forKey: .userId)
             isOwner = (try? c.decodeIfPresent(Bool.self, forKey: .isOwner)) ?? (userId == nil)
-            name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? (isOwner ? "Admin" : "Gast")
+            name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? (isOwner ? "Admin" : String(localized: "Gast"))
             role = try? c.decodeIfPresent(ShareRole.self, forKey: .role)
             todayUsd = (try? c.decodeIfPresent(Double.self, forKey: .todayUsd)) ?? 0
             monthUsd = (try? c.decodeIfPresent(Double.self, forKey: .monthUsd)) ?? 0

@@ -94,16 +94,17 @@ struct ProfileView: View {
                 }
                 .padding(.top, 4)
             Text(bot.name)
-                .font(.system(size: 21, weight: .semibold))
+                .appFont(21, weight: .semibold)
                 .foregroundStyle(theme.textPrimary)
             if let label = bot.label, !label.isEmpty {
-                Text(label).font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                Text(label).appFont(13.5).foregroundStyle(theme.textSecondary)
             }
             if let guest {
                 // Geteilter Scoop: läuft auf dem Server des Admins
+                let owner = guest.ownerName ?? "Admin"
                 HStack(spacing: 6) {
-                    PersonAvatar(name: guest.ownerName ?? "Admin", size: 18)
-                    Text("Läuft bei \(guest.ownerName ?? "Admin")").font(.system(size: 12.5, weight: .medium))
+                    PersonAvatar(name: owner, size: 18)
+                    Text("Läuft bei \(owner)").appFont(12.5, weight: .medium)
                 }
                 .foregroundStyle(theme.textSecondary)
                 .padding(.horizontal, 10).padding(.vertical, 4)
@@ -112,14 +113,14 @@ struct ProfileView: View {
             }
             // Anbieter-Kennzeichen + Modell (Gäste sehen das Modell nicht)
             let model = bot.model ?? BotModel.haiku.rawValue
-            if guest == nil || bot.model != nil { HStack(spacing: 5) {
+            if guest == nil || bot.model != nil { AdaptiveButtonRow(spacing: 5, alignment: .center) {
                 if let mark = BotModel.providerMark(for: model) {
                     Text(mark)
-                        .font(.system(size: 10.5, weight: .bold))
+                        .appFont(10.5, weight: .bold)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(theme.selection, in: Capsule())
                 }
-                Text(BotModel.displayName(for: model)).font(.system(size: 12))
+                Text(BotModel.displayName(for: model)).appFont(12)
             }
             .foregroundStyle(theme.textSecondary)
             .padding(.top, 2) }
@@ -147,6 +148,7 @@ struct ProfileView: View {
                     ProfileNavRow(page: .sharing, value: ShareSection.summary(store: store, bot: bot))
                 }
             }
+            MuteProfileSection(chatID: bot.id)
             GroupedSection(dividerInset: 50) {
                 ProfileNavRow(page: .manage, value: CostSection.summary(store: store, bot: bot))
             }
@@ -160,26 +162,26 @@ struct ProfileView: View {
         let access = guest ?? BotAccess(role: .read, computer: .noAccess)
         let share = store.share(for: bot.id)
         GroupedStack {
-            GroupedSection("Geteilt mit dir",
-                           footer: "\(bot.name) läuft auf dem Server von \(access.ownerName ?? "dem Admin") und arbeitet mit den Konten von \(access.ownerName ?? "dem Admin"). Freigaben entscheidet \(access.ownerName ?? "der Admin").",
+            GroupedSection(String(localized: "Geteilt mit dir"), footer: guestFooter(bot, owner: access.ownerName),
                            dividerInset: 50) {
                 HStack(spacing: 12) {
                     PersonAvatar(name: access.ownerName ?? "Admin", size: 28)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(access.ownerName ?? "Admin").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                        Text(access.ownerName ?? "Admin").appFont(15).foregroundStyle(theme.textPrimary)
                         HStack(spacing: 5) {
                             let online = share.map { store.isGuestOnline($0) } ?? false
                             Circle().fill(online ? theme.success : theme.textTertiary).frame(width: 7, height: 7)
                             Text([share?.serverName, online ? "online" : "offline"].compactMap { $0 }.joined(separator: " · "))
-                                .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary).lineLimit(1)
+                                .appFont(12.5).foregroundStyle(theme.textSecondary).adaptiveLineLimit(1)
                         }
                     }
                     Spacer()
                     ShareTag(text: "Admin")
                 }
                 .groupedRow(vertical: 8)
-                GroupedLabelRow(icon: access.role.symbol, title: "Deine Rolle: \(access.role.title)", subtitle: access.role.detail)
-                GroupedLabelRow(icon: access.computer.symbol, title: "Rechner: \(access.computer.title)",
+                GroupedLabelRow(icon: access.role.symbol, title: String(localized: "Deine Rolle: \(access.role.title)"),
+                                subtitle: access.role.detail)
+                GroupedLabelRow(icon: access.computer.symbol, title: String(localized: "Rechner: \(access.computer.title)"),
                                 subtitle: access.computer.detail)
             }
             if access.role.canEdit { upcomingSection(bot) }
@@ -188,10 +190,19 @@ struct ProfileView: View {
                 ProfileNavRow(page: .library, value: ProfileSummary.library(store: store, chatID: bot.id))
                 if access.role.canEdit { ProfileNavRow(page: .personality, value: ProfileSummary.voice(bot)) }
             }
+            MuteProfileSection(chatID: bot.id)
             GroupedSection(dividerInset: 50) {
                 ProfileNavRow(page: .manage, value: CostSection.summary(store: store, bot: bot))
             }
         }
+    }
+
+    /// Fußtext „Geteilt mit dir“: ganzer Satz mit bzw. ohne Namen des Admins
+    private func guestFooter(_ bot: Bot, owner: String?) -> String {
+        guard let owner else {
+            return String(localized: "\(bot.name) läuft auf dem Server von dem Admin und arbeitet mit den Konten von dem Admin. Freigaben entscheidet der Admin.")
+        }
+        return String(localized: "\(bot.name) läuft auf dem Server von \(owner) und arbeitet mit den Konten von \(owner). Freigaben entscheidet \(owner).")
     }
 
     // MARK: Anstehend, Computer
@@ -209,7 +220,7 @@ struct ProfileView: View {
             GroupedSection("Anstehend", dividerInset: 50) {
                 ForEach(list.prefix(Self.upcomingLimit)) { routine in RoutineRow(routine: routine) }
                 if list.count > Self.upcomingLimit {
-                    ProfileNavRow(page: .routines, value: "\(list.count)", title: "Alle Routinen")
+                    ProfileNavRow(page: .routines, value: "\(list.count)", title: String(localized: "Alle Routinen"))
                 }
             }
         }
@@ -230,9 +241,9 @@ struct ProfileView: View {
 
     private func computerSection(_ bot: Bot) -> some View {
         let footer: String? = guest.map { $0.computer.canControl
-            ? "Du kannst zusehen und Maus und Tastatur übernehmen."
-            : "Du kannst zusehen, aber nicht steuern." } ?? computerFooter(bot)
-        return GroupedSection("Computer", footer: footer) {
+            ? String(localized: "Du kannst zusehen und Maus und Tastatur übernehmen.")
+            : String(localized: "Du kannst zusehen, aber nicht steuern.") } ?? computerFooter(bot)
+        return GroupedSection(String(localized: "Computer", comment: "Abschnitt im Profil: Rechner des Scoops"), footer: footer) {
             if guest == nil, store.nodes.count > 1 { ComputerNodePicker(bot: bot) }
             computerRow(bot)
         }
@@ -244,9 +255,11 @@ struct ProfileView: View {
     private func computerFooter(_ bot: Bot) -> String? {
         guard store.nodes.count > 1 else { return nil }
         if let n = store.node(bot.computerNode), !n.isAvailable {
-            return "„\(n.name)“ ist gerade \(n.statusText.lowercased()). \(bot.name) sagt Bescheid, wenn er den Rechner braucht."
+            let status = n.statusText.lowercased()
+            return String(localized: "„\(n.name)“ ist gerade \(status). \(bot.name) sagt Bescheid, wenn er den Rechner braucht.",
+                          comment: "status z. B. „offline“ oder „pausiert“")
         }
-        return "An diesem Rechner arbeitet \(bot.name) mit Bildschirm und Terminal."
+        return String(localized: "An diesem Rechner arbeitet \(bot.name) mit Bildschirm und Terminal.")
     }
 
     private func computerRow(_ bot: Bot) -> some View {
@@ -255,7 +268,7 @@ struct ProfileView: View {
             : (store.node(bot.computerNode)?.computerState ?? store.computer)
         var stateText = c.displayText
         if c.state == "busy", let other = c.botId, other != bot.id, let name = store.bot(other)?.name {
-            stateText = "Arbeitet für \(name)"
+            stateText = String(localized: "Arbeitet für \(name)")
         }
         return Button {
             if store.computerNodeID != bot.computerNode { store.computerNodeID = bot.computerNode }
@@ -263,11 +276,11 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(store.nodeName(bot.computerNode)).font(.system(size: 15)).foregroundStyle(theme.textPrimary)
-                        .lineLimit(1)
+                    Text(store.nodeName(bot.computerNode)).appFont(15).foregroundStyle(theme.textPrimary)
+                        .adaptiveLineLimit(1)
                     HStack(spacing: 5) {
                         Circle().fill(stateColor(c.state)).frame(width: 7, height: 7)
-                        Text(stateText).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                        Text(stateText).appFont(12.5).foregroundStyle(theme.textSecondary)
                     }
                 }
                 Spacer()
@@ -323,10 +336,13 @@ struct StandingApprovalRow: View {
 
     var body: some View {
         GroupedLabelRow(icon: item.symbol, title: item.label,
-                        subtitle: item.createdAt.map { "Seit \($0.formatted(date: .abbreviated, time: .omitted))" }) {
+                        subtitle: item.createdAt.map { date in
+                            let day = date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(.app))
+                            return String(localized: "Seit \(day)", comment: "Dauerhafte Freigabe besteht seit einem Datum")
+                        }) {
             Button { remove() } label: {
                 Image(systemName: "minus.circle.fill")
-                    .font(.system(size: 17))
+                    .appFont(17)
                     .foregroundStyle(theme.danger)
             }
             .buttonStyle(.plain)
@@ -354,6 +370,7 @@ struct RoutineRow: View {
     /// Modell des Scoops (Standard für Routinen ohne eigenes Modell)
     private var scoopModel: String { store.bot(routine.botId)?.model ?? BotModel.haiku.rawValue }
     /// Eigenes Modell nur zeigen, wenn es vom Scoop abweicht
+    private var scoopModelName: String { BotModel.displayName(for: scoopModel) }
     private var ownModel: String? { routine.model.flatMap { $0 == scoopModel ? nil : $0 } }
     /// Modellwahl nur für eigene Scoops und echte Routinen (Erinnerungen laufen ohne Modell)
     private var canPickModel: Bool { routine.kind != "erinnerung" && store.access(for: routine.botId) == nil }
@@ -364,22 +381,25 @@ struct RoutineRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: routine.kind == "erinnerung" ? "bell" : "clock")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(theme.textSecondary)
-                .frame(width: 22)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(routine.title)
-                    .font(.system(size: 15))
-                    .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
-                Text(subtitle)
-                    .font(.system(size: 12))
+        // Große Schrift: Schalter unter dem Titel, damit der Titel die ganze Breite hat
+        AdaptiveRow(spacing: 12, minSpacer: 4, trailingIndent: 34) {
+            HStack(spacing: 12) {
+                Image(systemName: routine.kind == "erinnerung" ? "bell" : "clock")
+                    .appFont(15, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
-                    .lineLimit(1)
+                    .scaledFrame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(routine.title)
+                        .appFont(15)
+                        .foregroundStyle(theme.textPrimary)
+                        .adaptiveLineLimit(1)
+                    Text(subtitle)
+                        .appFont(12)
+                        .foregroundStyle(theme.textSecondary)
+                        .adaptiveLineLimit(1)
+                }
             }
-            Spacer(minLength: 4)
+        } trailing: {
             Toggle("", isOn: Binding(get: { routine.enabled },
                                      set: { v in Task { await store.setRoutine(routine, enabled: v) } }))
                 .labelsHidden()
@@ -403,7 +423,7 @@ struct RoutineRow: View {
     /// v1.20: Modell pro Routine („Wie Scoop“ = Modell des Scoops)
     private var modelMenu: some View {
         Menu {
-            modelButton(nil, "Wie Scoop (\(BotModel.displayName(for: scoopModel)))")
+            modelButton(nil, String(localized: "Wie Scoop (\(scoopModelName))"))
             ForEach(ModelProvider.allCases) { provider in
                 Section(provider.title) {
                     ForEach(BotModel.choices(of: provider)) { m in modelButton(m.id, m.label) }
@@ -453,14 +473,14 @@ struct ModelPickerSections: View {
     /// Hinweis unter dem Namen; Modelle ohne Schlüssel bzw. Abo auf dem Server sind gekennzeichnet
     private func subtitle(_ model: CatalogModel) -> String? {
         guard model.available == false else { return model.hint }
-        return [model.hint, "auf deinem Server nicht eingerichtet"].compactMap { $0 }.joined(separator: " · ")
+        return [model.hint, String(localized: "auf deinem Server nicht eingerichtet")].compactMap { $0 }.joined(separator: " · ")
     }
 
     /// Die Verstärkung (wer an wen abgibt) erklärt `ModelEscalationSection` darunter.
     private func footer(_ provider: ModelProvider) -> String? {
         provider == .anthropic
             ? nil
-            : "OpenAI-Scoops können alles wie die anderen; den Bot-Rechner bedient für sie eine Claude-Teilaufgabe."
+            : String(localized: "OpenAI-Scoops können alles wie die anderen; den Bot-Rechner bedient für sie eine Claude-Teilaufgabe.")
     }
 
     private func row(_ id: String, _ title: String, _ hint: String?) -> some View {
@@ -471,7 +491,7 @@ struct ModelPickerSections: View {
         } label: {
             GroupedLabelRow(title: title, subtitle: hint) {
                 if selected {
-                    Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(theme.accent)
+                    Image(systemName: "checkmark").appFont(14, weight: .semibold).foregroundStyle(theme.accent)
                 }
             }
         }
@@ -496,7 +516,7 @@ struct CharacterEditor: View {
             GroupedSection("Charakter", footer: changed ? nil : "Tonfall und Eigenheiten. Beispiel: „locker, präzise, duzt“.") {
                 TextField("Wie soll \(bot.name) sein?", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 15))
+                    .appFont(15)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(3...10)
                     .groupedRow(vertical: 12)
@@ -539,9 +559,9 @@ struct MemoryList: View {
         let diary = all.filter { $0.botId != nil && $0.kind == "tagebuch" }
             .sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
         let profile = all.filter { $0.botId != nil && $0.kind != "tagebuch" }
-        return [("Profil", "person.text.rectangle", profile),
-                ("Geteilte Fakten", "person.2", shared),
-                ("Tagebuch", "book.closed", diary)].filter { !$0.2.isEmpty }
+        return [(String(localized: "Profil"), "person.text.rectangle", profile),
+                (String(localized: "Geteilte Fakten"), "person.2", shared),
+                (String(localized: "Tagebuch"), "book.closed", diary)].filter { !$0.2.isEmpty }
     }
 
     var body: some View {
@@ -554,7 +574,7 @@ struct MemoryList: View {
             ForEach(Array(groups.enumerated()), id: \.element.0) { idx, group in
                 GroupedSection(group.0,
                                footer: idx == groups.count - 1
-                                   ? "Halte einen Eintrag gedrückt, um ihn zu löschen. Geteilte Fakten gelten für alle Scoops." : nil) {
+                                   ? String(localized: "Halte einen Eintrag gedrückt, um ihn zu löschen. Geteilte Fakten gelten für alle Scoops.") : nil) {
                     ForEach(group.2) { memory in memoryRow(memory) }
                 }
             }
@@ -575,13 +595,13 @@ struct MemoryList: View {
         let expanded = expandedIDs.contains(memory.id)
         return HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(memory.text)
-                .font(.system(size: 14.5))
+                .appFont(14.5)
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(expanded ? nil : 4)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 6)
             if memory.kind == "tagebuch", let d = memory.createdAt {
-                Text(Formatting.shortDate(d)).font(.system(size: 11.5)).foregroundStyle(theme.textTertiary)
+                Text(Formatting.shortDate(d)).appFont(11.5).foregroundStyle(theme.textTertiary)
             }
         }
         .groupedRow(vertical: 11)

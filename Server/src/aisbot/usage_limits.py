@@ -15,20 +15,26 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
 
 from . import abos
+from .i18n import N_, translate, tx, txn
 
-SCOPE_NOTE = "Gesamtes Abo, alle Apps und Geräte"
+SCOPE_NOTE = N_("Gesamtes Abo, alle Apps und Geräte")
 MIN_REFRESH = 60.0  # höchstens jede Minute live abfragen
 STALE_AFTER = 5 * 60.0  # ohne ausdrückliches Aktualisieren: älter als 5 Minuten → neu abfragen
 WINDOW_MIN = {"five_hour": 300, "seven_day": 10080, "seven_day_opus": 10080, "seven_day_sonnet": 10080,
               "seven_day_oauth_apps": 10080, "seven_day_overage_included": 10080}
-WINDOW_LABEL = {"five_hour": "5-Stunden-Fenster", "seven_day": "Wöchentlich", "seven_day_opus": "Wöchentlich · Opus",
-                "seven_day_sonnet": "Wöchentlich · Sonnet", "seven_day_oauth_apps": "Wöchentlich · Drittanbieter-Apps",
-                "seven_day_overage_included": "Wöchentlich · inkl. Zusatznutzung"}
+# Beschriftungen entstehen deutsch (auch in gespeicherten Ständen); `localize_label` übersetzt sie bei der Ausgabe
+WEEKLY = N_("Wöchentlich")
+WINDOW_LABEL = {"five_hour": "5-Stunden-Fenster", "seven_day": WEEKLY, "seven_day_opus": f"{WEEKLY} · Opus",
+                "seven_day_sonnet": f"{WEEKLY} · Sonnet",
+                "seven_day_oauth_apps": f"{WEEKLY} · " + N_("Drittanbieter-Apps"),
+                "seven_day_overage_included": f"{WEEKLY} · " + N_("inkl. Zusatznutzung")}
+_LABEL_PARTS = (N_("Täglich"), N_("Modell"))  # „Limit“ heißt in beiden Sprachen gleich
 PLAN_LABEL = {"max": "Max", "pro": "Pro", "team": "Team", "enterprise": "Enterprise", "plus": "Plus",
               "prolite": "Pro Lite", "free": "Free", "business": "Business", "edu": "Edu"}
 
@@ -72,6 +78,22 @@ def _window_label_minutes(mins: int | None) -> tuple[str, str]:
     if mins and mins % 60 == 0:
         return f"{mins // 60}-Stunden-Fenster", "session"
     return "Limit", "other"
+
+
+def localize_label(label):
+    """Fensterbeschriftung (deutsch erzeugt, ggf. gespeichert) in der aktuellen Sprache, Teil für Teil („ · “)."""
+    if not isinstance(label, str):
+        return label
+    out = []
+    for part in label.split(" · "):
+        if m := re.fullmatch(r"(\d+)-Stunden-Fenster", part):
+            part = tx("{n}-Stunden-Fenster", n=int(m.group(1)))
+        elif m := re.fullmatch(r"(\d+) Tage", part):
+            part = txn("{n} Tag", "{n} Tage", int(m.group(1)))
+        elif part != "Limit":
+            part = translate(part)
+        out.append(part)
+    return " · ".join(out)
 
 
 def plan_label(plan) -> str | None:
@@ -320,12 +342,13 @@ class Limits:
                 state = "unavailable"
             out.append({
                 "id": p, "label": "Claude" if p == "claude" else "OpenAI",
-                "app_label": "Claude-Abo (Claude Code)" if p == "claude" else "ChatGPT-Abo (Codex)",
+                "app_label": tx("Claude-Abo (Claude Code)") if p == "claude" else tx("ChatGPT-Abo (Codex)"),
                 "logged_in": bool(st.get("logged_in")), "subscription": bool(st.get("subscription")),
                 "state": state, "plan": (best or {}).get("plan") or plan_label(st.get("plan")),
                 "source": (best or {}).get("source"), "at": _iso((best or {}).get("at")),
-                "windows": (best or {}).get("windows") or [], "credits": (best or {}).get("credits"),
+                "windows": [{**w, "label": localize_label(w.get("label"))} for w in (best or {}).get("windows") or []],
+                "credits": (best or {}).get("credits"),
                 "extra_usage": (best or {}).get("extra_usage"), "extra": (best or {}).get("extra"),
                 "error": err if st.get("subscription") else None,  # letzter Abfragefehler (Stand bleibt sichtbar)
             })
-        return {"providers": out, "scope_note": SCOPE_NOTE, "generated_at": _iso(time.time())}
+        return {"providers": out, "scope_note": translate(SCOPE_NOTE), "generated_at": _iso(time.time())}

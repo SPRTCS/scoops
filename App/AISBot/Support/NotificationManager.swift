@@ -23,11 +23,18 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         guard !isAppInForeground(store: store) else { return }
         // Der Server schickt bereits einen Push – keine doppelte Mitteilung.
         guard !PushManager.shared.isRegisteredWithServer else { return }
+        // Stumme Chats melden sich nicht (docs/ruhe.md); der Server hält es mit seinen Pushes genauso
+        guard !store.isMuted(message.botId) else { return }
         let bot = store.bot(message.botId)
         let content = UNMutableNotificationContent()
         content.title = bot?.name ?? "AIS Scoops"
         content.body = String(MarkdownText.plain(message.text).prefix(240))
-        content.sound = .default
+        // In der Ruhezeit still: ohne Ton und Banner, nur in der Mitteilungszentrale
+        if store.ruhe.quietHours?.contains(Date()) == true {
+            content.interruptionLevel = .passive
+        } else {
+            content.sound = .default
+        }
         content.threadIdentifier = message.botId
         content.userInfo = ["bot_id": message.botId]
         let request = UNNotificationRequest(identifier: message.id, content: content, trigger: nil)
@@ -51,13 +58,15 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping @Sendable (UNNotificationPresentationOptions) -> Void) {
         let botID = notification.request.content.userInfo["bot_id"] as? String
+        // Stille Mitteilung (Ruhezeit, `interruption-level: passive`): auch bei geöffneter App ohne Banner und Ton
+        let passive = notification.request.content.interruptionLevel == .passive
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
                 var visible = false
                 if let store = NotificationManager.shared.store, let botID {
                     visible = store.visibleChatID == botID && store.isAppActive
                 }
-                completionHandler(visible ? [] : [.banner, .list, .sound])
+                completionHandler(visible ? [] : (passive ? [.list] : [.banner, .list, .sound]))
             }
         }
     }
@@ -91,7 +100,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// Verbindungsdaten. Schlägt es fehl, kommt eine kurze lokale Mitteilung.
     private func decide(approvalID: String, decision: String) async {
         guard let service = store?.appleDeviceService() else {
-            notifyDecisionFailed("Keine Verbindung zum Server.")
+            notifyDecisionFailed(String(localized: "Keine Verbindung zum Server."))
             return
         }
         do {
@@ -108,8 +117,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     private func notifyDecisionFailed(_ reason: String) {
         let content = UNMutableNotificationContent()
-        content.title = "Freigabe nicht übermittelt"
-        content.body = "\(reason) Öffne AIS Scoops, um es nochmal zu versuchen."
+        content.title = String(localized: "Freigabe nicht übermittelt")
+        content.body = String(localized: "\(reason) Öffne AIS Scoops, um es nochmal zu versuchen.")
         content.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "approval-failed-\(UUID().uuidString)",
                                                                      content: content, trigger: nil))

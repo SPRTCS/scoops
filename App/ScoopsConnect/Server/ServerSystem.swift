@@ -48,7 +48,7 @@ nonisolated enum Tailscale {
             guard let start = text.firstIndex(of: "{"), let end = text.lastIndex(of: "}"),
                   let json = JSONValue.decode(String(text[start...end])) else {
                 let msg = (r.stderr + "\n" + r.stdout).trimmingCharacters(in: .whitespacesAndNewlines)
-                lastDiag = msg.isEmpty ? "Keine Antwort von \(cli) (Status \(r.status))." : String(msg.prefix(300))
+                lastDiag = msg.isEmpty ? String(localized: "Keine Antwort von \(cli) (Status \(String(r.status))).") : String(msg.prefix(300))
                 continue
             }
             let state = json["BackendState"]?.string ?? ""
@@ -56,7 +56,8 @@ nonisolated enum Tailscale {
             while dns?.hasSuffix(".") == true { dns?.removeLast() }
             let online = json["Self"]?["Online"]?.bool ?? false
             let running = state == "Running" || online
-            let diag = running ? nil : "Tailscale meldet den Zustand „\(state.isEmpty ? "unbekannt" : state)“."
+            let shown = state.isEmpty ? String(localized: "unbekannt", comment: "Unbekannter Wert (Programmname, Zustand von Tailscale)") : state
+            let diag = running ? nil : String(localized: "Tailscale meldet den Zustand „\(shown)“.")
             return Info(cli: cli, running: running, dnsName: dns?.isEmpty == false ? dns : nil, diagnostic: diag)
         }
         return Info(cli: clis[0], running: false, diagnostic: lastDiag)
@@ -69,7 +70,7 @@ nonisolated enum Tailscale {
     /// AKTUELLEN Port `localPort`. `httpsPort` = Port der https-Adresse (Standard: Funnel 10000, sonst = localPort).
     /// Rückgabe: die neue Adresse oder eine verständliche Fehlermeldung (mit Link, falls Tailscale einen liefert).
     static func share(info: Info, localPort: Int, publicly: Bool, httpsPort: Int? = nil) async -> Result<String, ShareError> {
-        guard let dns = info.dnsName else { return .failure(ShareError(message: "Tailscale ist nicht angemeldet.")) }
+        guard let dns = info.dnsName else { return .failure(ShareError(message: String(localized: "Tailscale ist nicht angemeldet."))) }
         let https = httpsPort ?? (publicly ? funnelPort : localPort)
         let r = await run(info.cli, [publicly ? "funnel" : "serve", "--bg", "--https=\(https)",
                                      "http://127.0.0.1:\(localPort)"], timeout: 25)
@@ -78,7 +79,10 @@ nonisolated enum Tailscale {
         // Prüfen, ob die Freigabe wirklich aktiv ist und auf den richtigen Port zeigt.
         let entries = await status(info: info)
         if !entries.isEmpty, !entries.contains(where: { $0.httpsPort == https && $0.targetPort == localPort && (!publicly || $0.funnel) }) {
-            return .failure(ShareError(message: "Tailscale hat die Freigabe nicht übernommen (\(publicly ? "Funnel" : "Serve") auf Port \(https) → \(localPort) fehlt). " + String(out.prefix(300))))
+            let detail = String(out.prefix(300))
+            return .failure(ShareError(message: publicly
+                ? String(localized: "Tailscale hat die Freigabe nicht übernommen (Funnel auf Port \(String(https)) → \(String(localPort)) fehlt). \(detail)")
+                : String(localized: "Tailscale hat die Freigabe nicht übernommen (Serve auf Port \(String(https)) → \(String(localPort)) fehlt). \(detail)")))
         }
         return .success("https://\(dns):\(https)")
     }
@@ -89,18 +93,18 @@ nonisolated enum Tailscale {
             .flatMap { URL(string: String(out[$0])) }
         let lower = out.lowercased()
         if lower.contains("funnel is not enabled") || lower.contains("/f/funnel") || (publicly && lower.contains("funnel") && link != nil) {
-            return ShareError(message: "Funnel ist in deinem Tailnet noch nicht erlaubt. Öffne den Link, erlaube Funnel für diesen Mac und klicke danach erneut auf „Öffentlich freigeben“.", link: link)
+            return ShareError(message: String(localized: "Funnel ist in deinem Tailnet noch nicht erlaubt. Öffne den Link, erlaube Funnel für diesen Mac und klicke danach erneut auf „Öffentlich freigeben“."), link: link)
         }
         if lower.contains("https") && (lower.contains("not enabled") || lower.contains("/f/serve") || lower.contains("certificate")) {
-            return ShareError(message: "HTTPS-Zertifikate sind in deinem Tailnet nicht aktiviert. Öffne den Link (oder Tailscale-Adminkonsole → DNS → HTTPS-Zertifikate aktivieren) und versuche es dann erneut.", link: link)
+            return ShareError(message: String(localized: "HTTPS-Zertifikate sind in deinem Tailnet nicht aktiviert. Öffne den Link (oder Tailscale-Adminkonsole → DNS → HTTPS-Zertifikate aktivieren) und versuche es dann erneut."), link: link)
         }
         if let link {
-            return ShareError(message: "Tailscale braucht eine Bestätigung im Browser. Öffne den Link und versuche es danach erneut.", link: link)
+            return ShareError(message: String(localized: "Tailscale braucht eine Bestätigung im Browser. Öffne den Link und versuche es danach erneut."), link: link)
         }
         if timedOut {
-            return ShareError(message: "Tailscale hat nicht geantwortet (Zeitüberschreitung). Ist Tailscale angemeldet und verbunden?", link: nil)
+            return ShareError(message: String(localized: "Tailscale hat nicht geantwortet (Zeitüberschreitung). Ist Tailscale angemeldet und verbunden?"), link: nil)
         }
-        return ShareError(message: out.isEmpty ? "Tailscale-Fehler \(status)" : String(out.prefix(400)), link: nil)
+        return ShareError(message: out.isEmpty ? String(localized: "Tailscale-Fehler \(String(status))") : String(out.prefix(400)), link: nil)
     }
 
     struct ShareError: Error, Sendable {
@@ -167,7 +171,7 @@ enum OldAISBotAgent {
         do {
             try FileManager.default.moveItem(at: plistURL, to: target)
         } catch {
-            return "Die Datei \(plistURL.path) ließ sich nicht umbenennen: \(error.localizedDescription)"
+            return String(localized: "Die Datei \(plistURL.path) ließ sich nicht umbenennen: \(error.localizedDescription)")
         }
         return nil
     }
@@ -191,8 +195,9 @@ final class KeepAwake {
 
     private func toggle(_ id: inout IOPMAssertionID, on: Bool, type: String) {
         if on, id == 0 {
-            IOPMAssertionCreateWithName(type as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn),
-                                        "AIS Scoops Server: Scoops sollen jederzeit arbeiten können" as CFString, &id)
+            // Grund, den macOS z. B. in `pmset -g assertions` und der Aktivitätsanzeige zeigt
+            let reason = String(localized: "AIS Scoops Server: Scoops sollen jederzeit arbeiten können")
+            IOPMAssertionCreateWithName(type as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), reason as CFString, &id)
         } else if !on, id != 0 {
             IOPMAssertionRelease(id)
             id = 0
@@ -217,9 +222,9 @@ enum AdminSetting {
         var err: NSDictionary?
         NSAppleScript(source: source)?.executeAndReturnError(&err)
         if let err, (err[NSAppleScript.errorNumber] as? Int) != -128 {
-            return err[NSAppleScript.errorMessage] as? String ?? "Unbekannter Fehler"
+            return err[NSAppleScript.errorMessage] as? String ?? String(localized: "Unbekannter Fehler")
         }
-        return err == nil ? nil : "Abgebrochen"
+        return err == nil ? nil : String(localized: "Abgebrochen")
     }
 
     static var sleepDisabled: Bool {

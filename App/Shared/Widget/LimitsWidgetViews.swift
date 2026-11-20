@@ -14,7 +14,10 @@ struct LimitsWidgetView: View {
 
     static let deepLink = URL(string: "aisbot://usage/limits")!
 
-    private var de: Locale { Locale(identifier: "de_DE") }
+    /// „44 %“ (Deutsch mit Leerzeichen) bzw. „44%“
+    static func percent(_ value: Int) -> String {
+        AppLanguage.isGerman ? "\(value) %" : "\(value)%"
+    }
 
     var body: some View {
         content
@@ -60,31 +63,53 @@ struct LimitsWidgetView: View {
     }
 
     private func percentText(_ w: LimitsSnapshot.Window) -> String {
-        w.isStale(at: now) ? "neu" : "\(Int(w.leftPercent.rounded())) % übrig"
+        let left = Int(w.leftPercent.rounded())
+        // Eigener Schlüssel: „neu“ heißt hier „zurückgesetzt“ (anderswo „neu“ = new)
+        return w.isStale(at: now)
+            ? String(localized: "limits.window.reset", defaultValue: "neu", comment: "Limit-Fenster wurde zurückgesetzt, Stand veraltet")
+            : String(localized: "\(left) % übrig")
+    }
+
+    /// Kurzes Datum mit Uhrzeit („12. Nov., 09:05“), Deutsch wie bisher mit zweistelliger Stunde
+    private func dateText(_ date: Date) -> String {
+        if AppLanguage.isGerman {
+            return date.formatted(.dateTime.day().month(.abbreviated).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(.app))
+        }
+        return date.formatted(.dateTime.month(.abbreviated).day().hour().minute(.twoDigits).locale(.app))
+    }
+
+    /// Fensterbezeichnung eines Modells (vom Server, z. B. „Wöchentlich · Fable“) kurz als „Woche · Fable“
+    private func compactModelLabel(_ w: LimitsSnapshot.Window) -> String {
+        guard let dot = w.label.range(of: " · ") else { return w.label }
+        let model = String(w.label[dot.upperBound...])
+        return String(localized: "Woche · \(model)")
     }
 
     private func resetText(_ w: LimitsSnapshot.Window, short: Bool = false) -> String? {
         guard let r = w.resetsAt else { return nil }
-        if r <= now { return "Zurückgesetzt – App öffnen" }
+        if r <= now { return String(localized: "Zurückgesetzt – App öffnen") }
         if short {
             let s = r.timeIntervalSince(now)
             let d = Int(s) / 86400, h = (Int(s) % 86400) / 3600, m = (Int(s) % 3600) / 60
-            if d > 0 { return "Reset in \(d) T \(h) h" }
-            if h > 0 { return "Reset in \(h) h \(m) min" }
-            return "Reset in \(max(1, m)) min"
+            if d > 0 { return String(localized: "Reset in \(d) T \(h) h") }
+            if h > 0 { return String(localized: "Reset in \(h) h \(m) min") }
+            let minutes = max(1, m)
+            return String(localized: "Reset in \(minutes) min")
         }
-        return "Reset am " + r.formatted(.dateTime.day().month(.abbreviated).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(de))
+        let when = dateText(r)
+        return String(localized: "Reset am \(when)")
     }
 
     private func standText(_ s: LimitsSnapshot) -> String {
-        "Stand: " + s.generatedAt.formatted(.dateTime.day().month(.abbreviated).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(de))
+        let when = dateText(s.generatedAt)
+        return String(localized: "Stand: \(when)")
     }
 
     private func paceText(_ w: LimitsSnapshot.Window) -> String? {
         switch w.pace(at: now) {
-        case .some(-1): "unter Tempo"
-        case .some(0): "im Tempo"
-        case .some(1): "über Tempo"
+        case .some(-1): String(localized: "unter Tempo")
+        case .some(0): String(localized: "im Tempo")
+        case .some(1): String(localized: "über Tempo")
         default: nil
         }
     }
@@ -103,7 +128,8 @@ struct LimitsWidgetView: View {
                             if p.state != "ok" {
                                 Text("–").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.textTertiary)
                             } else if let w = s.tightestWeekly(p) {
-                                Text(w.isStale(at: now) ? "neu" : "\(Int(w.leftPercent.rounded())) %")
+                                Text(w.isStale(at: now) ? String(localized: "limits.window.reset", defaultValue: "neu", comment: "Limit-Fenster wurde zurückgesetzt, Stand veraltet")
+                                                        : Self.percent(Int(w.leftPercent.rounded())))
                                     .font(.system(size: 15, weight: .bold)).monospacedDigit()
                                     .foregroundStyle(theme.textPrimary)
                             }
@@ -192,7 +218,7 @@ struct LimitsWidgetView: View {
                 ForEach(windows(p, includeSession: includeSession, max: maxWindows)) { w in
                     VStack(alignment: .leading, spacing: compact ? 3 : 4) {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text(compact && w.kind == "model" ? w.label.replacingOccurrences(of: "Wöchentlich", with: "Woche") : w.label)
+                            Text(compact && w.kind == "model" ? compactModelLabel(w) : w.label)
                                 .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
                                 .lineLimit(1).minimumScaleFactor(0.8)
                             Spacer(minLength: 4)
@@ -226,9 +252,10 @@ struct LimitsWidgetView: View {
     private func creditsText(_ p: LimitsSnapshot.Provider) -> String? {
         var parts: [String] = []
         if let b = p.creditsBalance {
-            parts.append("Credits \(b.formatted(.number.precision(.fractionLength(0)).locale(de)))")
+            let credits = b.formatted(.number.precision(.fractionLength(0)).locale(.app))
+            parts.append(String(localized: "Credits \(credits)"))
         }
-        if let r = p.resetCredits, r > 0 { parts.append(r == 1 ? "1 Reset" : "\(r) Resets") }
+        if let r = p.resetCredits, r > 0 { parts.append(String(localized: "\(r) Resets")) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
@@ -325,9 +352,11 @@ struct LimitsAccessoryRectangularView: View {
                     Gauge(value: r.leftPercent, in: 0...100) { EmptyView() }
                         .gaugeStyle(.accessoryLinearCapacity)
                     HStack(spacing: 4) {
-                        if let s = r.sessionLeft { Text("5 Std. \(Int(s.rounded())) %").monospacedDigit() }
+                        if let s = r.sessionLeft { Text("5 Std. \(LimitsWidgetView.percent(Int(s.rounded())))").monospacedDigit() }
                         Spacer(minLength: 2)
-                        if let reset = r.resetsAt { Text("neu \(reset, format: .dateTime.weekday(.abbreviated).hour())") }
+                        if let reset = r.resetsAt {
+                            Text("neu \(reset.formatted(.dateTime.weekday(.abbreviated).hour().locale(.app)))")
+                        }
                     }
                     .font(.caption2)
                     .lineLimit(1)
@@ -394,7 +423,7 @@ struct LimitsAccessoryInlineView: View {
         if rows.isEmpty {
             Label("Abo-Limits", systemImage: "gauge.with.dots.needle.33percent")
         } else {
-            Text(rows.map { "\($0.name) \(Int($0.leftPercent.rounded())) %" }.joined(separator: " · "))
+            Text(rows.map { "\($0.name) \(LimitsWidgetView.percent(Int($0.leftPercent.rounded())))" }.joined(separator: " · "))
                 .widgetURL(LimitsWidgetView.deepLink)
         }
     }

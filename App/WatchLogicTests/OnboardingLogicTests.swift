@@ -41,6 +41,21 @@ struct OnboardingLogicTests {
         #expect(!OnboardingLogic.isFreshServer(bots: [used], groupCount: 0))
     }
 
+    @Test func frischerServerErkenntBegruessungAmMerkmal() {
+        // Neuere Server: `meta.welcome` an der Begrüßung, Text und Label in der Sprache der App
+        var hi = message(.bot, "Hi! I'm **Pip**, your first Scoop. 🍦")
+        hi.meta.welcome = true
+        #expect(OnboardingLogic.isFreshServer(bots: [bot("b_pip", label: "Starter", last: hi)], groupCount: 0))
+        #expect(OnboardingLogic.isFreshServer(bots: [bot("b_pip", label: "Start", last: hi)], groupCount: 0))
+        #expect(!OnboardingLogic.isFreshServer(bots: [bot("b_pip", label: "Start", last: hi)], groupCount: 1))
+        // Mit Pip schon geschrieben: neue Antwort ohne Merkmal, auch wenn sie zufällig so beginnt
+        let used = bot("b_pip", label: "Start", last: message(.bot, "Hi! I'm **Pip** and here are three recipes …"))
+        #expect(!OnboardingLogic.isFreshServer(bots: [used], groupCount: 0))
+        var notWelcome = message(.bot, "Hallo! Ich bin **Pip**, schön dich zu sehen.")
+        notWelcome.meta.welcome = false
+        #expect(!OnboardingLogic.isFreshServer(bots: [bot("b_pip", label: "Start", last: notWelcome)], groupCount: 0))
+    }
+
     @Test func nachDemVerbinden() {
         #expect(OnboardingLogic.stepAfterConnecting(current: .server, freshServer: true, replay: false) == .scoop)
         #expect(OnboardingLogic.stepAfterConnecting(current: .welcome, freshServer: true, replay: false) == .scoop)

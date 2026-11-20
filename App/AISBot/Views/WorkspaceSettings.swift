@@ -51,11 +51,11 @@ nonisolated struct WorkspaceDir: Decodable, Hashable, Sendable, Identifiable {
 
 extension BotService {
     func workspace() async throws -> WorkspaceStatus {
-        throw APIError(status: 404, message: "Der Server kennt den Arbeitsordner noch nicht (ab Server 1.27).")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt den Arbeitsordner noch nicht (ab Server 1.27)."))
     }
     func setWorkspace(path: String) async throws -> WorkspaceStatus { try await workspace() }
     func browseWorkspace(path: String) async throws -> WorkspaceListing {
-        throw APIError(status: 404, message: "Der Server kennt den Arbeitsordner noch nicht (ab Server 1.27).")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt den Arbeitsordner noch nicht (ab Server 1.27)."))
     }
     func createWorkspaceFolder(parent: String, name: String) async throws -> WorkspaceListing {
         try await browseWorkspace(path: parent)
@@ -83,7 +83,7 @@ extension MockService {
 
     func setWorkspace(path: String) async throws -> WorkspaceStatus {
         guard path.hasPrefix("~") || path.hasPrefix("/") else {
-            throw APIError(status: 400, message: "Bitte einen absoluten Pfad angeben (beginnt mit / oder ~/).")
+            throw APIError(status: 400, message: String(localized: "Bitte einen absoluten Pfad angeben (beginnt mit / oder ~/)."))
         }
         Self.mockWorkspace = path
         return try await workspace()
@@ -126,15 +126,16 @@ struct WorkspaceSettingsSection: View {
                     GroupedLabelRow(icon: "folder", iconColor: theme.textSecondary, title: "Wird geladen …")
                 }
             } else if let status {
-                GroupedSection("Arbeitsordner", footer: footer(status)) {
+                GroupedSection(String(localized: "Arbeitsordner"), footer: footer(status)) {
                     Button { showPicker = true } label: {
                         GroupedLabelRow(icon: "folder", iconColor: theme.accent, title: status.path,
-                                        subtitle: "Auf dem Server-Mac, je Scoop ein Unterordner") { DisclosureChevron() }
+                                        subtitle: String(localized: "Auf dem Server-Mac, je Scoop ein Unterordner")) { DisclosureChevron() }
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Ordner ändern")
                     if let e = status.error, !e.isEmpty {
-                        GroupedLabelRow(icon: "exclamationmark.triangle", iconColor: theme.warning, title: "Ordner nicht erreichbar",
+                        GroupedLabelRow(icon: "exclamationmark.triangle", iconColor: theme.warning,
+                                        title: String(localized: "Ordner nicht erreichbar"),
                                         subtitle: e)
                     }
                     if let fda = status.fullDiskAccess, fda.granted == false {
@@ -151,11 +152,13 @@ struct WorkspaceSettingsSection: View {
     }
 
     private func footer(_ s: WorkspaceStatus) -> String {
-        var text = "Dateien, die deine Scoops speichern, und Ergebnisse ihrer Aufgaben landen dort zusätzlich zur Bibliothek "
-            + "(Unterordner „Dateien“ und „Aufgaben“)."
-        if s.icloud == true { text += " Liegt in Schreibtisch oder Dokumente: Mit iCloud siehst du die Dateien auch unterwegs." }
+        var text = String(localized: "Dateien, die deine Scoops speichern, und Ergebnisse ihrer Aufgaben landen dort zusätzlich zur Bibliothek (Unterordner „Dateien“ und „Aufgaben“).")
+        if s.icloud == true {
+            text += " " + String(localized: "Liegt in Schreibtisch oder Dokumente: Mit iCloud siehst du die Dateien auch unterwegs.")
+        }
         for prev in s.previous ?? [] {
-            text += " Frühere Dateien liegen weiter in \(prev.path) (\(prev.folders.joined(separator: ", "))); verschoben wurde nichts."
+            let names = prev.folders.joined(separator: ", ")
+            text += " " + String(localized: "Frühere Dateien liegen weiter in \(prev.path) (\(names)); verschoben wurde nichts.")
         }
         return text
     }
@@ -170,8 +173,8 @@ struct WorkspaceSettingsSection: View {
 /// Arbeitsordner (speichert ihn) oder – mit `onChoose` – einfach einen Ordner (z. B. Projektordner, v1.29).
 struct WorkspacePickerSheet: View {
     var current: WorkspaceStatus?
-    var title = "Arbeitsordner wählen"
-    var chooseTitle = "Diesen Ordner verwenden"
+    var title = String(localized: "Arbeitsordner wählen")
+    var chooseTitle = String(localized: "Diesen Ordner verwenden")
     var startPath: String?
     var onSaved: ((WorkspaceStatus) -> Void)?
     var onChoose: ((String) -> Void)?
@@ -204,12 +207,13 @@ struct WorkspacePickerSheet: View {
                 GroupedStack {
                     GroupedSection("Ausgewählt", footer: "Ordner auf dem Server-Mac. Tippe auf einen Unterordner, um ihn zu öffnen.") {
                         GroupedLabelRow(icon: "folder.fill", iconColor: theme.accent, title: listing?.path ?? "…",
-                                        subtitle: current.map { "Bisher: \($0.path)" })
+                                        subtitle: current.map { c in String(localized: "Bisher: \(c.path)") })
                     }
-                    GroupedSection("Ordner", footer: listing?.truncated == true ? "Es werden nur die ersten 500 Ordner gezeigt." : nil) {
+                    GroupedSection(String(localized: "Ordner"),
+                                   footer: listing?.truncated == true ? String(localized: "Es werden nur die ersten 500 Ordner gezeigt.") : nil) {
                         if let parent = listing?.parent {
                             Button { Task { await open(parent) } } label: {
-                                GroupedLabelRow(icon: "arrow.turn.left.up", title: "Zurück", subtitle: parent)
+                                GroupedLabelRow(icon: "arrow.turn.left.up", title: String(localized: "Zurück"), subtitle: parent)
                             }
                             .buttonStyle(.plain)
                         }
@@ -220,7 +224,7 @@ struct WorkspacePickerSheet: View {
                             .buttonStyle(.plain)
                         }
                         if let listing, listing.dirs.isEmpty {
-                            Text("Keine Unterordner").font(.system(size: 15)).foregroundStyle(theme.textSecondary).groupedRow()
+                            Text("Keine Unterordner").appFont(15).foregroundStyle(theme.textSecondary).groupedRow()
                         }
                         Button { newName = ""; showNewFolder = true } label: {
                             GroupedLabelRow(icon: "folder.badge.plus", iconColor: theme.accent, title: "Neuer Ordner …",
@@ -230,17 +234,17 @@ struct WorkspacePickerSheet: View {
                         .disabled(listing == nil)
                     }
                     if let error {
-                        Text(error).font(.system(size: 13)).foregroundStyle(theme.danger)
+                        Text(error).appFont(13).foregroundStyle(theme.danger)
                             .fixedSize(horizontal: false, vertical: true).padding(.horizontal, GroupedMetrics.rowInset)
                     }
                     Button { Task { await save() } } label: {
-                        Text(saving ? "Wird gespeichert …" : chooseTitle).frame(maxWidth: .infinity)
+                        Text(saving ? String(localized: "Wird gespeichert …") : chooseTitle).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PillButtonStyle(kind: .primary))
                     .disabled(listing == nil || saving)
                     if onChoose == nil {
                         Text("Bestehende Dateien werden nicht verschoben. Im neuen Ordner bekommt jeder Scoop seinen eigenen Unterordner.")
-                            .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                            .appFont(12.5).foregroundStyle(theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true).padding(.horizontal, GroupedMetrics.rowInset)
                     }
                 }

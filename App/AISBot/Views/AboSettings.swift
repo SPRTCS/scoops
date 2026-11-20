@@ -52,23 +52,23 @@ enum AboMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .api: "API-Schlüssel"
-        case .abo: "Abo"
-        case .aboApi: "Abo, bei Limit API"
+        case .api: String(localized: "API-Schlüssel")
+        case .abo: String(localized: "Abo", comment: "Abrechnungsmodus: nur über das KI-Abo")
+        case .aboApi: String(localized: "Abo, bei Limit API")
         }
     }
     var detail: String {
         switch self {
-        case .api: "Kosten über deinen API-Schlüssel"
-        case .abo: "Nur über das Abo, am Limit mit Hinweis anhalten"
-        case .aboApi: "Über das Abo, am Limit mit Hinweis über den API-Schlüssel"
+        case .api: String(localized: "Kosten über deinen API-Schlüssel")
+        case .abo: String(localized: "Nur über das Abo, am Limit mit Hinweis anhalten")
+        case .aboApi: String(localized: "Über das Abo, am Limit mit Hinweis über den API-Schlüssel")
         }
     }
 }
 
 extension BotService {
     func abos() async throws -> AboStatus {
-        throw APIError(status: 404, message: "Der Server kennt KI-Abos noch nicht (ab Server 1.30).")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt KI-Abos noch nicht (ab Server 1.30)."))
     }
     func setAboMode(provider: String, mode: String) async throws -> AboStatus { try await abos() }
     func startAboLogin(provider: String) async throws { _ = try await abos() }
@@ -83,7 +83,7 @@ extension MockService {
 
     func abos() async throws -> AboStatus {
         guard mockAbosEnabled else {
-            throw APIError(status: 404, message: "Der Server kennt KI-Abos noch nicht (ab Server 1.30).")
+            throw APIError(status: 404, message: String(localized: "Der Server kennt KI-Abos noch nicht (ab Server 1.30)."))
         }
         func provider(_ id: String, _ label: String, _ plan: String) -> AboProviderStatus {
             let mode = Self.mockAboModes[id] ?? "api"
@@ -121,7 +121,7 @@ struct AboSettingsSection: View {
 
     var body: some View {
         if !unavailable {
-            GroupedSection("KI-Abos", footer: footer) {
+            GroupedSection(String(localized: "KI-Abos"), footer: footer) {
                 if let status {
                     if let c = status.claude { providerRows("claude", "Claude", "sparkles", c) }
                     if let o = status.openai { providerRows("openai", "ChatGPT", "bubble.left.and.bubble.right", o) }
@@ -137,9 +137,7 @@ struct AboSettingsSection: View {
     }
 
     private var footer: String {
-        var t = "Mit einem Claude- oder ChatGPT-Abo laufen Chat, Aufgaben und Routinen über Claude Code bzw. Codex auf dem "
-            + "Server-Mac statt über den API-Schlüssel. Angemeldet wird im Programm selbst; die App sieht keine Anmeldedaten. "
-            + "Sprechmodus, Bilder und Diktat nutzen weiter den Schlüssel."
+        var t = String(localized: "Mit einem Claude- oder ChatGPT-Abo laufen Chat, Aufgaben und Routinen über Claude Code bzw. Codex auf dem Server-Mac statt über den API-Schlüssel. Angemeldet wird im Programm selbst; die App sieht keine Anmeldedaten. Sprechmodus und Diktat nutzen weiter den Schlüssel, Bilder entstehen nur über das ChatGPT-Abo.")
         if let message { t = message + "\n\n" + t }
         return t
     }
@@ -147,12 +145,13 @@ struct AboSettingsSection: View {
     @ViewBuilder
     private func providerRows(_ id: String, _ title: String, _ icon: String, _ st: AboProviderStatus) -> some View {
         let mode = AboMode(rawValue: st.mode) ?? .api
+        let program = id == "claude" ? "Claude Code" : "Codex"
         GroupedLabelRow(icon: icon, iconColor: st.subscription == true ? theme.accent : theme.textSecondary, title: title,
                         subtitle: subtitle(st)) {
             Button(st.subscription == true ? "Neu anmelden" : "Anmelden") { Task { await login(id, title) } }
-                .font(.system(size: 14, weight: .medium))
+                .appFont(14, weight: .medium)
                 .disabled(busy || st.installed == false)
-                .accessibilityHint("Öffnet auf dem Server-Mac die Anmeldung von \(id == "claude" ? "Claude Code" : "Codex")")
+                .accessibilityHint("Öffnet auf dem Server-Mac die Anmeldung von \(program)")
         }
         Menu {
             ForEach(AboMode.allCases) { m in
@@ -162,7 +161,7 @@ struct AboSettingsSection: View {
             }
         } label: {
             GroupedLabelRow(icon: "arrow.triangle.branch", iconColor: theme.accent, title: mode.title, subtitle: mode.detail) {
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
+                Image(systemName: "chevron.up.chevron.down").appFont(11, weight: .semibold)
                     .foregroundStyle(theme.textTertiary)
             }
         }
@@ -175,7 +174,7 @@ struct AboSettingsSection: View {
     @ViewBuilder
     private func codexComputerUseRow(_ cu: CodexComputerUseStatus) -> some View {
         GroupedLabelRow(icon: "cursorarrow.click.2", iconColor: cu.enabled ? theme.accent : theme.textSecondary,
-                        title: "Computer Use von Codex", subtitle: codexComputerUseSubtitle(cu)) {
+                        title: String(localized: "Computer Use von Codex"), subtitle: codexComputerUseSubtitle(cu)) {
             Toggle("Computer Use von Codex", isOn: Binding(get: { cu.enabled }, set: { on in
                 Task { await setCodexComputerUse(on) }
             }))
@@ -188,10 +187,9 @@ struct AboSettingsSection: View {
     }
 
     private func codexComputerUseSubtitle(_ cu: CodexComputerUseStatus) -> String {
-        let base = "ChatGPT-Scoops im Abo bedienen den Server-Mac selbst mit Codex statt über den Scoops-Bildschirm. "
-            + "Gilt nur für Scoops, die am Server-Mac arbeiten; jede App gibst du einmal per Karte frei."
+        let base = String(localized: "ChatGPT-Scoops im Abo bedienen den Server-Mac selbst mit Codex statt über den Scoops-Bildschirm. Gilt nur für Scoops, die am Server-Mac arbeiten; jede App gibst du einmal per Karte frei.")
         guard cu.enabled, cu.available == false else { return base }
-        return (cu.hint ?? cu.reason.map { "Gerade nicht nutzbar: \($0)." } ?? base)
+        return (cu.hint ?? cu.reason.map { reason in String(localized: "Gerade nicht nutzbar: \(reason).") } ?? base)
     }
 
     private func setCodexComputerUse(_ on: Bool) async {
@@ -206,16 +204,22 @@ struct AboSettingsSection: View {
     private func subtitle(_ st: AboProviderStatus) -> String {
         var parts: [String] = []
         if st.subscription == true {
-            parts.append("Angemeldet" + (st.plan.map { " · " + $0.prefix(1).uppercased() + $0.dropFirst() } ?? ""))
+            if let plan = st.plan.map({ $0.prefix(1).uppercased() + $0.dropFirst() }) {
+                parts.append(String(localized: "Angemeldet · \(plan)", comment: "KI-Abo: angemeldet mit Tarif, z. B. „Angemeldet · Max“"))
+            } else {
+                parts.append(String(localized: "Angemeldet"))
+            }
         } else if st.loggedIn == true {
-            parts.append("Angemeldet, aber ohne Abo")
+            parts.append(String(localized: "Angemeldet, aber ohne Abo"))
         } else {
-            parts.append("Nicht angemeldet")
+            parts.append(String(localized: "Nicht angemeldet"))
         }
         if let lim = st.limit, let until = lim.until, let d = ISO8601DateFormatter().date(from: until) {
-            parts.append("Limit erreicht, API bis \(d.formatted(date: .omitted, time: .shortened))")
+            let time = d.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(.app))
+            parts.append(String(localized: "Limit erreicht, API bis \(time)"))
         } else if let u = st.usage?.utilization {
-            parts.append("Auslastung \(Int((u * 100).rounded())) %")
+            let percent = String(Int((u * 100).rounded()))
+            parts.append(String(localized: "Auslastung \(percent) %"))
         }
         return parts.joined(separator: " · ")
     }
@@ -240,7 +244,7 @@ struct AboSettingsSection: View {
         defer { busy = false }
         do {
             try await service.startAboLogin(provider: provider)
-            message = "Auf dem Server-Mac ist ein Terminal-Fenster mit der Anmeldung bei \(title) offen. Dort bzw. im Browser anmelden."
+            message = String(localized: "Auf dem Server-Mac ist ein Terminal-Fenster mit der Anmeldung bei \(title) offen. Dort bzw. im Browser anmelden.")
             for _ in 0..<45 {
                 try? await Task.sleep(for: .seconds(4))
                 if let s = try? await service.abos() {

@@ -57,7 +57,8 @@ nonisolated enum OnboardingServerStage: String, Codable, Sendable {
 /// Reine Entscheidungen der Einführung, ohne Oberfläche (getestet in WatchLogicTests/OnboardingLogicTests.swift).
 nonisolated enum OnboardingLogic {
     /// Begrüßungstext des Start-Scoops „Pip“, den jede neue Server-Installation anlegt
-    /// (`WELCOME_SCOOP`/`WELCOME_TEXT` in Server/src/aisbot/server.py).
+    /// (`WELCOME_SCOOP`/`WELCOME_TEXT` in Server/src/aisbot/server.py). Nur noch Rückfall für ältere Server ohne
+    /// `meta.welcome`; deren Begrüßung ist immer deutsch.
     static let seededWelcomePrefix = "Hallo! Ich bin **"
     static let seededLabel = "Start"
 
@@ -76,6 +77,11 @@ nonisolated enum OnboardingLogic {
         guard groupCount == 0 else { return false }
         if bots.isEmpty { return true }
         guard bots.count == 1, let only = bots.first else { return false }
+        // Neuere Server markieren die Begrüßung (`meta.welcome`), in jeder Sprache
+        if let last = only.lastMessage, let welcome = last.meta.welcome {
+            return welcome && last.role == .bot
+        }
+        // Rückfall für ältere Server: Label und Anfang der (deutschen) Begrüßung
         guard only.label == seededLabel else { return false }
         guard let last = only.lastMessage else { return true }
         return last.role == .bot && last.text.hasPrefix(seededWelcomePrefix)

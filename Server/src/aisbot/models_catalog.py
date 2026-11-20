@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator
 
+from . import i18n
+
 BUNDLED = Path(__file__).with_name("models_catalog.json")
 MODELS_URL = "https://raw.githubusercontent.com/SPRTCS/ais-scoops-server/main/models.json"
 REFRESH_EVERY = 24 * 3600
@@ -52,10 +54,20 @@ class Model:
     replaces: tuple[str, ...]
     deprecated: bool
     pricing_only: bool
+    # Hinweis in weiteren Sprachen aus dem Katalog (`hint_en` …, docs/sprache.md); sonst übersetzt die Tabelle
+    hints: dict = field(default_factory=dict, compare=False)
 
     @property
     def selectable(self) -> bool:
         return not self.deprecated and not self.pricing_only
+
+    def hint_for(self, lang: str | None = None) -> str:
+        """Hinweis in der Sprache `lang` (Standard: aktuelle): `hint_<lang>` aus dem Katalog, sonst Tabelle, sonst
+        der deutsche `hint`."""
+        lang = lang or i18n.current()
+        if lang == i18n.DEFAULT or not self.hint:
+            return self.hint
+        return self.hints.get(lang) or i18n.translate(self.hint, lang)
 
 
 @dataclass
@@ -142,7 +154,7 @@ class Catalog:
     def as_json(self) -> dict:
         return {"version": self.version, "updated": self.updated, "source": self.source,
                 "defaults": self.defaults,
-                "models": [{"id": m.id, "label": m.label, "provider": m.provider, "hint": m.hint, "rank": m.rank,
+                "models": [{"id": m.id, "label": m.label, "provider": m.provider, "hint": m.hint_for(), "rank": m.rank,
                             "price": m.price, "routes": list(m.routes), "features": sorted(m.features),
                             "replaces": list(m.replaces), "deprecated": m.deprecated, "selectable": m.selectable}
                            for m in sorted(self.models.values(),
@@ -218,9 +230,12 @@ def validate(data, source: str = "remote", require: Catalog | None = None) -> Ca
         rank = r.get("rank", 0)
         if isinstance(rank, bool) or not isinstance(rank, int) or not 0 <= rank <= 1000:
             raise CatalogError(f"{where}.rank: ganze Zahl 0–1000")
+        hints = {lang: _text(r[f"hint_{lang}"], f"{where}.hint_{lang}", 0, 80)
+                 for lang in i18n.LANGS if lang != i18n.DEFAULT and r.get(f"hint_{lang}") is not None}
         models[mid] = Model(
             id=mid, label=_text(r.get("label"), f"{where}.label", 1, 40),
             hint=_text(r.get("hint", ""), f"{where}.hint", 0, 80), provider=provider, rank=rank,
+            hints={k: v for k, v in hints.items() if v},
             price={"input": inp, "output": out, "cache_read": cr, "cache_write": cw}, routes=tuple(routes),
             features=frozenset(features), replaces=tuple(replaces), deprecated=bool(r.get("deprecated", False)),
             pricing_only=bool(r.get("pricing_only", False)))
@@ -255,6 +270,11 @@ def validate(data, source: str = "remote", require: Catalog | None = None) -> Ca
             raise CatalogError(f"Es fehlen bekannte Modelle: {', '.join(sorted(missing))} (als deprecated behalten "
                                "oder per replaces ablösen)")
     return cat
+
+
+def i18n_texts() -> list[str]:
+    """Deutsche Hinweise des gebündelten Katalogs, die zur Laufzeit übersetzt werden (tests/test_i18n.py)."""
+    return sorted({m.hint for m in bundled().models.values() if m.hint})
 
 
 # -- Laden, Zwischenspeicher, Fernkopie --------------------------------------------------------------------------------

@@ -70,8 +70,8 @@ struct WorkspaceSection: View {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "Auswählen"
-        panel.message = "Ordner für die Dateien deiner Scoops wählen"
+        panel.prompt = String(localized: "Auswählen", comment: "Knopf im Ordner-Dialog")
+        panel.message = String(localized: "Ordner für die Dateien deiner Scoops wählen")
         panel.directoryURL = manager.workspaceURL ?? FileManager.default.homeDirectoryForCurrentUser
         guard panel.runModal() == .OK, let url = panel.url else { return }
         saving = true

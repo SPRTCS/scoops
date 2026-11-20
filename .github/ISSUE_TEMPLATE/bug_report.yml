@@ -33,7 +33,7 @@ body:
     id: versions
     attributes:
       label: Versions
-      placeholder: "App 1.2 (129), Server 1.38.2, macOS 26.1"
+      placeholder: "App 1.3 (1), Server 1.39.0, macOS 27.2"
   - type: dropdown
     id: ai
     attributes:

@@ -13,6 +13,16 @@ nonisolated enum SecretStore {
         var title: String {
             switch self {
             case .anthropic: "Anthropic (Claude)"
+            case .openai: String(localized: "OpenAI (GPT, Diktat)")
+            case .composio: String(localized: "Composio (Gmail, Kalender, Notion …)")
+            }
+        }
+
+        /// Bezeichnung des Schlüsselbund-Eintrags: bewusst fest (unabhängig von der Sprache der App), damit derselbe
+        /// Eintrag nicht je nach Sprache anders heißt. Gelesen wird über Dienst und Konto, nie über die Bezeichnung.
+        var keychainLabel: String {
+            switch self {
+            case .anthropic: "Anthropic (Claude)"
             case .openai: "OpenAI (GPT, Diktat)"
             case .composio: "Composio (Gmail, Kalender, Notion …)"
             }
@@ -46,7 +56,7 @@ nonisolated enum SecretStore {
     static func save(_ kind: Kind, value: String, prefix: String) async throws {
         let v = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isPlausible(v) else { throw SaveError.implausible }
-        let label = "AIS Scoops – \(kind.title)"
+        let label = "AIS Scoops – \(kind.keychainLabel)"
         let cmd = "add-generic-password -U -s \"\(service(kind, prefix: prefix))\" -a \"\(account)\" -l \"\(label)\" -w \"\(v)\"\n"
         let r = await runSecurity(stdin: cmd)
         guard r == 0, exists(kind, prefix: prefix) else { throw SaveError.keychain }
@@ -60,8 +70,8 @@ nonisolated enum SecretStore {
         case implausible, keychain
         var errorDescription: String? {
             switch self {
-            case .implausible: "Das sieht nicht wie ein API-Schlüssel aus."
-            case .keychain: "Der Schlüssel konnte nicht im Schlüsselbund gespeichert werden."
+            case .implausible: String(localized: "Das sieht nicht wie ein API-Schlüssel aus.")
+            case .keychain: String(localized: "Der Schlüssel konnte nicht im Schlüsselbund gespeichert werden.")
             }
         }
     }
@@ -114,13 +124,22 @@ nonisolated enum KeyCheck {
         do {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            switch code {
-            case 200..<300: return .valid
-            case 401, 403: return .invalid("Der Schlüssel wurde abgelehnt. Bitte prüfen und neu einfügen.")
-            default: return .unknown("Prüfung nicht eindeutig (Fehler \(code)). Du kannst ihn trotzdem speichern.")
-            }
+            return result(status: code)
         } catch {
-            return .unknown("Keine Internetverbindung zur Prüfung. Du kannst ihn trotzdem speichern.")
+            return .unknown(Self.offlineMessage)
         }
+    }
+
+    /// Ergebnis zu einem HTTP-Status des Anbieters (eigene Funktion für Tests und Renderings)
+    static func result(status code: Int) -> Result {
+        switch code {
+        case 200..<300: .valid
+        case 401, 403: .invalid(String(localized: "Der Schlüssel wurde abgelehnt. Bitte prüfen und neu einfügen."))
+        default: .unknown(String(localized: "Prüfung nicht eindeutig (Fehler \(String(code))). Du kannst ihn trotzdem speichern."))
+        }
+    }
+
+    static var offlineMessage: String {
+        String(localized: "Keine Internetverbindung zur Prüfung. Du kannst ihn trotzdem speichern.")
     }
 }

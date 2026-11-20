@@ -18,6 +18,26 @@ struct LibraryList: View {
 
     private var items: [LibraryFile] { store.files[chatID] ?? [] }
 
+    /// Ab so vielen Dateien steht die Leiste mit Suche, Filter und Sortierung über der Liste
+    private static let toolbarMinimum = 8
+
+    private var choices: LibraryChoices { .shared }
+    /// Suche oder Typ-Filter grenzt die Liste gerade ein
+    private var narrowed: Bool {
+        !choices.search(chatID).trimmingCharacters(in: .whitespaces).isEmpty
+            || (choices.kind(chatID).map { k in items.contains { LibraryKind($0) == k } } ?? false)
+    }
+    /// Bei wenigen Dateien bleibt die Leiste verborgen (außer es ist noch eine Suche oder ein Filter aktiv)
+    private var showsToolbar: Bool { items.count >= Self.toolbarMinimum || narrowed }
+    /// Dateien nach Suche, Typ und Sortierung (`LibraryChoices`, gilt solange die App läuft)
+    private var shown: [LibraryFile] { choices.apply(to: items, chatID: chatID) }
+
+    private var noMatchText: String {
+        let query = choices.search(chatID).trimmingCharacters(in: .whitespaces)
+        if !query.isEmpty { return String(localized: "Keine Datei passt zu „\(query)“") }
+        return String(localized: "Keine Datei von diesem Typ")
+    }
+
     var body: some View {
         Group {
             if items.isEmpty {
@@ -30,10 +50,28 @@ struct LibraryList: View {
                     }
                 }
             } else {
-                GroupedSection("Dateien und Links",
-                               footer: "Antippen öffnet die Vorschau. Halte gedrückt oder klicke mit rechts für weitere Aktionen.",
-                               dividerInset: 60) {
-                    ForEach(items) { file in row(file) }
+                let shown = shown
+                VStack(alignment: .leading, spacing: 10) {
+                    if showsToolbar { LibraryToolbar(chatID: chatID, files: items) }
+                    if shown.isEmpty {
+                        GroupedSection("Dateien und Links") {
+                            GroupedLabelRow(icon: "magnifyingglass", title: noMatchText, titleColor: theme.textSecondary)
+                            Button {
+                                choices.setSearch("", chatID: chatID)
+                                choices.setKind(nil, chatID: chatID)
+                            } label: {
+                                GroupedLabelRow(icon: "arrow.uturn.backward", iconColor: theme.accent,
+                                                title: "Alle Dateien zeigen", titleColor: theme.accent)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } else {
+                        GroupedSection(narrowed ? "\(shown.count) von \(items.count)" : "Dateien und Links",
+                                       footer: "Antippen öffnet die Vorschau. Halte gedrückt oder klicke mit rechts für weitere Aktionen.",
+                                       dividerInset: 60) {
+                            ForEach(shown) { file in row(file) }
+                        }
+                    }
                 }
             }
         }
@@ -62,7 +100,7 @@ struct LibraryList: View {
                         FileThumbnail(file: file)
                     } else {
                         Image(systemName: file.symbolName)
-                            .font(.system(size: 15))
+                            .appFont(15)
                             .foregroundStyle(file.isLink ? theme.link : theme.accent)
                     }
                 }
@@ -71,9 +109,9 @@ struct LibraryList: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(file.name)
-                        .font(.system(size: 15))
+                        .appFont(15)
                         .foregroundStyle(theme.textPrimary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                     HStack(spacing: 4) {
                         if let author = store.bot(file.authorId) {
                             MascotView(mascot: author.mascot, size: 14, seed: author.id, animated: false)
@@ -84,9 +122,9 @@ struct LibraryList: View {
                         Text("·")
                         Text(detail(file))
                     }
-                    .font(.system(size: 11.5))
+                    .appFont(11.5)
                     .foregroundStyle(theme.textSecondary)
-                    .lineLimit(1)
+                    .adaptiveLineLimit(1)
                 }
                 Spacer(minLength: 0)
             }
@@ -170,7 +208,7 @@ struct VoicePicker: View {
     private var deviceID: String? { choice.deviceID ?? VoiceCatalog.voice(for: nil)?.identifier }
 
     var body: some View {
-        GroupedSection("Stimme", footer: footer) {
+        GroupedSection(String(localized: "Stimme"), footer: footer) {
             if liveAvailable, let info {
                 row("Stimme") {
                     Picker(selection: Binding(
@@ -185,12 +223,12 @@ struct VoicePicker: View {
                         Text("Stimme")
                     } currentValueLabel: {
                         // In der Zeile nur der Name; die Beschreibung steht im Menü
-                        Text(info.voices.first { $0.id == liveID }?.name ?? "Gerätestimme")
+                        Text(info.voices.first { $0.id == liveID }?.name ?? String(localized: "Gerätestimme"))
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .tint(theme.textSecondary)
-                    .lineLimit(1)
+                    .adaptiveLineLimit(1)
                 }
             }
             row(choice.usesLive && liveAvailable ? "Rückfall (offline)" : "Gerätestimme") {
@@ -209,19 +247,20 @@ struct VoicePicker: View {
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .tint(theme.textSecondary)
-                .lineLimit(1)
+                .adaptiveLineLimit(1)
                 .disabled(voices.isEmpty)
             }
             Button(action: preview) {
                 GroupedLabelRow(icon: isPlaying ? "stop.circle.fill" : "play.circle.fill", iconColor: theme.accent,
-                                title: isPlaying ? "Stopp" : (previewing != nil ? "Lädt Stimmprobe …" : "Probehören"),
+                                title: isPlaying ? String(localized: "Stopp")
+                                    : (previewing != nil ? String(localized: "Lädt Stimmprobe …") : String(localized: "Probehören")),
                                 subtitle: previewError, titleColor: theme.accent)
             }
             .buttonStyle(.plain)
             .disabled(previewing != nil || (!(choice.usesLive && liveAvailable) && voices.isEmpty))
         }
         .task {
-            voices = VoiceCatalog.germanVoices()
+            voices = VoiceCatalog.voices()
             info = await store.loadLiveVoice(chatID: bot.id)
         }
         .onDisappear {
@@ -232,10 +271,11 @@ struct VoicePicker: View {
 
     private var isPlaying: Bool { speaker.isSpeaking || (player?.isPlaying ?? false) }
 
-    private func row<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
-        HStack(spacing: 12) {
-            Text(title).font(.system(size: 15)).foregroundStyle(theme.textPrimary).fixedSize()
-            Spacer(minLength: 8)
+    private func row<C: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> C) -> some View {
+        // Große Schrift: Auswahl unter der Beschriftung statt daneben (sonst bleibt ihr kaum Breite)
+        AdaptiveRow(spacing: 12, stackedSpacing: 2) {
+            Text(title).appFont(15).foregroundStyle(theme.textPrimary).fixedSizeUnlessAccessibility()
+        } trailing: {
             content()
         }
         .groupedRow(vertical: 6)
@@ -265,7 +305,7 @@ struct VoicePicker: View {
         }
         previewError = nil
         guard choice.usesLive, liveAvailable, let voice = liveID else {
-            speaker.speak("Hallo \(store.userName), ich bin \(bot.name). So klinge ich ohne Internet.", voiceID: deviceID.map { "device:\($0)" })
+            speaker.speak(String(localized: "Hallo \(store.userName), ich bin \(bot.name). So klinge ich ohne Internet."), voiceID: deviceID.map { "device:\($0)" })
             return
         }
         previewing = voice
@@ -286,7 +326,7 @@ struct VoicePicker: View {
                     try? await Task.sleep(for: .seconds(p.duration + 0.2))
                     if player === p { player = nil }
                 } else {
-                    previewError = "Stimmprobe ließ sich nicht abspielen."
+                    previewError = String(localized: "Stimmprobe ließ sich nicht abspielen.")
                 }
             case .failure(let error):
                 previewError = error.localizedDescription
@@ -297,18 +337,22 @@ struct VoicePicker: View {
     private var footer: String {
         if let info, info.available {
             if choice.usesLive {
-                let price = info.pricePerMinuteUsd.map {
-                    " Kostet etwa \($0.formatted(.currency(code: "USD").locale(Locale(identifier: "de-DE")))) pro Minute."
-                } ?? ""
-                return "Im Sprechmodus spricht \(bot.name) live mit der natürlichen OpenAI-Stimme (GPT-Live-1), du kannst jederzeit dazwischenreden.\(price) Klappt Live nicht, liest die Gerätestimme vor."
+                guard let perMinute = info.pricePerMinuteUsd else {
+                    return String(localized: "Im Sprechmodus spricht \(bot.name) live mit der natürlichen OpenAI-Stimme (GPT-Live-1), du kannst jederzeit dazwischenreden. Klappt Live nicht, liest die Gerätestimme vor.")
+                }
+                let price = perMinute.formatted(.currency(code: "USD")
+                    .locale(AppLanguage.isGerman ? Locale(identifier: "de-DE") : .app))
+                return String(localized: "Im Sprechmodus spricht \(bot.name) live mit der natürlichen OpenAI-Stimme (GPT-Live-1), du kannst jederzeit dazwischenreden. Kostet etwa \(price) pro Minute. Klappt Live nicht, liest die Gerätestimme vor.")
             }
-            return "\(bot.name) liest im Sprechmodus mit der Gerätestimme vor (ohne OpenAI, auch offline)."
+            return String(localized: "\(bot.name) liest im Sprechmodus mit der Gerätestimme vor (ohne OpenAI, auch offline).")
         }
         if voices.isEmpty {
-            return "Keine deutsche Stimme installiert. Lade in den Systemeinstellungen unter Bedienungshilfen → Gesprochene Inhalte eine Stimme (am besten „Premium“)."
+            return String(localized: "Keine deutsche Stimme installiert. Lade in den Systemeinstellungen unter Bedienungshilfen → Gesprochene Inhalte eine Stimme (am besten „Premium“).")
         }
-        let reason = info?.reason.map { "Live-Stimme: \($0) " } ?? ""
-        return reason + "Damit liest \(bot.name) im Sprechmodus vor. „Erweitert“- und „Premium“-Stimmen klingen natürlicher (Bedienungshilfen → Gesprochene Inhalte)."
+        if let reason = info?.reason {
+            return String(localized: "Live-Stimme: \(reason) Damit liest \(bot.name) im Sprechmodus vor. „Erweitert“- und „Premium“-Stimmen klingen natürlicher (Bedienungshilfen → Gesprochene Inhalte).")
+        }
+        return String(localized: "Damit liest \(bot.name) im Sprechmodus vor. „Erweitert“- und „Premium“-Stimmen klingen natürlicher (Bedienungshilfen → Gesprochene Inhalte).")
     }
 }
 
@@ -330,7 +374,16 @@ struct GroupProfileView: View {
     @State private var settled = false
     @State private var router = ProfileRouter()
 
-    enum Tab: String, CaseIterable { case group = "Gruppe", library = "Bibliothek" }
+    enum Tab: String, CaseIterable {
+        case group = "Gruppe", library = "Bibliothek"
+
+        var title: String {
+            switch self {
+            case .group: String(localized: "Gruppe")
+            case .library: String(localized: "Bibliothek")
+            }
+        }
+    }
 
     private var group: ChatGroup? { store.group(groupID) }
 
@@ -343,8 +396,8 @@ struct GroupProfileView: View {
                         VStack(spacing: 6) {
                             GroupAvatar(members: store.members(of: groupID), size: 104)
                                 .padding(.top, 4)
-                            Text(group.name).font(.system(size: 21, weight: .semibold)).foregroundStyle(theme.textPrimary)
-                            Text("\(group.memberIds.count) Scoops").font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                            Text(group.name).appFont(21, weight: .semibold).foregroundStyle(theme.textPrimary)
+                            Text("\(group.memberIds.count) Scoops").appFont(13.5).foregroundStyle(theme.textSecondary)
                         }
                         .frame(maxWidth: .infinity)
                         tabs.padding(.top, 14).padding(.bottom, 18)
@@ -401,8 +454,8 @@ struct GroupProfileView: View {
         HStack(spacing: 4) {
             ForEach(Tab.allCases, id: \.self) { t in
                 Button { withAnimation(.snappy(duration: 0.2)) { tab = t } } label: {
-                    Text(t.rawValue)
-                        .font(.system(size: 12.5, weight: .medium))
+                    Text(t.title)
+                        .appFont(12.5, weight: .medium)
                         .foregroundStyle(tab == t ? theme.textPrimary : theme.textSecondary)
                         .padding(.horizontal, 10).padding(.vertical, 6)
                         .background { if tab == t { Capsule().fill(theme.selection) } }
@@ -420,7 +473,7 @@ struct GroupProfileView: View {
                 HStack {
                     TextField("Name der Gruppe", text: $name)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 15))
+                        .appFont(15)
                         .foregroundStyle(theme.textPrimary)
                         .onSubmit(saveName)
                     if name.trimmingCharacters(in: .whitespaces) != group.name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -440,9 +493,9 @@ struct GroupProfileView: View {
                         }
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: "plus.circle.fill").font(.system(size: 18)).foregroundStyle(theme.success)
+                            Image(systemName: "plus.circle.fill").appFont(18).foregroundStyle(theme.success)
                                 .frame(width: 32)
-                            Text("Scoop hinzufügen").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                            Text("Scoop hinzufügen").appFont(15).foregroundStyle(theme.textPrimary)
                             Spacer()
                         }
                         .groupedRow()
@@ -453,6 +506,7 @@ struct GroupProfileView: View {
                     .disabled(store.bots.allSatisfy { group.memberIds.contains($0.id) })
                 }
             }
+            MuteProfileSection(chatID: groupID)
             GroupedSection("Verwalten", footer: "Beim Löschen bleiben alle Scoops erhalten.", dividerInset: 50) {
                 Button { confirmReset = true } label: {
                     GroupedLabelRow(icon: "eraser", iconColor: theme.danger, title: "Verlauf leeren", titleColor: theme.danger)
@@ -473,9 +527,9 @@ struct GroupProfileView: View {
                     MascotView(mascot: bot.mascot, size: 32, mood: group.busyIds.contains(bot.id) ? .working : .idle,
                                seed: bot.id, animated: group.busyIds.contains(bot.id))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(bot.name).font(.system(size: 13.5, weight: .medium)).foregroundStyle(theme.textPrimary)
+                        Text(bot.name).appFont(13.5, weight: .medium).foregroundStyle(theme.textPrimary)
                         if let label = bot.label, !label.isEmpty {
-                            Text(label).font(.system(size: 12)).foregroundStyle(theme.textSecondary)
+                            Text(label).appFont(12).foregroundStyle(theme.textSecondary)
                         }
                     }
                     Spacer(minLength: 0)

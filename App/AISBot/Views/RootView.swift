@@ -62,7 +62,7 @@ struct RootView: View {
         .overlay(alignment: .bottom) {
             if let toast = store.toast {
                 Label(toast, systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 13.5, weight: .medium))
+                    .appFont(13.5, weight: .medium)
                     .foregroundStyle(theme.textPrimary)
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(theme.surfaceRaised, in: Capsule())
@@ -73,6 +73,8 @@ struct RootView: View {
                     .allowsHitTesting(false)
             }
         }
+        // Geteilte Inhalte, die noch nicht gesendet werden konnten (Teilen-Menü, docs/system.md)
+        .overlay(alignment: .bottom) { ShareOutboxBanner() }
         .animation(.snappy(duration: 0.18), value: store.showCommandPalette)
         .environment(\.theme, theme)
         .preferredColorScheme(theme.preferredScheme)
@@ -96,6 +98,15 @@ struct RootView: View {
         }
         .sheet(isPresented: $store.showCreateGroup) {
             CreateGroupView()
+                .environment(\.theme, theme)
+                .environment(store)
+                .preferredColorScheme(theme.preferredScheme)
+        }
+        // Scoop-Vorlagen: Vorschau vor dem Import, Export-Vorschau, Datei ins Fenster ziehen (docs/vorlagen.md)
+        .modifier(TemplateHost())
+        // Ruhezeiten aus der Befehlspalette (docs/ruhe.md)
+        .sheet(isPresented: Binding(get: { store.ruhe.showSheet }, set: { store.ruhe.showSheet = $0 })) {
+            QuietHoursSheet()
                 .environment(\.theme, theme)
                 .environment(store)
                 .preferredColorScheme(theme.preferredScheme)
@@ -410,10 +421,27 @@ struct RootView: View {
         @Bindable var store = store
         return NavigationStack {
             SidebarView(standalone: true)
-                .navigationDestination(item: $store.selectedChatID) { id in
+                .navigationDestination(item: compactChat(overToday: false)) { id in
                     if store.chatExists(id) { chat(id) }
                 }
+                // Seite „Heute“ liegt über der Chatliste; ein von dort geöffneter Chat liegt darüber, „Zurück“
+                // führt wieder zu „Heute“.
+                .navigationDestination(isPresented: $store.showToday) {
+                    TodayView(inStack: true)
+                        .navigationDestination(item: compactChat(overToday: true)) { id in
+                            if store.chatExists(id) { chat(id) }
+                        }
+                }
         }
+    }
+
+    /// Gewählter Chat für den Stapel: Solange „Heute“ offen ist, öffnet er sich über dieser Seite, sonst über der
+    /// Chatliste (immer nur eines der beiden Ziele ist aktiv).
+    private func compactChat(overToday: Bool) -> Binding<String?> {
+        Binding(get: { store.showToday == overToday ? store.selectedChatID : nil },
+                set: { id in
+                    if id != nil || store.showToday == overToday { store.selectedChatID = id }
+                })
     }
     #endif
 
@@ -425,6 +453,9 @@ struct RootView: View {
                 ProgressView()
             } else if case .offline(let message) = store.phase, store.bots.isEmpty, store.groups.isEmpty {
                 ConnectionProblemView(message: message)
+            } else if store.today.available {
+                // Startansicht, solange kein Chat gewählt ist: Seite „Heute“ (ältere Server: Hinweis wie bisher)
+                TodayView()
             } else {
                 VStack(spacing: 14) {
                     HStack(spacing: -8) {
@@ -541,7 +572,7 @@ struct ConnectionProblemView: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 40, weight: .medium))
+                .appFont(40, weight: .medium)
                 .foregroundStyle(theme.warning)
             Text("Keine Verbindung")
                 .font(.title3.weight(.semibold))
@@ -551,7 +582,7 @@ struct ConnectionProblemView: View {
                 .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
-            HStack(spacing: 10) {
+            AdaptiveButtonRow(spacing: 10) {
                 Button("Neu versuchen") { Task { await store.retry() } }
                     .buttonStyle(PillButtonStyle(kind: .primary))
                 Button(store.settings.usesAccount ? "Anderen Server wählen" : "Einstellungen") {

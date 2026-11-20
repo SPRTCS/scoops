@@ -147,7 +147,8 @@ class Computer:
             if self.transport.alive():
                 return
             time.sleep(3)  # VM bootet noch
-        raise ComputerError("Computer-Server nicht erreichbar")
+        from .i18n import tx
+        raise ComputerError(tx("Computer-Server nicht erreichbar"))
 
     # -- Bildschirm --------------------------------------------------------
     @property

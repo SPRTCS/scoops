@@ -73,7 +73,9 @@ struct OnboardingMessageStep: View {
     }
 
     private func purpose(for bot: Bot) -> OnboardingPurpose {
-        OnboardingPurpose.all.first { $0.label != nil && $0.label == bot.label } ?? OnboardingPurpose.find("frei")!
+        // Zuerst der gewählte Zweck aus dem Entwurf (sprachunabhängig), sonst über das Label des Scoops
+        if let chosen = OnboardingPurpose.find(store.onboarding.draft?.purpose) { return chosen }
+        return OnboardingPurpose.all.first { $0.label != nil && $0.label == bot.label } ?? OnboardingPurpose.find("frei")!
     }
 
     private func header(_ bot: Bot) -> some View {

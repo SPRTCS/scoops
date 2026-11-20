@@ -47,11 +47,14 @@ Exit-Code 0 = alles grün, 1 = mindestens ein Ablauf rot.
 | 17 | **Chat übers ChatGPT-Abo** (Codex): Werkzeug über `/mcp/abo` mit Prozess-Token, Thread fortgesetzt; offline Limit → API | ✓ | ✓ (übersprungen ohne ChatGPT-Login im Scoops-`CODEX_HOME`) |
 | 18 | **Eigener MCP-Server im Chat** (docs/mcp.md): Fake-MCP mit Token; Scoop prüft (`mcp_server_pruefen`), Karte mit sicherem Token-Feld, Freigabe mit Token → verbunden, 3 Werkzeuge; Token weder im Chat noch in `config.json`; nächster Lauf: lesendes Werkzeug direkt, schreibendes nur mit Karte, nach Freigabe ausgeführt | ✓ (lokaler Fake-MCP, Schlüsselbund im Speicher) | – |
 | 19 | **Computer Use von Codex** (docs/computer.md): echte Codex-Chat-Engine mit Fake-Codex und Fake-App; Codex-Prozess mit genau `scoops` + `computer-use`, Bildschirm vor der ersten Aktion im Hub belegt, App-Freigabe als Karte „Computer Use: Safari bedienen“ → nach Freigabe weiter, Zeilen „Schaut auf Safari“/„Tippt …“; fehlende Rechte → Hinweis im Chat, Status „macOS-Rechte fehlen“, nächster Lauf ohne `computer-use`; VM unverändert | ✓ (Fake-Codex) | – |
+| 20 | **Bilder übers ChatGPT-Abo** (docs/bilder.md): Claude-Scoop ruft `bild_erstellen` und bearbeitet das Ergebnis mit `bild_bearbeiten` (echter Bildlauf mit Fake-Codex: zwei Codex-Prozesse ohne MCP-Server) → Karten „Bild erstellt/bearbeitet“, Bibliothek, Arbeitsordner, Bild im Werkzeug-Ergebnis; Aufgabe ruft `bild_erstellen` über `/mcp/task` → Pfad `bilder/…`, Datei bei der Aufgabe vermerkt; ChatGPT-Scoop übers Abo mit eingebautem Bildwerkzeug (`features.image_generation=true`) → Bild im Chat; ohne ChatGPT-Login keine Werkzeuge, dafür Hinweis in der Systemanweisung | ✓ (Fake-Codex) | – |
+| 21 | **Englisch** ([sprache.md](sprache.md)): Inhaber setzt Englisch → Health meldet `languages`, Fehlermeldung englisch, Sprachvorgabe im Systemprompt des Chats und im Prompt der Aufgabe, Ereignisse („Routine created“, „Task done“), Statuszeilen der Aufgabe und Rahmen der Freigabe-Karte ohne Deutsch; danach zurück auf Deutsch → wieder „Bot nicht gefunden“, mit `Accept-Language: en` englisch | ✓ | – |
 
 13–15 legen kurz einen Projektordner `~/.aisbot-probelauf-<zufall>/Projekt` an (Projektordner müssen im Home liegen)
 und löschen ihn am Ende wieder.
 
-8, 10, 12, 18 und 19 vergleichen Werkzeuglisten bzw. nutzen lokale Fakes im Prozess bzw. müssten live etwas freigeben; sie laufen nur offline.
+8, 10, 12, 18, 19, 20 und 21 vergleichen Werkzeuglisten bzw. nutzen lokale Fakes im Prozess bzw. müssten live etwas freigeben; sie laufen nur offline. Ablauf 20 live würde echte
+Bilder vom Abo kosten; die echte Messung steht in `docs/bilder.md`.
 
 16 und 17 schalten den Abrechnungsmodus des Testservers kurz auf „Abo“ und am Ende zurück auf „API-Schlüssel“. Live
 nutzen sie die Logins der Programme auf diesem Mac (Claude Code: Standard-Konfiguration; Codex: `CODEX_HOME` des

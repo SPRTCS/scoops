@@ -20,12 +20,12 @@ nonisolated enum ApprovalNotificationActions {
     static let chatIDKey = "chat_id"
 
     static var categories: Set<UNNotificationCategory> {
-        let approve = UNNotificationAction(identifier: approveAction, title: "Freigeben",
+        let approve = UNNotificationAction(identifier: approveAction, title: String(localized: "Freigeben"),
                                            options: [.authenticationRequired],
                                            icon: UNNotificationActionIcon(systemImageName: "checkmark"))
-        let decline = UNNotificationAction(identifier: declineAction, title: "Ablehnen", options: [.destructive],
+        let decline = UNNotificationAction(identifier: declineAction, title: String(localized: "Ablehnen"), options: [.destructive],
                                            icon: UNNotificationActionIcon(systemImageName: "xmark"))
-        let always = UNNotificationAction(identifier: alwaysAction, title: "Immer erlauben",
+        let always = UNNotificationAction(identifier: alwaysAction, title: String(localized: "Immer erlauben"),
                                           options: [.authenticationRequired],
                                           icon: UNNotificationActionIcon(systemImageName: "checkmark.seal"))
         return [

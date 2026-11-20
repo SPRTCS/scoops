@@ -32,7 +32,7 @@ struct PaletteSection: Identifiable {
 /// Unscharfe Suche: Präfix > Wortanfang > Teilstring > Teilfolge (Buchstaben in Reihenfolge, Lücken kosten Punkte).
 /// Groß-/Kleinschreibung und Umlaute/Akzente werden ignoriert („einstellungen“ findet „Einstellungen“, „uber“ „Über“).
 enum Fuzzy {
-    private static let locale = Locale(identifier: "de_DE")
+    private static var locale: Locale { .app }
 
     static func fold(_ s: String) -> String {
         s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: locale)
@@ -97,6 +97,8 @@ struct CommandPalette: View {
     @State private var query = ""
     @State private var selection = 0
     @State private var contentHeight: CGFloat = 0
+    /// Suche über alle Chats (Server), entprellt; bei älteren Servern in den geladenen Nachrichten
+    @State private var search = MessageSearchModel()
     @FocusState private var fieldFocused: Bool
 
     /// iPhone (bzw. iPhone Duo zugeklappt): Stapel-Navigation, meist ohne Hardware-Tastatur
@@ -126,7 +128,10 @@ struct CommandPalette: View {
                 .padding(.top, compact ? 6 : 84)
                 .padding(.bottom, compact ? 10 : 24)
         }
-        .onChange(of: query) { selection = 0 }
+        .onChange(of: query) {
+            selection = 0
+            search.update(query, limit: 12, store: store)
+        }
         .task {
             // Fokus erst nach dem Einblenden setzen (auf dem Mac sonst gelegentlich verschluckt)
             try? await Task.sleep(for: .milliseconds(40))
@@ -143,8 +148,10 @@ struct CommandPalette: View {
         let selected = flat.indices.contains(selection) ? flat[selection].id : nil
         return VStack(spacing: 0) {
             searchField(flat: flat)
+                // Suchzeile mit Abbrechen: wächst bis zur größten normalen Stufe mit
+                .dynamicTypeSize(...AppFont.controlCap)
             Rectangle().fill(theme.surfaceBorder).frame(height: 1)
-            if flat.isEmpty {
+            if flat.isEmpty, !searchingMessages {
                 emptyState
             } else {
                 results(sections: sections, selectedID: selected)
@@ -167,11 +174,11 @@ struct CommandPalette: View {
     private func searchField(flat: [PaletteItem]) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: compact ? 17 : 16, weight: .medium))
+                .appFont(compact ? 17 : 16, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
             TextField("Suchen oder Befehl eingeben …", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: compact ? 17 : 16.5))
+                .appFont(compact ? 17 : 16.5)
                 .foregroundStyle(theme.textPrimary)
                 .focused($fieldFocused)
                 .autocorrectionDisabled()
@@ -188,7 +195,7 @@ struct CommandPalette: View {
             if compact {
                 Button("Abbrechen") { dismiss() }
                     .buttonStyle(.plain)
-                    .font(.system(size: 16))
+                    .appFont(16)
                     .foregroundStyle(theme.textSecondary)
             } else {
                 KeyCaps(keys: ["esc"])
@@ -204,7 +211,7 @@ struct CommandPalette: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(sections) { section in
                         Text(section.title)
-                            .font(.system(size: 11.5, weight: .semibold))
+                            .appFont(11.5, weight: .semibold)
                             .foregroundStyle(theme.textTertiary)
                             .padding(.horizontal, 12)
                             .padding(.top, 10)
@@ -215,6 +222,7 @@ struct CommandPalette: View {
                                 .id(item.id)
                         }
                     }
+                    if searchingMessages { searchingRow }
                 }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
@@ -238,14 +246,14 @@ struct CommandPalette: View {
                     Group {
                         if let a = item.attributedTitle { Text(a) } else { Text(item.title) }
                     }
-                    .font(.system(size: compact ? 16 : 14.5, weight: .medium))
+                    .appFont(compact ? 16 : 14.5, weight: .medium)
                     .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
+                    .adaptiveLineLimit(1)
                     if let sub = item.subtitle {
                         Text(sub)
-                            .font(.system(size: compact ? 13.5 : 12))
+                            .appFont(compact ? 13.5 : 12)
                             .foregroundStyle(theme.textTertiary)
-                            .lineLimit(1)
+                            .adaptiveLineLimit(1)
                     }
                 }
                 Spacer(minLength: 8)
@@ -279,7 +287,7 @@ struct CommandPalette: View {
             ChatAvatar(chatID: id, size: size, animateWhenBusy: false)
         case .symbol(let name, let tint):
             Image(systemName: name)
-                .font(.system(size: size * 0.5, weight: .semibold))
+                .font(.fixed(size * 0.5, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: size, height: size)
                 .background(tint.opacity(theme.kind == .nacht ? 0.17 : 0.12),
@@ -287,13 +295,29 @@ struct CommandPalette: View {
         }
     }
 
+    /// Die Nachrichtensuche zur aktuellen Eingabe läuft noch
+    private var searchingMessages: Bool { search.phase == .loading }
+
+    /// Ladezeile unter den Treffern, solange der Server noch sucht
+    private var searchingRow: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text("Sucht in allen Chats …")
+                .appFont(compact ? 15 : 13.5)
+                .foregroundStyle(theme.textSecondary)
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: compact ? 52 : 42)
+        .accessibilityElement(children: .combine)
+    }
+
     private var emptyState: some View {
         VStack(spacing: 6) {
             Text("Nichts gefunden")
-                .font(.system(size: 14.5, weight: .medium))
+                .appFont(14.5, weight: .medium)
                 .foregroundStyle(theme.textSecondary)
-            Text("Versuch es mit einem Scoop-Namen oder einem Befehl wie „Tresor“.")
-                .font(.system(size: 12.5))
+            Text(search.error ?? String(localized: "Kein Chat, kein Befehl und keine Nachricht passt. Versuch es mit einem anderen Wort."))
+                .appFont(12.5)
                 .foregroundStyle(theme.textTertiary)
                 .multilineTextAlignment(.center)
         }
@@ -307,21 +331,23 @@ struct CommandPalette: View {
         HStack(spacing: 14) {
             HStack(spacing: 6) {
                 MascotView(mascot: .brand, size: 16, seed: "palette", animated: false)
-                Text("AIS Scoops").font(.system(size: 12, weight: .medium)).foregroundStyle(theme.textSecondary)
+                Text("AIS Scoops").appFont(12, weight: .medium).foregroundStyle(theme.textSecondary)
             }
             Spacer()
             hint(["↑", "↓"], "Auswählen")
             hint(["↵"], "Öffnen")
             hint(["esc"], "Schließen")
         }
+        // Tastatur-Hinweise in fester Höhe: wachsen nur bis zwei Stufen über Standard
+        .dynamicTypeSize(...AppFont.compactCap)
         .padding(.horizontal, 16)
         .frame(height: 38)
     }
 
-    private func hint(_ keys: [String], _ label: String) -> some View {
+    private func hint(_ keys: [String], _ label: LocalizedStringKey) -> some View {
         HStack(spacing: 5) {
             KeyCaps(keys: keys)
-            Text(label).font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+            Text(label).appFont(12).foregroundStyle(theme.textTertiary)
         }
     }
 
@@ -365,8 +391,8 @@ struct CommandPalette: View {
         let actions = actionItems()
         guard !q.isEmpty else {
             // Ohne Suche: zuletzt aktive Chats, dann alle Aktionen
-            return [PaletteSection(id: "chats", title: "Chats", items: Array(chats.prefix(6))),
-                    PaletteSection(id: "actions", title: "Aktionen", items: actions)]
+            return [PaletteSection(id: "chats", title: String(localized: "Chats"), items: Array(chats.prefix(6))),
+                    PaletteSection(id: "actions", title: String(localized: "Aktionen"), items: actions)]
                 .filter { !$0.items.isEmpty }
         }
         func ranked(_ items: [PaletteItem]) -> [(PaletteItem, Int)] {
@@ -375,13 +401,15 @@ struct CommandPalette: View {
         }
         var scored: [(PaletteSection, Int)] = []
         let rc = ranked(chats), ra = ranked(actions)
-        if let best = rc.first?.1 { scored.append((PaletteSection(id: "chats", title: "Chats", items: rc.map(\.0)), best)) }
-        if let best = ra.first?.1 { scored.append((PaletteSection(id: "actions", title: "Aktionen", items: ra.map(\.0)), best)) }
+        if let best = rc.first?.1 { scored.append((PaletteSection(id: "chats", title: String(localized: "Chats"), items: rc.map(\.0)), best)) }
+        if let best = ra.first?.1 { scored.append((PaletteSection(id: "actions", title: String(localized: "Aktionen"), items: ra.map(\.0)), best)) }
         // Bester Treffer oben, damit Enter sofort das Richtige tut
         var result = scored.sorted { $0.1 > $1.1 }.map(\.0)
         let messages = messageItems(q)
         if !messages.isEmpty {
-            result.append(PaletteSection(id: "messages", title: "Nachrichten in geladenen Chats", items: messages))
+            result.append(PaletteSection(id: "messages", title: search.local ? String(localized: "Nachrichten in geladenen Chats")
+                                                                             : String(localized: "Nachrichten"),
+                                         items: messages))
         }
         return result
     }
@@ -391,8 +419,8 @@ struct CommandPalette: View {
         let shared = store.sharedBots.compactMap { b -> PaletteItem? in
             guard let share = store.share(for: b.id) else { return nil }
             let id = b.id
-            return PaletteItem(id: "chat:\(id)", title: b.name, subtitle: "Geteilt von \(share.ownerName)", icon: .chat(id),
-                               keywords: ["chat", "scoop", "geteilt", share.ownerName, b.label ?? ""]) { [store] in
+            return PaletteItem(id: "chat:\(id)", title: b.name, subtitle: String(localized: "Geteilt von \(share.ownerName)"), icon: .chat(id),
+                               keywords: ["chat", "scoop", "geteilt", "shared", share.ownerName, b.label ?? ""]) { [store] in
                 store.openChat(id)
             }
         }
@@ -402,11 +430,12 @@ struct CommandPalette: View {
             switch entry {
             case .bot(let b):
                 keywords += ["scoop", b.label ?? ""]
-                subtitle = [b.label, b.primary ? "Haupt-Scoop" : nil].compactMap { $0 }.joined(separator: " · ")
+                subtitle = [b.label, b.primary ? String(localized: "Haupt-Scoop") : nil].compactMap { $0 }.joined(separator: " · ")
             case .group(let g):
                 let members = g.memberIds.compactMap { store.bot($0)?.name }
-                keywords += ["gruppe"] + members
-                subtitle = "Gruppe · " + members.joined(separator: ", ")
+                keywords += ["gruppe", "group"] + members
+                let names = members.joined(separator: ", ")
+                subtitle = String(localized: "Gruppe · \(names)", comment: "Befehlspalette: Gruppenchat mit Mitgliedernamen")
             }
             if let s = entry.section { keywords.append(s) }
             let id = entry.id
@@ -423,151 +452,211 @@ struct CommandPalette: View {
         let compact = compact
         var items: [PaletteItem] = []
 
-        items.append(PaletteItem(id: "a:newbot", title: "Neuer Scoop", icon: .symbol("sparkles", theme.accent),
-                                 keywords: ["anlegen", "erstellen", "bot", "neu"], shortcut: ["⌘", "N"]) {
+        items.append(PaletteItem(id: "a:newbot", title: String(localized: "Neuer Scoop"), icon: .symbol("sparkles", theme.accent),
+                                 keywords: ["anlegen", "erstellen", "bot", "neu", "create", "add", "new"], shortcut: ["⌘", "N"]) {
             store.editingBot = nil
             store.showCreateBot = true
         })
         if store.bots.count >= 2 {
-            items.append(PaletteItem(id: "a:newgroup", title: "Neue Gruppe", icon: .symbol("person.3.fill", theme.accent),
-                                     keywords: ["gruppenchat", "anlegen", "erstellen", "team"], shortcut: ["⌘", "⇧", "N"]) {
+            items.append(PaletteItem(id: "a:newgroup", title: String(localized: "Neue Gruppe"), icon: .symbol("person.3.fill", theme.accent),
+                                     keywords: ["gruppenchat", "anlegen", "erstellen", "team", "group chat", "create", "add"],
+                                     shortcut: ["⇧", "⌘", "N"]) {
                 store.showCreateGroup = true
             })
         }
-        items.append(PaletteItem(id: "a:newsection", title: "Neuer Bereich", subtitle: "Ordnet die Seitenleiste",
+        // Scoop-Vorlagen (docs/vorlagen.md): anlegen aus einer Datei, den gewählten Scoop exportieren
+        if store.supportsTemplates {
+            items.append(PaletteItem(id: "a:template", title: String(localized: "Scoop aus Vorlage …"),
+                                     subtitle: String(localized: "Eine .scoop-Datei öffnen"),
+                                     icon: .symbol("doc.badge.plus", theme.accent),
+                                     keywords: ["vorlage", "importieren", "datei", "scoop-datei", "template", "öffnen",
+                                                "import", "file", "open"],
+                                     shortcut: ["⌘", "O"]) {
+                store.templates.showPicker = true
+            })
+        }
+        if let chat = store.selectedChatID, store.canExportTemplate(chat) {
+            items.append(PaletteItem(id: "a:export", title: String(localized: "\(store.chatName(chat)) als Vorlage exportieren"),
+                                     subtitle: String(localized: "Aussehen, Anweisungen, Fähigkeiten und Routinen, nichts Persönliches"),
+                                     icon: .symbol("square.and.arrow.up", theme.accent),
+                                     keywords: ["vorlage", "exportieren", "teilen", "datei", "template", "export", "share", "file"]) {
+                store.exportTemplate(chat)
+            })
+        }
+        items.append(PaletteItem(id: "a:newsection", title: String(localized: "Neuer Bereich"),
+                                 subtitle: String(localized: "Ordnet die Seitenleiste"),
                                  icon: .symbol("rectangle.stack.badge.plus", theme.accent),
-                                 keywords: ["bereich", "ordner", "section", "seitenleiste", "anlegen"]) {
+                                 keywords: ["bereich", "ordner", "section", "seitenleiste", "anlegen", "folder", "sidebar", "create"]) {
             await Self.showSidebarIfNeeded(store, compact: compact)
             store.sectionPrompt = .create(moveChatID: nil)
         })
         if let bot = store.bot(store.selectedChatID) {
-            items.append(PaletteItem(id: "a:look", title: "Aussehen von \(bot.name) bearbeiten",
+            items.append(PaletteItem(id: "a:look", title: String(localized: "Aussehen von \(bot.name) bearbeiten"),
                                      icon: .symbol("paintpalette.fill", Color(hex: "#FF5FA8")),
-                                     keywords: ["aussehen", "maskottchen", "farbe", "form", "augen", "accessoire", "look"]) {
+                                     keywords: ["aussehen", "maskottchen", "farbe", "form", "augen", "accessoire", "look",
+                                                "appearance", "mascot", "color", "shape", "eyes", "accessory", "edit"]) {
                 store.editingBot = bot
                 store.showCreateBot = true
             })
         }
         if store.selectedChatID != nil {
-            items.append(PaletteItem(id: "a:inspector", title: store.showInspector ? "Profil ausblenden" : "Profil einblenden",
+            items.append(PaletteItem(id: "a:inspector",
+                                     title: store.showInspector ? String(localized: "Profil ausblenden") : String(localized: "Profil einblenden"),
                                      icon: .symbol("sidebar.right", theme.textSecondary),
-                                     keywords: ["profil", "inspector", "details", "gedächtnis", "bibliothek"],
+                                     keywords: ["profil", "inspector", "details", "gedächtnis", "bibliothek", "profile", "memory", "library"],
                                      shortcut: ["⌘", "I"]) {
                 store.showInspector.toggle()
             })
         }
-        items.append(PaletteItem(id: "a:screen", title: "Bildschirm des Bot-Rechners öffnen",
+        items.append(PaletteItem(id: "a:screen", title: String(localized: "Bildschirm des Bot-Rechners öffnen"),
                                  icon: .symbol("display", Color(hex: "#22BFAE")),
-                                 keywords: ["computer", "rechner", "live", "übernehmen", "steuern", "screen"]) {
+                                 keywords: ["computer", "rechner", "live", "übernehmen", "steuern", "screen", "take over", "control"]) {
             store.showScreenViewer = true
         })
         let primary = store.primaryBot
-        items.append(PaletteItem(id: "a:initiative", title: "Initiative: Jetzt prüfen lassen",
-                                 subtitle: primary.map { "\($0.name) schaut sofort nach" } ?? "Erst einen Haupt-Scoop wählen",
+        items.append(PaletteItem(id: "a:initiative", title: String(localized: "Initiative: Jetzt prüfen lassen"),
+                                 subtitle: primary.map { p in String(localized: "\(p.name) schaut sofort nach") }
+                                     ?? String(localized: "Erst einen Haupt-Scoop wählen"),
                                  icon: .symbol("sparkle.magnifyingglass", theme.warning),
-                                 keywords: ["initiative", "prüfen", "haupt-scoop", "melden", "jetzt"]) {
+                                 keywords: ["initiative", "prüfen", "haupt-scoop", "melden", "jetzt", "check", "main scoop", "now"]) {
             if let primary {
-                if await store.runInitiative() { store.showToast("\(primary.name) schaut nach …") }
+                if await store.runInitiative() { store.showToast(String(localized: "\(primary.name) schaut nach …")) }
             } else {
                 store.showInitiative = true
             }
         })
-        items.append(PaletteItem(id: "a:tasks", title: "Aufgaben", subtitle: "Board aller Scoops: geplant, in Arbeit, zu prüfen",
+        if store.today.available {
+            items.append(PaletteItem(id: "a:today", title: String(localized: "Heute"),
+                                     subtitle: store.today.waitingText ?? String(localized: "Freigaben, Aufgaben und was heute ansteht"),
+                                     icon: .symbol("sun.max.fill", theme.warning),
+                                     keywords: ["heute", "freigaben", "postfach", "wartet", "übersicht", "start", "inbox", "today",
+                                                "approvals", "waiting", "overview"],
+                                     shortcut: Self.isMac ? ["⇧", "⌘", "H"] : []) {
+                await Self.showSidebarIfNeeded(store, compact: compact)
+                store.openToday()
+            })
+        }
+        items.append(PaletteItem(id: "a:tasks", title: String(localized: "Aufgaben"),
+                                 subtitle: String(localized: "Board aller Scoops: geplant, in Arbeit, zu prüfen"),
                                  icon: .symbol("checklist", ComposerMode.task.color),
-                                 keywords: ["aufgaben", "board", "kanban", "tasks", "geplant", "prüfen", "hintergrund"]) {
+                                 keywords: ["aufgaben", "board", "kanban", "tasks", "geplant", "prüfen", "hintergrund",
+                                            "scheduled", "running", "review", "background"]) {
             store.showTaskBoard = true
         })
-        items.append(PaletteItem(id: "a:connections", title: "Apps verbinden", icon: .symbol("link", theme.accent),
-                                 keywords: ["verbindungen", "gmail", "notion", "kalender", "konto", "composio", "apps"]) {
+        items.append(PaletteItem(id: "a:connections", title: String(localized: "Apps verbinden"), icon: .symbol("link", theme.accent),
+                                 keywords: ["verbindungen", "gmail", "notion", "kalender", "konto", "composio", "apps",
+                                            "connections", "connect", "calendar", "account"]) {
             store.showConnections = true
         })
-        items.append(PaletteItem(id: "a:vault", title: "Tresor", icon: .symbol("lock.shield.fill", theme.success),
-                                 keywords: ["passwörter", "logins", "zugangsdaten", "tresor", "vault"]) {
+        items.append(PaletteItem(id: "a:vault", title: String(localized: "Tresor"), icon: .symbol("lock.shield.fill", theme.success),
+                                 keywords: ["passwörter", "logins", "zugangsdaten", "tresor", "vault", "passwords", "credentials"]) {
             store.showVault = true
         })
-        items.append(PaletteItem(id: "a:settings", title: "Einstellungen", icon: .symbol("gearshape.fill", theme.textSecondary),
-                                 keywords: ["optionen", "server", "verbindung", "app-symbol", "settings"], shortcut: ["⌘", ","]) {
+        // Stummschalten (gewählter Chat) und Ruhezeiten (docs/ruhe.md)
+        if let chat = store.selectedChatID, store.canMute(chat) {
+            if store.isMuted(chat) {
+                items.append(PaletteItem(id: "a:unmute", title: String(localized: "Stummschaltung von \(store.chatName(chat)) aufheben"),
+                                         icon: .symbol("bell.fill", theme.textSecondary),
+                                         keywords: ["stumm", "mitteilungen", "ton", "aufheben", "laut", "mute", "unmute",
+                                                    "notifications", "sound"]) {
+                    await store.setMute(chat, nil)
+                })
+            } else {
+                items.append(PaletteItem(id: "a:mute", title: String(localized: "\(store.chatName(chat)) stummschalten"),
+                                         subtitle: String(localized: "Bis morgen früh · Freigaben kommen trotzdem durch"),
+                                         icon: .symbol("bell.slash.fill", theme.textSecondary),
+                                         keywords: ["stumm", "mitteilungen", "ruhe", "ton", "mute", "leise", "notifications",
+                                                    "quiet", "silence", "sound"]) {
+                    await store.setMute(chat, .untilMorning)
+                })
+            }
+        }
+        if store.quietHoursAvailable {
+            items.append(PaletteItem(id: "a:quiet", title: String(localized: "Ruhezeiten"),
+                                     subtitle: store.ruhe.quietHours?.summary ?? String(localized: "Mitteilungen zu festen Zeiten still"),
+                                     icon: .symbol("moon.fill", Color(hex: "#8B5CF6")),
+                                     keywords: ["ruhezeit", "nicht stören", "nachts", "mitteilungen", "still", "schlafen",
+                                                "quiet hours", "do not disturb", "night", "notifications", "sleep"]) {
+                store.ruhe.showSheet = true
+            })
+        }
+        items.append(PaletteItem(id: "a:settings", title: String(localized: "Einstellungen"), icon: .symbol("gearshape.fill", theme.textSecondary),
+                                 keywords: ["optionen", "server", "verbindung", "app-symbol", "settings", "options", "preferences",
+                                            "connection", "app icon"], shortcut: ["⌘", ","]) {
             store.showSettings = true
         })
         if !compact {
-            items.append(PaletteItem(id: "a:sidebar", title: store.sidebarHidden ? "Seitenleiste einblenden" : "Seitenleiste ausblenden",
+            items.append(PaletteItem(id: "a:sidebar",
+                                     title: store.sidebarHidden ? String(localized: "Seitenleiste einblenden")
+                                         : String(localized: "Seitenleiste ausblenden"),
                                      icon: .symbol("sidebar.left", theme.textSecondary),
-                                     keywords: ["seitenleiste", "sidebar", "ein", "aus", "umschalten"], shortcut: ["⌃", "⌘", "S"]) {
+                                     keywords: ["seitenleiste", "sidebar", "ein", "aus", "umschalten", "show", "hide", "toggle"],
+                                     shortcut: ["⌃", "⌘", "S"]) {
                 store.toggleSidebar()
             })
         }
         let toHell = store.theme == .nacht
-        items.append(PaletteItem(id: "a:theme", title: toHell ? "Zu Hell wechseln" : "Zu Nacht wechseln",
-                                 subtitle: "Erscheinungsbild: jetzt \(store.theme.displayName)",
+        items.append(PaletteItem(id: "a:theme", title: toHell ? String(localized: "Zu Hell wechseln") : String(localized: "Zu Nacht wechseln"),
+                                 subtitle: String(localized: "Erscheinungsbild: jetzt \(store.theme.displayName)"),
                                  icon: .symbol(toHell ? "sun.max.fill" : "moon.fill", toHell ? theme.warning : Color(hex: "#8B5CF6")),
-                                 keywords: ["theme", "erscheinungsbild", "hell", "nacht", "dunkel", "dark", "light", "modus"]) {
+                                 keywords: ["theme", "erscheinungsbild", "hell", "nacht", "dunkel", "dark", "light", "modus",
+                                            "appearance", "night", "mode"]) {
             withAnimation(.easeInOut(duration: 0.25)) { store.theme = toHell ? .hell : .nacht }
         })
         if store.appearance != .system {
-            items.append(PaletteItem(id: "a:theme-system", title: "Erscheinungsbild wie System",
-                                     subtitle: "Nacht bei Dunkelmodus, Hell bei Hellmodus des Geräts",
+            items.append(PaletteItem(id: "a:theme-system", title: String(localized: "Erscheinungsbild wie System"),
+                                     subtitle: String(localized: "Nacht bei Dunkelmodus, Hell bei Hellmodus des Geräts"),
                                      icon: .symbol("circle.lefthalf.filled", theme.textSecondary),
-                                     keywords: ["theme", "erscheinungsbild", "system", "automatisch", "dark", "light", "modus"]) {
+                                     keywords: ["theme", "erscheinungsbild", "system", "automatisch", "dark", "light", "modus",
+                                                "appearance", "automatic", "mode"]) {
                 withAnimation(.easeInOut(duration: 0.25)) { store.appearance = .system }
             })
         }
-        items.append(PaletteItem(id: "a:search", title: "Chats durchsuchen", subtitle: "Suche in der Seitenleiste",
+        if let chat = store.selectedChatID, !store.showTaskBoard {
+            items.append(PaletteItem(id: "a:find", title: String(localized: "In \(store.chatName(chat)) suchen"),
+                                     subtitle: String(localized: "Suche nur in diesem Chat"),
+                                     icon: .symbol("text.magnifyingglass", theme.textSecondary),
+                                     keywords: ["suche", "suchen", "finden", "chat", "verlauf", "nachricht", "search", "find",
+                                                "history", "message"], shortcut: ["⌘", "F"]) {
+                store.chatFindRequest += 1
+            })
+        }
+        items.append(PaletteItem(id: "a:search", title: String(localized: "Scoops und Nachrichten suchen"),
+                                 subtitle: String(localized: "Suche in der Seitenleiste"),
                                  icon: .symbol("magnifyingglass", theme.textSecondary),
-                                 keywords: ["suche", "suchen", "finden", "filter", "chat-suche"], shortcut: ["⌘", "F"]) {
+                                 keywords: ["suche", "suchen", "finden", "filter", "chat-suche", "chats durchsuchen", "search",
+                                            "find", "search chats"],
+                                 shortcut: ["⇧", "⌘", "F"]) {
             await Self.showSidebarIfNeeded(store, compact: compact)
             store.searchFocusRequest += 1
         })
         return items
     }
 
-    /// Treffer in bereits geladenen Nachrichten (lokal, ohne Server-Suche). Neueste zuerst, höchstens 8.
+    /// Treffer der Nachrichtensuche zur aktuellen Eingabe (`MessageSearchModel`): Server-Suche über alle Chats, bei
+    /// älteren Servern die geladenen Nachrichten. Ein Treffer öffnet den Chat und springt zur Nachricht.
     private func messageItems(_ q: String) -> [PaletteItem] {
-        let tokens = Fuzzy.fold(q).split(whereSeparator: \.isWhitespace).map(String.init)
-        guard q.count >= 2, !tokens.isEmpty else { return [] }
-        var hits: [Message] = []
-        for (chatID, list) in store.messages where store.chatExists(chatID) {
-            for m in list where (m.role == .user || m.role == .bot) && !m.text.isEmpty {
-                let folded = Fuzzy.fold(m.text)
-                if tokens.allSatisfy({ folded.contains($0) }) { hits.append(m) }
+        guard search.phase == .done, search.query == q else { return [] }
+        return search.hits.filter { store.chatExists($0.chatId) }.map { hit in
+            let icon: PaletteItem.Icon = hit.role == .user ? .symbol("person.fill", theme.textSecondary)
+                : .chat(store.bot(hit.authorId) != nil ? hit.authorId ?? hit.chatId : hit.chatId)
+            return PaletteItem(id: "msg:\(hit.messageId)", title: hit.snippet, attributedTitle: hit.attributedSnippet(theme: theme),
+                               subtitle: "\(store.searchHitSource(hit)) · \(Formatting.dayTime(hit.createdAt))", icon: icon) { [store] in
+                await store.openSearchHit(hit)
             }
         }
-        hits.sort { $0.createdAt > $1.createdAt }
-        return hits.prefix(8).map { m in
-            let author: String
-            if m.role == .user { author = store.isOwnMessage(m) ? "Du" : store.authorName(of: m) } else { author = store.bot(m.meta.authorId ?? m.chatId)?.name ?? store.chatName(m.chatId) }
-            let place = ChatGroup.isGroupID(m.chatId) ? "\(author) in \(store.chatName(m.chatId))" : author
-            let chatID = m.chatId, messageID = m.id
-            return PaletteItem(id: "msg:\(m.id)", title: m.text, attributedTitle: Self.snippet(m.text, highlight: tokens[0], theme: theme),
-                               subtitle: "\(place) · \(Formatting.dayTime(m.createdAt))",
-                               icon: m.role == .user ? .symbol("person.fill", theme.textSecondary) : .chat(m.meta.authorId ?? m.chatId)) { [store] in
-                store.pendingScrollMessageID = messageID
-                store.openChat(chatID)
-            }
-        }
-    }
-
-    /// Ausschnitt um den Treffer (eine Zeile), Treffer fett in Textfarbe.
-    private static func snippet(_ text: String, highlight token: String, theme: Theme) -> AttributedString {
-        let flat = text.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "\n", with: " ")
-        var start = flat.startIndex
-        if let r = flat.range(of: token, options: [.caseInsensitive, .diacriticInsensitive]),
-           flat.distance(from: flat.startIndex, to: r.lowerBound) > 28 {
-            start = flat.index(r.lowerBound, offsetBy: -24)
-            // An Wortgrenze beginnen
-            if let space = flat[start..<r.lowerBound].firstIndex(of: " ") { start = flat.index(after: space) }
-        }
-        let shown = (start > flat.startIndex ? "…" : "") + String(flat[start...])
-        var attr = AttributedString(shown)
-        attr.foregroundColor = theme.textSecondary
-        if let r = shown.range(of: token, options: [.caseInsensitive, .diacriticInsensitive]),
-           let lo = AttributedString.Index(r.lowerBound, within: attr), let hi = AttributedString.Index(r.upperBound, within: attr) {
-            attr[lo..<hi].foregroundColor = theme.textPrimary
-            attr[lo..<hi].inlinePresentationIntent = .stronglyEmphasized
-        }
-        return attr
     }
 
     /// iPhone: Seitenleiste nach vorn holen (Bereich anlegen und Suche leben dort).
+    /// ⇧⌘H („Heute“) gibt es nur am Mac; iPadOS belegt das Kürzel selbst
+    private static var isMac: Bool {
+        #if os(macOS)
+        true
+        #else
+        false
+        #endif
+    }
+
     private static func showSidebarIfNeeded(_ store: AppStore, compact: Bool) async {
         guard compact, store.selectedChatID != nil else { return }
         store.selectedChatID = nil
@@ -584,7 +673,7 @@ struct KeyCaps: View {
         HStack(spacing: 3) {
             ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
                 Text(key)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .appFont(11, weight: .medium, design: .rounded)
                     .foregroundStyle(theme.textSecondary)
                     .frame(minWidth: 20, minHeight: 20)
                     .padding(.horizontal, key.count > 1 ? 5 : 0)

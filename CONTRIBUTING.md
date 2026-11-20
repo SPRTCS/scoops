@@ -15,12 +15,12 @@ that do one thing are the easiest to review.
 | Part | Folder | Run the tests |
 |---|---|---|
 | Server (Python 3.12, uv) | `Server/` | `Server/bin/test` (all) or `Server/bin/test sharing` (one file) |
-| Apps (SwiftUI, XcodeGen) | `App/` | `xcodebuild test -scheme WatchLogicTests -destination 'platform=macOS'` |
+| Apps (SwiftUI, XcodeGen) | `App/` | `xcodebuild test -scheme WatchLogicTests -destination 'platform=macOS'`, strings: `App/scripts/strings.py check` |
 | Cloud (Convex, TypeScript) | `Cloud/` | `npm test` and `npm run typecheck` |
 
 The tests need no network and no real keys. Fakes for the AI programs and MCP servers live in `Server/tests/`.
-`Server/tests/probelauf.py` is a longer end-to-end run against a live server with real models. You don't need it for
-a pull request.
+`Server/bin/probelauf` plays through the main flows end to end with fake models (offline, about a minute); with
+`--live` it uses a real model and costs a few cents. You don't need the live run for a pull request.
 
 ## Development setup
 
@@ -45,9 +45,12 @@ Please don't commit those changes.
 
 ## Conventions
 
-- **Language.** The product, the prompts, most comments and the docs are German, because that's where Scoops started.
-  New code may use English or German. Stay consistent within a file. User-facing text must work in both languages
-  in the long run, so new strings should be easy to localize.
+- **Language.** The apps, the server and the server app speak German and English. German is the source language:
+  the German text in the code is the key. Every new user-facing string needs an English translation, in the String
+  Catalog (`App/Shared/Localization/Localizable.xcstrings`, check with `App/scripts/strings.py check`; server app:
+  `App/ScoopsConnect/Resources/`) or, on the server, in `Server/src/aisbot/i18n_en/` (`Server/tests/test_i18n.py` finds
+  missing entries). Rules and glossary: [docs/sprache.md](docs/sprache.md). Prompts, most comments and the docs are
+  German, because that's where Scoops started; new code may use English or German, consistently within a file.
 - **Python:** type hints, small functions, standard library first. Every behavior change gets a check in
   `Server/tests/`.
 - **Swift:** Swift 6 with strict concurrency, SwiftUI first, no third-party UI libraries. Keep previews and the

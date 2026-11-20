@@ -12,7 +12,7 @@ nonisolated struct CloudUser: Codable, Equatable, Sendable {
     var displayName: String {
         if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty { return name }
         if let email, !email.isEmpty { return email }
-        return "Apple-Konto"
+        return String(localized: "Apple-Konto")
     }
 
     private enum CodingKeys: String, CodingKey { case id, _id, userId, name, email }
@@ -124,7 +124,7 @@ nonisolated struct CloudSession: Decodable, Identifiable, Equatable, Sendable {
         id = try c.decodeIfPresent(String.self, forKey: .id)
             ?? c.decodeIfPresent(String.self, forKey: ._id)
             ?? c.decodeIfPresent(String.self, forKey: .sessionId) ?? ""
-        deviceName = try c.decodeIfPresent(String.self, forKey: .deviceName) ?? "Gerät"
+        deviceName = try c.decodeIfPresent(String.self, forKey: .deviceName) ?? String(localized: "Gerät")
         platform = try c.decodeIfPresent(String.self, forKey: .platform)
         createdAt = try c.decodeMillis(forKey: .createdAt) ?? c.decodeMillis(forKey: ._creationTime)
         lastUsedAt = try c.decodeMillis(forKey: .lastUsedAt)

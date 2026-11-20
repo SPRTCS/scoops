@@ -18,6 +18,7 @@ import anthropic
 
 from .computer import Computer, ComputerError, compact_image
 from .config import UsageBook, anthropic_api_key
+from .i18n import tx
 
 DEFAULT_MODEL = "claude-haiku-5-5"
 ESCALATION_MODEL = "claude-sonnet-5-5"
@@ -80,8 +81,9 @@ ESCALATE_TOOL = {
     "strict": True,
 }
 
+# Composio-Toolkits in Statuszeilen („Schaut in Gmail“); der Kalender hat eine eigene Zeile (mcp_line)
 TOOLKIT_NAMES = {
-    "GMAIL": "Gmail", "NOTION": "Notion", "GOOGLECALENDAR": "deinen Kalender", "GOOGLEDRIVE": "Google Drive",
+    "GMAIL": "Gmail", "NOTION": "Notion", "GOOGLEDRIVE": "Google Drive",
     "GOOGLESHEETS": "Google Sheets", "SLACK": "Slack", "GITHUB": "GitHub", "LINEAR": "Linear", "TWITTER": "X",
 }
 
@@ -190,7 +192,7 @@ class ComputerHub:
     def acquire(self, holder: str, cancel: threading.Event | None = None) -> Computer:
         while True:
             if cancel and cancel.is_set():
-                raise ComputerError("Abgebrochen, während auf den Bot-Rechner gewartet wurde")
+                raise ComputerError(tx("Abgebrochen, während auf den Bot-Rechner gewartet wurde"))
             if self.takeover_wanted:  # der Nutzer will übernehmen: er ist vor wartenden Scoops dran
                 time.sleep(0.1)
                 continue
@@ -283,29 +285,29 @@ def img_block(data: bytes, media_type: str = "image/png") -> dict:
 def status_line(name: str, inp: dict) -> str:
     """Freundliche Statuszeile statt Werkzeugname."""
     if name == "screenshot":
-        return "Schaut auf den Bildschirm"
+        return tx("Schaut auf den Bildschirm")
     if name == "zoom":
-        return "Schaut genauer hin"
+        return tx("Schaut genauer hin")
     if name in ("left_click", "double_click", "triple_click", "right_click", "middle_click"):
-        return "Klickt"
+        return tx("Klickt")
     if name == "type":
         t = inp.get("text", "")
-        return f"Tippt „{t[:40]}{'…' if len(t) > 40 else ''}“"
+        return tx("Tippt „{text}“", text=f"{t[:40]}{'…' if len(t) > 40 else ''}")
     if name == "key":
-        return f"Drückt {inp.get('text')}"
+        return tx("Drückt {key}", key=inp.get("text"))
     if name == "scroll":
-        return "Scrollt"
+        return tx("Scrollt")
     if name in ("left_click_drag", "mouse_move", "left_mouse_down", "left_mouse_up", "cursor_position"):
-        return "Bewegt die Maus"
+        return tx("Bewegt die Maus")
     if name == "terminal":
         cmd = inp.get("command", "")
         if cmd.startswith("open "):
-            return "Öffnet ein Programm"
-        return "Arbeitet im Terminal"
+            return tx("Öffnet ein Programm")
+        return tx("Arbeitet im Terminal")
     if name == "wait" or name == "hold_key":
-        return "Wartet kurz"
+        return tx("Wartet kurz")
     if name == "eskalieren":
-        return "Holt sich Verstärkung"
+        return tx("Holt sich Verstärkung")
     return name
 
 
@@ -353,14 +355,14 @@ def announces_action(text: str) -> bool:
 
 def mcp_line(server: str, name: str, inp: dict) -> str:
     if server == "teamapp":
-        return "Fragt die Team App"
+        return tx("Fragt die Team App")
     from .mcp_client import LABELS
     if server in LABELS:  # eigene MCP-Server (custom_mcp.py)
-        return f"Nutzt {LABELS[server]}"
+        return tx("Nutzt {app}", app=LABELS[server])
     if name == "COMPOSIO_SEARCH_TOOLS":
-        return "Sucht das passende Werkzeug"
+        return tx("Sucht das passende Werkzeug")
     if name == "COMPOSIO_MANAGE_CONNECTIONS":
-        return "Prüft die Verbindungen"
+        return tx("Prüft die Verbindungen")
     slugs = []
     for t in (inp or {}).get("tools", []) or []:
         slug = t.get("tool_slug") or t.get("slug") or ""
@@ -368,11 +370,13 @@ def mcp_line(server: str, name: str, inp: dict) -> str:
             slugs.append(slug)
     for s in slugs:
         prefix = s.split("_", 1)[0]
+        if prefix == "GOOGLECALENDAR":
+            return tx("Schaut in deinen Kalender")
         if prefix in TOOLKIT_NAMES:
-            return f"Schaut in {TOOLKIT_NAMES[prefix]}"
+            return tx("Schaut in {app}", app=TOOLKIT_NAMES[prefix])
     if name == "COMPOSIO_REMOTE_WORKBENCH" or name == "COMPOSIO_REMOTE_BASH_TOOL":
-        return "Wertet Daten aus"
-    return "Nutzt eine verbundene App"
+        return tx("Wertet Daten aus")
+    return tx("Nutzt eine verbundene App")
 
 
 class Engine:
@@ -495,7 +499,7 @@ class Engine:
             nonlocal computer, used_computer
             if computer is None:
                 if hub.holder and hub.holder != holder:
-                    line("Wartet, bis der Rechner frei ist")
+                    line(tx("Wartet, bis der Rechner frei ist"))
                 computer = hub.acquire(holder, cancel)
                 used_computer = True
             return computer
@@ -563,15 +567,15 @@ class Engine:
                         line(mcp_line(b.server_name, b.name, b.input))
                     elif b.type == "server_tool_use" and b.name == "web_search":
                         q = (b.input or {}).get("query", "")
-                        line(f"Sucht im Web: {q[:50]}" if q else "Sucht im Web")
+                        line(tx("Sucht im Web: {query}", query=q[:50]) if q else tx("Sucht im Web"))
                     elif b.type == "server_tool_use" and b.name == "web_fetch":
-                        line("Liest eine Webseite")
+                        line(tx("Liest eine Webseite"))
                     elif b.type == "text" and b.text.strip() and on_text:
                         on_text(b.text.strip())
 
                 messages.append({"role": "assistant", "content": response.content})
                 if any(b.type == "compaction" for b in response.content):
-                    line("Fasst den bisherigen Verlauf zusammen")
+                    line(tx("Fasst den bisherigen Verlauf zusammen"))
                     cut = _compaction_index(messages)
                     if cut:  # alles davor verwirft die API ohnehin; hält auch gespeicherte Verläufe klein
                         del messages[:cut]
@@ -645,11 +649,12 @@ class Engine:
                     checkpoint(messages)
 
                 if usage.dollars >= budget:
-                    final_text = f"Ich habe abgebrochen, weil die Kostengrenze von {budget:.2f} $ für diese Aufgabe erreicht ist."
+                    final_text = tx("Ich habe abgebrochen, weil die Kostengrenze von {budget:.2f} $ für diese Aufgabe "
+                                    "erreicht ist.", budget=budget)
                     stop_reason = "budget"
                     break
             else:
-                final_text = f"Ich habe nach {max_steps} Schritten abgebrochen."
+                final_text = tx("Ich habe nach {steps} Schritten abgebrochen.", steps=max_steps)
                 stop_reason = "max_steps"
         finally:
             if computer is not None:

@@ -30,6 +30,17 @@ struct ChatView: View {
     @State private var widthSettle: Task<Void, Never>?
     /// Scroll-Zustand ohne Beobachtung (ändert sich pro Bild, soll den Chat nicht neu auswerten)
     @State private var scrollState = TranscriptScrollState()
+    /// Hochgescrollt (weiter als `awayDistance` vom Ende): Zum-Ende-Knopf zeigen, neue Nachrichten nur zählen
+    @State private var awayFromEnd = false
+    /// Neue Nachrichten, die eingetroffen sind, während man hochgescrollt hatte (Zahl am Zum-Ende-Knopf)
+    @State private var unseenCount = 0
+    /// Suche in diesem Chat (Leiste unter dem Chat-Kopf, ⌘F)
+    @State private var find = ChatFindState()
+
+    /// Ab diesem Abstand zum Ende gilt der Verlauf als hochgescrollt (etwa ein Drittel eines iPhone-Bildschirms)
+    private static let awayDistance: CGFloat = 260
+    /// Der Chat zeigt nur einen Ausschnitt (Sprung zu einer älteren Fundstelle), neuere Nachrichten sind nicht geladen
+    private var detached: Bool { store.detachedChats.contains(chatID) }
 
     private var isGroup: Bool { ChatGroup.isGroupID(chatID) }
     /// Geteilter Scoop (mit mir geteilt oder von mir geteilt): über jeder Nachrichtengruppe steht, von wem sie ist
@@ -45,7 +56,10 @@ struct ChatView: View {
     private var unreadCount: Int { openedUnread ?? store.bot(chatID)?.unread ?? store.group(chatID)?.unread ?? 0 }
     /// Verlauf sichtbar: Startposition steht – oder die Nachrichten lagen beim Öffnen schon vor und es gibt nichts
     /// Ungelesenes. Dann stimmt schon das erste Bild (`defaultScrollAnchor(…, for: .initialOffset)`), kein Ausblenden.
-    private var transcriptShown: Bool { positioned || (cachedAtOpen != false && loaded && unreadCount == 0) }
+    private var transcriptShown: Bool {
+        // Sprung zu einer Fundstelle: erst zeigen, wenn die Nachricht in der Mitte steht (siehe `openTranscript`)
+        positioned || (cachedAtOpen != false && loaded && unreadCount == 0 && store.pendingScrollMessageID == nil)
+    }
 
     var body: some View {
         let _ = PerfLog.chatBody(chatID)
@@ -79,6 +93,24 @@ struct ChatView: View {
                                         .frame(height: 8)
                                         .allowsHitTesting(false)
                                 }
+                                // Zum-Ende-Knopf: schwebt unten rechts im Verlauf, also immer über Eingabefeld,
+                                // Anhängen, Antwort-Leiste und Tastatur (die liegen unter dem Verlauf, siehe oben)
+                                .overlay(alignment: .bottomTrailing) {
+                                    if positioned, awayFromEnd || detached {
+                                        ScrollToEndButton(unseen: unseenCount) { jumpToEnd() }
+                                            .padding(.trailing, 16)
+                                            .padding(.bottom, 12)
+                                            .transition(.scale(scale: 0.6).combined(with: .opacity))
+                                    }
+                                }
+                                .animation(.snappy(duration: 0.2), value: awayFromEnd || detached)
+                                .overlay(alignment: .top) {
+                                    if find.active {
+                                        ChatFindBar(chatID: chatID, find: find, onShow: showFindHit, onClose: closeFind)
+                                            .transition(.move(edge: .top).combined(with: .opacity))
+                                    }
+                                }
+                                .animation(.snappy(duration: 0.2), value: find.active)
                         } else {
                             Color.clear
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -159,11 +191,11 @@ struct ChatView: View {
             if store.isMock, ProcessInfo.processInfo.arguments.contains("-attachdemo"), attachments.isEmpty {
                 let logo = LibraryFile(id: "demo-logo", chatId: chatID, authorId: nil, kind: "bild", name: "Logo.png",
                                        mime: "image/png", size: nil, url: nil, note: nil, createdAt: nil, downloadUrl: nil)
-                let pdf = LibraryFile(id: "demo-pdf", chatId: chatID, authorId: nil, kind: "datei", name: "Angebot-Q1.pdf",
+                let pdf = LibraryFile(id: "demo-pdf", chatId: chatID, authorId: nil, kind: "datei", name: demoText("Angebot-Q1.pdf", en: "Quote-Q1.pdf"),
                                       mime: "application/pdf", size: nil, url: nil, note: nil, createdAt: nil, downloadUrl: nil)
                 attachments.add(data: MockFiles.content(for: logo), name: logo.name, mime: "image/png", chatID: chatID, store: store)
                 attachments.add(data: MockFiles.content(for: pdf), name: pdf.name, mime: "application/pdf", chatID: chatID, store: store)
-                draft.text = "Kannst du das Angebot prüfen? @"
+                draft.text = demoText("Kannst du das Angebot prüfen? @", en: "Can you review the quote? @")
             }
             #if DEBUG
             // Nur Debug-Builds: echten Upload mit einem erzeugten Testbild prüfen (`-uploadtest`)
@@ -175,11 +207,22 @@ struct ChatView: View {
             }
             #endif
         }
-        .onDisappear { store.chatBecameHidden(chatID) }
+        .onDisappear {
+            store.chatBecameHidden(chatID)
+            store.leaveDetachedWindow(chatID)
+        }
         .onChange(of: chatID) { old, new in
             store.chatBecameHidden(old)
+            store.leaveDetachedWindow(old)
             store.chatBecameVisible(new)
+            find.close()
+            awayFromEnd = false
+            unseenCount = 0
             // Entwürfe bleiben pro Chat im Store erhalten (siehe `draft`)
+        }
+        .onChange(of: store.chatFindRequest) { _, _ in
+            // Knopf im Chat-Kopf bzw. ⌘F: Suchleiste zeigen (noch einmal = wieder schließen)
+            if find.active { closeFind() } else { find.active = true }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.chatBecameVisible(chatID) }
@@ -187,7 +230,7 @@ struct ChatView: View {
         .onChange(of: messages.last?.id) { _, _ in
             // Nicht beim Laden: Die Startposition setzt `openTranscript()` ohne Animation.
             guard positioned else { return }
-            withAnimation(.smooth(duration: 0.3)) { position.scrollTo(edge: .bottom) }
+            followNewMessage()
         }
         .onChange(of: store.keyboardVisible) { _, visible in
             // Tastatur verkleinert den sichtbaren Bereich. Am Ende hält die Verankerung den Verlauf am Ende; das
@@ -199,7 +242,10 @@ struct ChatView: View {
             }
         }
         .onChange(of: store.isTyping(chatID)) { _, typing in
-            if typing, positioned { withAnimation(.smooth(duration: 0.3)) { position.scrollTo(edge: .bottom) } }
+            // Hochgescrollt bzw. im Ausschnitt bleibt der Verlauf stehen
+            if typing, positioned, !awayFromEnd, !detached {
+                withAnimation(.smooth(duration: 0.3)) { position.scrollTo(edge: .bottom) }
+            }
         }
     }
 
@@ -209,7 +255,7 @@ struct ChatView: View {
             .background(theme.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 Label("Zum Anhängen loslassen", systemImage: "paperclip")
-                    .font(.system(size: 15, weight: .semibold))
+                    .appFont(15, weight: .semibold)
                     .foregroundStyle(theme.accent)
             }
             .padding(14)
@@ -221,7 +267,7 @@ struct ChatView: View {
         // Nur senkrecht scrollen; waagerecht bleibt die Spalte fest (keine Verschiebung beim Ein-/Ausblenden der
         // Tastatur oder durch die senkrechte Systemleiste des iPhone Duo).
         ScrollView(.vertical) {
-            LazyVStack(spacing: 10) {
+            TranscriptStack {
                 if store.hasMoreHistory[chatID] == true {
                     ProgressView()
                         .controlSize(.small)
@@ -240,7 +286,7 @@ struct ChatView: View {
                             .chatColumn(theme.contentMaxWidth)
                     case .stamp(let date, _):
                         Text(Formatting.dayTime(date))
-                            .font(.system(size: 12, weight: .medium))
+                            .appFont(12, weight: .medium)
                             .foregroundStyle(theme.textTertiary)
                             .frame(maxWidth: .infinity)
                             .padding(.top, 14)
@@ -257,7 +303,7 @@ struct ChatView: View {
                             .padding(.top, grouped ? -4 : 0)
                             .chatColumn(theme.contentMaxWidth)
                             .background {
-                                if flashedID == m.id {
+                                if flashedID == m.id || (find.active && find.current?.messageId == m.id) {
                                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                                         .fill(theme.accent.opacity(0.10))
                                         .frame(maxWidth: theme.contentMaxWidth + 24)
@@ -267,10 +313,14 @@ struct ChatView: View {
                             }
                     }
                 }
+                // Ausschnitt (Sprung zu einer älteren Fundstelle): neuere Nachrichten erst auf Wunsch
+                if detached {
+                    NewerMessagesRow { await loadNewer() }.chatColumn(theme.contentMaxWidth)
+                }
                 // Animation nur für die Tipp-Blasen, nicht für das Layout der ganzen Spalte
                 // (sonst „springt“ die Spalte beim ersten Anzeigen, z. B. nach einem Widget-Link).
                 VStack(spacing: 10) {
-                    ForEach(typingBubbleMembers) { bot in
+                    ForEach(detached ? [] : typingBubbleMembers) { bot in
                         TypingBubble(bot: bot, showsName: isGroup)
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
@@ -285,7 +335,6 @@ struct ChatView: View {
             // Kante immer bei x = 0) und setzt Rand und Spalte erst innen – siehe `chatColumn`. Oben/unten als
             // Content-Margins statt Padding, damit auch das senkrechte Verankern nicht um den Rand springt.
             .frame(maxWidth: .infinity)
-            .scrollTargetLayout()
             .transaction { if !positioned { $0.animation = nil } }
         }
         // Oben: Der ScrollView reicht bis an den Bildschirm- bzw. Fensterrand (unter Kopf-Pille und Knöpfe), die
@@ -311,6 +360,21 @@ struct ChatView: View {
             // sichtbarer Bereich ohne den Streifen unter dem Eingabefeld
             g.visibleRect.maxY - g.contentInsets.bottom >= g.contentSize.height - 24
         } action: { _, bottom in atBottom = bottom }
+        // Hochgescrollt? Nur eine Bewegung (Finger, Mausrad, Sprung zu einer Nachricht) entfernt vom Ende; wächst der
+        // Inhalt in Ruhe (neue Nachricht, während man unten steht), folgt der Verlauf wie bisher.
+        .onScrollGeometryChange(for: Bool.self) { g in
+            g.contentSize.height - (g.visibleRect.maxY - g.contentInsets.bottom) > Self.awayDistance
+        } action: { _, far in
+            #if DEBUG
+            ScrollLog.note("far from end \(far), idle \(scrollState.idle), positioned \(positioned)")
+            #endif
+            if !far {
+                awayFromEnd = false
+                unseenCount = 0
+            } else if !scrollState.idle, positioned {
+                awayFromEnd = true
+            }
+        }
         // Unterer Inset ändert sich (seit Build 14 eigentlich nie: Eingabe und Tastatur liegen unter dem Verlauf, der
         // untere Inset ist 0). Bleibt als Absicherung: Am Ende setzt die Verankerung den Versatz bei jeder Änderung
         // des unteren Insets um den GANZEN neuen Inset hinter das Ende (Build 13 gemessen beim Zeilenumbruch: 1601
@@ -355,7 +419,17 @@ struct ChatView: View {
             ScrollLog.note("phase \(phase)")
             #endif
             scrollState.idle = phase == .idle
+            scrollState.touching = phase == .tracking || phase == .interacting || phase == .decelerating
             if phase == .idle, scrollState.beyondEnd { settleBeyondEnd() }
+            // Nach jeder Bewegung nachmessen (z. B. Sprung ohne Animation)
+            if phase == .idle, positioned {
+                awayFromEnd = -scrollState.overshoot > Self.awayDistance
+                // Während der Berührung kam etwas Neues und man ist am Ende geblieben: jetzt nachrücken
+                if scrollState.followAfterTouch, !awayFromEnd, !detached {
+                    withAnimation(.smooth(duration: 0.3)) { position.scrollTo(edge: .bottom) }
+                }
+                scrollState.followAfterTouch = false
+            }
         }
         #if DEBUG
         .onScrollGeometryChange(for: [CGFloat].self) { g in
@@ -419,6 +493,17 @@ struct ChatView: View {
             withTransaction(t) { position.scrollTo(id: ChatItem.unreadID, anchor: .top) }
             await waitForLayout()
         }
+        // Sprung zu einer Fundstelle (Suche): Der Chat öffnet gleich mit der Nachricht in der Mitte.
+        if let id = store.pendingScrollMessageID, messages.contains(where: { $0.id == id }) {
+            store.pendingScrollMessageID = nil
+            withTransaction(t) { position.scrollTo(id: id, anchor: .center) }
+            await waitForLayout()
+            positioned = true
+            awayFromEnd = -scrollState.overshoot > Self.awayDistance
+            scrollState.count = messages.count
+            await flash(id)
+            return
+        }
         // Ganz unten (ohne Ungelesenes), bzw. kurzer Rest: Das Ziel liegt hinter dem Ende, weil alles ab dem Trenner
         // auf den Bildschirm passt → ans Ende. Zweiter Durchgang, falls sich Lazy-Höhen dabei noch einmal ändern.
         for _ in 0..<2 {
@@ -432,6 +517,9 @@ struct ChatView: View {
         ScrollLog.note("open: unread \(openedUnread ?? 0) anchor \(anchor ?? "–") over \(scrollState.overshoot) messages \(messages.count) cached \(cachedAtOpen.map(String.init) ?? "nil")")
         #endif
         positioned = true
+        // Start beim Trenner „Neu“ mit viel Verlauf darunter: Der Zum-Ende-Knopf steht gleich bereit
+        awayFromEnd = -scrollState.overshoot > Self.awayDistance
+        scrollState.count = messages.count
     }
 
     /// Zustand beim Öffnen merken (einmal): Ungelesen-Zähler und ob die Nachrichten schon vorlagen.
@@ -469,15 +557,94 @@ struct ChatView: View {
         }
     }
 
-    /// Zur Nachricht aus der Befehlspalette scrollen und sie kurz hervorheben.
+    /// Zur Nachricht aus der Suche bzw. einem Zitat scrollen und sie kurz hervorheben.
     private func scrollToPendingMessage() async {
         guard let id = store.pendingScrollMessageID, messages.contains(where: { $0.id == id }) else { return }
         store.pendingScrollMessageID = nil
         try? await Task.sleep(for: .milliseconds(120))
         withAnimation(.smooth(duration: 0.3)) { position.scrollTo(id: id, anchor: .center) }
+        await flash(id)
+    }
+
+    /// Zeile kurz hinterlegen (Treffer der Suche, Original eines Zitats).
+    private func flash(_ id: String) async {
         withAnimation(.easeOut(duration: 0.2)) { flashedID = id }
         try? await Task.sleep(for: .seconds(1.6))
         withAnimation(.easeOut(duration: 0.6)) { if flashedID == id { flashedID = nil } }
+    }
+
+    /// Neue letzte Nachricht: Steht der Verlauf am Ende (oder hat man selbst gesendet), rückt er wie bisher nach.
+    /// Hat man hochgescrollt, bleibt er stehen und der Zum-Ende-Knopf zählt die neue Nachricht.
+    private func followNewMessage() {
+        guard let last = messages.last else { return }
+        let grew = messages.count > scrollState.count, shrunk = messages.count < scrollState.count
+        scrollState.count = messages.count
+        // Im Ausschnitt ändert sich das Ende nur durch Nachladen; entfernte Nachrichten (bearbeitet) zählen nicht
+        guard !detached, !shrunk, !scrollState.loadingNewer else { return }
+        let own = last.role == .user && store.isOwnMessage(last)
+        #if DEBUG
+        ScrollLog.note("new last \(last.role.rawValue), away \(awayFromEnd), idle \(scrollState.idle), over \(scrollState.overshoot)")
+        #endif
+        if awayFromEnd, !own {
+            if grew, last.role == .bot || last.role == .approval || last.role == .user { unseenCount += 1 }
+            return
+        }
+        // Finger auf dem Verlauf: nicht unter dem Finger wegscrollen, nach dem Loslassen nachholen
+        if scrollState.touching, !own {
+            scrollState.followAfterTouch = true
+            return
+        }
+        withAnimation(.smooth(duration: 0.3)) { position.scrollTo(edge: .bottom) }
+    }
+
+    /// Zum-Ende-Knopf: ans Ende scrollen; aus einem Ausschnitt heraus erst die jüngsten Nachrichten laden.
+    private func jumpToEnd() {
+        unseenCount = 0
+        guard detached else {
+            withAnimation(.smooth(duration: 0.3)) { position.scrollTo(edge: .bottom) }
+            return
+        }
+        Task {
+            await store.returnToLatest(chatID)
+            await waitForLayout()
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { position.scrollTo(edge: .bottom) }
+            awayFromEnd = false
+            scrollState.count = messages.count
+        }
+    }
+
+    /// „Neuere Nachrichten laden“ im Ausschnitt: anhängen und die Leseposition halten. Die Verankerung am Ende würde
+    /// sonst mit dem neuen Inhalt mitwandern (50 Nachrichten weiter); die bisher letzte Nachricht bleibt unten stehen.
+    private func loadNewer() async {
+        let anchor = messages.last?.id
+        scrollState.loadingNewer = true
+        await store.loadNewerMessages(chatID: chatID)
+        if let anchor {
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { position.scrollTo(id: anchor, anchor: .bottom) }
+            await waitForLayout()
+            withTransaction(t) { position.scrollTo(id: anchor, anchor: .bottom) }
+        }
+        scrollState.count = messages.count
+        scrollState.loadingNewer = false
+        awayFromEnd = -scrollState.overshoot > Self.awayDistance
+    }
+
+    /// Treffer der Suche im Chat zeigen: bei Bedarf nachladen, hinscrollen (bleibt hinterlegt, solange die Suche offen ist).
+    private func showFindHit(_ hit: SearchHit) {
+        Task { await store.jumpToMessage(hit.messageId, chatID: chatID) }
+    }
+
+    private func closeFind() {
+        find.close()
+        #if os(iOS)
+        KeyboardMonitor.dismiss()
+        #else
+        store.composerFocusRequest += 1
+        #endif
     }
 
     /// Sprecher (Bot des Chats bzw. Gruppenmitglieder) als leichte Werte für die Zeilen.
@@ -533,6 +700,14 @@ private final class TranscriptScrollState {
     /// (positiv = hinter dem Ende, negativ = oberhalb des Endes)
     var layout: [CGFloat] = []
     var overshoot: CGFloat = 0
+    /// Zahl der Nachrichten beim letzten Wechsel am Ende (neue Nachricht von entfernter unterscheiden, `followNewMessage`)
+    var count = 0
+    /// „Neuere Nachrichten laden“ läuft: Der Verlauf rückt dabei nicht ans Ende
+    var loadingNewer = false
+    /// Finger bzw. Schwung auf dem Verlauf (nicht: animiertes Scrollen der App)
+    var touching = false
+    /// Während der Berührung kam eine neue Nachricht: nach dem Loslassen nachrücken, falls man am Ende steht
+    var followAfterTouch = false
 }
 
 /// Inhaltshöhe und Überstand hinter dem Ende (siehe `TranscriptScrollState`).
@@ -607,14 +782,14 @@ private struct UnreadDivider: View {
         HStack(spacing: 10) {
             line
             Text("Neu")
-                .font(.system(size: 12, weight: .semibold))
+                .appFont(12, weight: .semibold)
                 .foregroundStyle(theme.unreadDot)
             line
         }
         .padding(.top, 8)
         .padding(.bottom, 2)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(count == 1 ? "1 ungelesene Nachricht" : "\(count) ungelesene Nachrichten")
+        .accessibilityLabel("\(count) ungelesene Nachrichten")
     }
 
     private var line: some View {
@@ -637,14 +812,25 @@ struct ChatMacHeader: View {
         GlassEffectContainer {
             ZStack {
                 ChatCapsule(chatID: chatID) { store.showInspector.toggle() }
-                HStack {
+                HStack(spacing: 8) {
                     Spacer()
+                    Button { store.chatFindRequest += 1 } label: {
+                        Image(systemName: "magnifyingglass")
+                            .appFont(14, weight: .medium)
+                            .foregroundStyle(theme.textPrimary)
+                            .scaledFrame(36)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(Glass.chatHeader(theme), in: .circle)
+                    .help("Im Chat suchen (⌘F)")
+                    .accessibilityLabel("Im Chat suchen")
                     if !store.showInspector {
                         Button { store.showInspector = true } label: {
                             Image(systemName: "sidebar.right")
-                                .font(.system(size: 14, weight: .medium))
+                                .appFont(14, weight: .medium)
                                 .foregroundStyle(theme.textPrimary)
-                                .frame(width: 36, height: 36)
+                                .scaledFrame(36)
                                 .contentShape(Circle())
                         }
                         .buttonStyle(.plain)
@@ -777,7 +963,17 @@ private struct ChatHeaderBar: ViewModifier {
                         }
                         .sharedBackgroundVisibility(.hidden)
                     }
-                    SystemBarItems(keyboardVisible: store.keyboardVisible, showActions: !actionsInSidebar)
+                    // Suche in diesem Chat (App 1.3): eigener Knopf rechts im Chat-Kopf
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { store.chatFindRequest += 1 } label: {
+                            Label("Im Chat suchen", systemImage: "magnifyingglass")
+                        }
+                        .accessibilityLabel("Im Chat suchen")
+                    }
+                    // iPhone (Pille in der Mitte): Suche, Aufgaben und ein Drei-Punkte-Menü (Neu, Apps verbinden),
+                    // damit neben den Knöpfen Platz für den Namen bleibt
+                    SystemBarItems(keyboardVisible: store.keyboardVisible, showActions: !actionsInSidebar,
+                                   collapseActions: !leading)
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 // Nie eine deckende Leisten-Fläche, auch nicht beim Scrollen (nur der Scroll-Kanten-Effekt)
@@ -820,9 +1016,9 @@ struct ChatCapsule: View {
                 ChatAvatar(chatID: chatID, size: mascot)
                     .frame(width: mascot, height: mascot)
                 Text(name)
-                    .font(.system(size: Metrics.fontSize, weight: .semibold))
+                    .appFont(Metrics.fontSize, weight: .semibold)
                     .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
+                    .adaptiveLineLimit(1)
             }
             .padding(.leading, (Metrics.height - mascot) / 2)
             .padding(.trailing, Metrics.trailing)
@@ -830,6 +1026,8 @@ struct ChatCapsule: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        // Kapsel in der Navigationsleiste (feste Höhe): Name wächst bis zur größten normalen Stufe mit
+        .dynamicTypeSize(...AppFont.controlCap)
         // Liquid Glass wie die System-Knöpfe (Zurück, Neu); `interactive` gibt das Druck-Feedback des Systems.
         .glassEffect(Glass.chatHeader(theme), in: .capsule)
         .help("Profil von \(name)")
@@ -872,5 +1070,22 @@ extension View {
     /// Wichtig für das Scroll-Verankern im Verlauf (siehe `ChatView.transcript`).
     func chatColumn(_ maxWidth: CGFloat) -> some View {
         frame(maxWidth: maxWidth).padding(.horizontal, 16).frame(maxWidth: .infinity)
+    }
+}
+
+/// Stapel des Verlaufs: normalerweise `LazyVStack`. Bei Bedienungshilfen-Größen ein `VStack`: Die Zeilen sind dann so
+/// hoch, dass die geschätzten Höhen des LazyVStack beim Vermessen um Tausende Punkte schrumpfen; nach dem Sprung ans
+/// Ende legte er mitunter gar keine Zeile an (leerer Verlauf bis zur ersten Berührung, gemessen bei Mila im
+/// Demo-Modus, AX3–AX5). Der Verlauf lädt seitenweise, ein voll angelegter Stapel bleibt überschaubar.
+private struct TranscriptStack<Content: View>: View {
+    @ViewBuilder var content: Content
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: 10) { content }.scrollTargetLayout()
+        } else {
+            LazyVStack(spacing: 10) { content }.scrollTargetLayout()
+        }
     }
 }

@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 
 from .config import MODELS, model_available, resolve_model
 from .db import TZ, now
+from .i18n import tx
 
 MAX_CHARS = 12_000  # höchstens so viele Zeichen pro Werkzeugaufruf
 ROUTINE_INLINE = 1_500  # Routinen-Auftrag in scoop_details bis zu dieser Länge vollständig, sonst per routine_id
@@ -661,7 +662,7 @@ def propose(svc, actor_id: str, i: dict) -> tuple[str, str, dict, dict] | str:
         old = db.one("SELECT * FROM skills WHERE lower(name)=lower(?) AND bot_id=?", (name, row["id"]))
         upd.update(skill_name=name, description=desc or (old["description"] if old else ""), after=text[:8000],
                    before=old["steps"] if old else None, skill_id=old["id"] if old else None,
-                   label=("Fähigkeit ändern" if old else "Neue Fähigkeit") + f" „{name}“")
+                   label=tx("Fähigkeit ändern „{name}“", name=name) if old else tx("Neue Fähigkeit „{name}“", name=name))
     elif art == "gedaechtnis":
         if not text:
             return "Für einen Gedächtnis-Eintrag brauche ich text."
@@ -673,7 +674,7 @@ def propose(svc, actor_id: str, i: dict) -> tuple[str, str, dict, dict] | str:
                 return f"Gedächtnis-Eintrag {rep} gibt es bei {who} nicht (IDs siehe scoop_details)."
             before = m["text"]
         upd.update(after=text[:1500], before=before, memory_id=rep or None,
-                   label="Gedächtnis-Eintrag " + ("ändern" if rep else "neu"))
+                   label=tx("Gedächtnis-Eintrag ändern") if rep else tx("Gedächtnis-Eintrag neu"))
     elif art == "anweisungen":
         if not text:
             return "Für Anweisungen brauche ich text."
@@ -683,7 +684,7 @@ def propose(svc, actor_id: str, i: dict) -> tuple[str, str, dict, dict] | str:
         if len(after) > CHARACTER_MAX:
             return f"Der neue Charakter-Text wäre zu lang ({len(after)} Zeichen, höchstens {CHARACTER_MAX}). Kürzer fassen."
         upd.update(after=after, before=cur, mode=mode, addition=text if mode == "ergaenzen" else None,
-                   label="Anweisungen/Charakter " + ("ergänzen" if mode == "ergaenzen" else "ersetzen"))
+                   label=tx("Anweisungen/Charakter ergänzen") if mode == "ergaenzen" else tx("Anweisungen/Charakter ersetzen"))
     else:  # routine_modell
         rid = (i.get("routine_id") or "").strip()
         r = db.one("SELECT * FROM routines WHERE id=? AND bot_id=?", (rid, row["id"]))
@@ -697,14 +698,14 @@ def propose(svc, actor_id: str, i: dict) -> tuple[str, str, dict, dict] | str:
             return f"Für {new} ist auf diesem Server kein Schlüssel hinterlegt."
         if new == (r["model"] if "model" in r.keys() else None):
             return "Die Routine nutzt dieses Modell schon."
-        upd.update(routine_id=rid, routine_title=r["title"], before=r["model"] or "wie Scoop", after=new or "wie Scoop",
-                   model=new, label=f"Modell der Routine „{r['title']}“")
-    title = f"Verbesserung für {who}: {upd['label']}"
-    det = [f"Scoop: {who}" + (f" ({target['label']})" if target["label"] else ""), f"Änderung: {upd['label']}",
-           f"Begründung: {short(reason, 800)}"]
+        upd.update(routine_id=rid, routine_title=r["title"], before=r["model"] or tx("wie Scoop"),
+                   after=new or tx("wie Scoop"), model=new, label=tx("Modell der Routine „{title}“", title=r["title"]))
+    title = tx("Verbesserung für {name}: {change}", name=who, change=upd["label"])
+    det = [tx("Scoop: {name}", name=who) + (f" ({target['label']})" if target["label"] else ""),
+           tx("Änderung: {change}", change=upd["label"]), tx("Begründung: {reason}", reason=short(reason, 800))]
     if upd.get("before"):
-        det.append("Vorher:\n" + short(str(upd["before"]), 1500))
-    det.append(("Nachher:\n" if upd.get("before") else "Neu:\n") + short(str(upd["after"]), 3000))
+        det.append(tx("Vorher:") + "\n" + short(str(upd["before"]), 1500))
+    det.append((tx("Nachher:") if upd.get("before") else tx("Neu:")) + "\n" + short(str(upd["after"]), 3000))
     action = {"kind": "scoop_update", "requested_by": actor_id, **{k: v for k, v in upd.items() if k != "status"}}
     card = {"kind": "scoop_update", "scoop_update": {**upd, "editable": art != "routine_modell"}}
     return title, "\n\n".join(det), action, card
@@ -717,7 +718,7 @@ def apply_update(svc, action: dict, edits: dict | None) -> tuple[str, str]:
     tid = action["target_id"]
     row = db.bot_row(tid)
     if not row:
-        raise ValueError("Den Scoop gibt es nicht mehr.")
+        raise ValueError(tx("Den Scoop gibt es nicht mehr."))
     e = edits or {}
     after = e.get("after") if isinstance(e.get("after"), str) and e["after"].strip() else None
     art = action["art"]
@@ -725,17 +726,17 @@ def apply_update(svc, action: dict, edits: dict | None) -> tuple[str, str]:
         steps = (after or action["after"]).strip()[:8000]
         sk = db.save_skill(tid, action["skill_name"], action.get("description") or "", steps)
         svc.publish("skill.updated", sk)
-        return (f"{action['label']} bei {row['name']}",
+        return (tx("{change} bei {name}", change=action["label"], name=row["name"]),
                 f"Fähigkeit „{sk['name']}“ ({'geändert' if action.get('skill_id') else 'neu'}). Vor so einer Aufgabe mit "
                 "faehigkeit_lesen abrufen und befolgen.")
     if art == "gedaechtnis":
         text = (after or action["after"]).strip()[:1500]
         if action.get("memory_id"):
             if not db.one("SELECT 1 FROM memories WHERE id=? AND bot_id=?", (action["memory_id"], tid)):
-                raise ValueError("Der zu ersetzende Gedächtnis-Eintrag existiert nicht mehr.")
+                raise ValueError(tx("Der zu ersetzende Gedächtnis-Eintrag existiert nicht mehr."))
             db.delete_memory(action["memory_id"])
         m = db.add_memory(tid, "profil", text)
-        return f"{action['label']} bei {row['name']}", f"Neuer Gedächtnis-Eintrag ({m['id']}): {text}"
+        return tx("{change} bei {name}", change=action["label"], name=row["name"]), f"Neuer Gedächtnis-Eintrag ({m['id']}): {text}"
     if art == "anweisungen":
         if after:
             new = after.strip()
@@ -745,21 +746,21 @@ def apply_update(svc, action: dict, edits: dict | None) -> tuple[str, str]:
         else:
             new = action["after"]
         if len(new) > CHARACTER_MAX:
-            raise ValueError(f"Text zu lang (höchstens {CHARACTER_MAX} Zeichen).")
+            raise ValueError(tx("Text zu lang (höchstens {max} Zeichen).", max=CHARACTER_MAX))
         db.update_bot(tid, {"character": new})
         svc._emit_chat(tid)
         added = action.get("addition") if action.get("mode") == "ergaenzen" and not after else None
-        return (f"{action['label']} bei {row['name']}",
+        return (tx("{change} bei {name}", change=action["label"], name=row["name"]),
                 "Deine Anweisungen wurden " + (f"ergänzt um: {added}" if added else f"geändert. Neu: {short(new, 1500)}"))
     if art == "routine_modell":
         r = db.one("SELECT * FROM routines WHERE id=? AND bot_id=?", (action["routine_id"], tid))
         if not r:
-            raise ValueError("Die Routine gibt es nicht mehr.")
+            raise ValueError(tx("Die Routine gibt es nicht mehr."))
         model = resolve_model(action.get("model"))
         if model and (model not in MODELS or not model_available(model)):
-            raise ValueError(f"Modell {model} ist nicht verfügbar.")
+            raise ValueError(tx("Modell {model} ist nicht verfügbar.", model=model))
         db.q("UPDATE routines SET model=? WHERE id=?", (model, r["id"]))
         svc.publish("routine.updated", db.routine_dict(db.one("SELECT * FROM routines WHERE id=?", (r["id"],))))
-        return (f"{action['label']} bei {row['name']}: {model or 'wie Scoop'}",
+        return (tx("{change} bei {name}: {model}", change=action["label"], name=row["name"], model=model or tx("wie Scoop")),
                 f"Deine Routine „{r['title']}“ läuft jetzt mit Modell {model or 'wie du'}.")
-    raise ValueError("Unbekannte Art der Verbesserung.")
+    raise ValueError(tx("Unbekannte Art der Verbesserung."))

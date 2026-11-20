@@ -8,7 +8,7 @@ import SwiftUI
 extension AppStore {
     /// Freigabe mit sicheren Werten. Gibt bei Fehler den Text zurück.
     func decideSecrets(_ message: Message, approve: Bool, secrets: [KeyValue]) async -> String? {
-        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return "Keine Verbindung zum Server." }
+        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return String(localized: "Keine Verbindung zum Server.") }
         do {
             upsert(try await service.decideSecrets(approvalID: approvalID, approve: approve, secrets: approve ? secrets : []))
             return nil
@@ -38,22 +38,22 @@ struct MCPSecretCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: message.meta.icon == "terminal" ? "terminal.fill" : (isConnect ? "server.rack" : "key.fill"))
-                    .font(.system(size: 13))
+                    .appFont(13)
                     .foregroundStyle(theme.warning)
-                    .frame(width: 26, height: 26)
+                    .scaledFrame(26)
                     .background(theme.warning.opacity(0.14), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
                     Text(state == "pending" ? "MCP-Server · Freigabe nötig" : "MCP-Server")
-                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(theme.textTertiary)
+                        .appFont(11.5, weight: .medium).foregroundStyle(theme.textTertiary)
                     Text(message.meta.title ?? message.text)
-                        .font(.system(size: 15, weight: .semibold))
+                        .appFont(15, weight: .semibold)
                         .foregroundStyle(theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             if let details = message.meta.details, !details.isEmpty {
                 Text(details)
-                    .font(.system(size: 13.5))
+                    .appFont(13.5)
                     .lineSpacing(2.5)
                     .foregroundStyle(theme.textSecondary)
                     .padding(12)
@@ -65,10 +65,10 @@ struct MCPSecretCard: View {
             case "pending":
                 ForEach(fields) { f in
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(f.label).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.textSecondary)
+                        Text(f.label).appFont(12.5, weight: .semibold).foregroundStyle(theme.textSecondary)
                         SecureField(f.label, text: Binding(get: { values[f.key] ?? "" }, set: { values[f.key] = $0; error = nil }))
                             .textFieldStyle(.plain)
-                            .font(.system(size: 15))
+                            .appFont(15)
                             .padding(.horizontal, 12).padding(.vertical, 10)
                             .background(theme.background.opacity(theme.kind == .nacht ? 0.7 : 1),
                                         in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -80,9 +80,9 @@ struct MCPSecretCard: View {
                     }
                 }
                 Label("Geht direkt in den Schlüsselbund deines Servers. Der Scoop sieht den Wert nie.", systemImage: "lock.fill")
-                    .font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                    .appFont(12).foregroundStyle(theme.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
+                AdaptiveButtonRow(spacing: 8) {
                     Button { decide(true) } label: { Text(isConnect ? "Verbinden" : "Speichern").frame(minWidth: 90) }
                         .buttonStyle(PillButtonStyle(kind: .primary))
                         .disabled(!complete)
@@ -93,15 +93,15 @@ struct MCPSecretCard: View {
                 .disabled(working)
                 if let error {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12.5)).foregroundStyle(theme.danger)
+                        .appFont(12.5).foregroundStyle(theme.danger)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             case "approved":
                 Label(isConnect ? "Freigegeben, wird verbunden" : "Gespeichert", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 13, weight: .medium)).foregroundStyle(theme.success)
+                    .appFont(13, weight: .medium).foregroundStyle(theme.success)
             default:
                 Label("Abgelehnt", systemImage: "xmark.circle.fill")
-                    .font(.system(size: 13, weight: .medium)).foregroundStyle(theme.textTertiary)
+                    .appFont(13, weight: .medium).foregroundStyle(theme.textTertiary)
             }
         }
         .padding(14)
@@ -133,7 +133,7 @@ struct MCPLoginCard: View {
     @State private var done = false
     @State private var error: String?
 
-    private var name: String { message.meta.mcpServerName ?? "MCP-Server" }
+    private var name: String { message.meta.mcpServerName ?? String(localized: "MCP-Server") }
 
     var body: some View {
         if store.isGuestChat(message.chatId) {
@@ -147,21 +147,21 @@ struct MCPLoginCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: done ? "checkmark" : "person.badge.key.fill")
-                    .font(.system(size: 13))
+                    .appFont(13)
                     .foregroundStyle(done ? theme.success : theme.accent)
-                    .frame(width: 26, height: 26)
+                    .scaledFrame(26)
                     .background((done ? theme.success : theme.accent).opacity(0.14), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("MCP-Server · Anmeldung").font(.system(size: 11.5, weight: .medium)).foregroundStyle(theme.textTertiary)
+                    Text("MCP-Server · Anmeldung").appFont(11.5, weight: .medium).foregroundStyle(theme.textTertiary)
                     Text(done ? "Bei \(name) angemeldet" : "Bei \(name) anmelden")
-                        .font(.system(size: 15, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                        .appFont(15, weight: .semibold).foregroundStyle(theme.textPrimary)
                 }
             }
             if !done {
                 Text("Du meldest dich direkt beim Anbieter an. Die Scoops bekommen nur den Zugang, nie dein Passwort.")
-                    .font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                    .appFont(13).foregroundStyle(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
+                AdaptiveButtonRow(spacing: 8) {
                     Button { start() } label: { Text("Anmelden").frame(minWidth: 90) }
                         .buttonStyle(PillButtonStyle(kind: .primary))
                         .disabled(working)
@@ -171,7 +171,7 @@ struct MCPLoginCard: View {
             }
             if let error {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 12.5)).foregroundStyle(theme.danger)
+                    .appFont(12.5).foregroundStyle(theme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

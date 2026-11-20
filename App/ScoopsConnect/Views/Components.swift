@@ -26,8 +26,8 @@ extension AppModel {
 
 /// Eine Berechtigungszeile mit Live-Status, „Erlauben“ und Direkt-Link in die Systemeinstellungen.
 struct PermissionRow: View {
-    let title: String
-    let detail: String
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
     let symbol: String
     let granted: Bool
     let request: () -> Void
@@ -115,7 +115,7 @@ struct ModeCard: View {
     let action: () -> Void
 
     private var symbol: String { mode == .direct ? "desktopcomputer" : "shippingbox" }
-    private var detail: String {
+    private var detail: LocalizedStringKey {
         mode == .direct
             ? "Für einen Mac, der nur für die Scoops da ist. Sie bedienen diesen Bildschirm, Maus und Tastatur direkt. Hier sollte nichts Privates angemeldet sein."
             : "Für einen Mac, an dem du selbst arbeitest. Die Scoops arbeiten abgeschirmt in einer virtuellen Maschine (Lume) und sehen deinen Bildschirm nicht."
@@ -168,12 +168,19 @@ struct AppIconView: View {
 /// Fragt per NSAlert nach, bevor der Rechner getrennt wird.
 @MainActor
 func confirmUnpair(_ model: AppModel) {
-    let alert = NSAlert()
-    alert.messageText = "Rechner trennen?"
-    alert.informativeText = "Scoops Connect vergisst die Kopplung mit dem Server. Die Scoops können diesen Rechner dann nicht mehr nutzen, bis du ihn neu koppelst."
-    alert.addButton(withTitle: "Trennen")
-    alert.addButton(withTitle: "Abbrechen")
-    alert.buttons.first?.hasDestructiveAction = true
+    let alert = unpairAlert()
     NSApp.activate()
     if alert.runModal() == .alertFirstButtonReturn { model.unpair() }
+}
+
+/// Rückfrage „Rechner trennen?“ (eigene Funktion, damit die Render-Tests sie ohne Anzeige zeichnen können).
+@MainActor
+func unpairAlert() -> NSAlert {
+    let alert = NSAlert()
+    alert.messageText = String(localized: "Rechner trennen?")
+    alert.informativeText = String(localized: "Scoops Connect vergisst die Kopplung mit dem Server. Die Scoops können diesen Rechner dann nicht mehr nutzen, bis du ihn neu koppelst.")
+    alert.addButton(withTitle: String(localized: "Trennen"))
+    alert.addButton(withTitle: String(localized: "Abbrechen"))
+    alert.buttons.first?.hasDestructiveAction = true
+    return alert
 }

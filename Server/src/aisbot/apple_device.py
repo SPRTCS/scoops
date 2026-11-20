@@ -31,9 +31,11 @@ import time
 from typing import Callable
 
 from .db import new_id, now_iso
+from . import i18n
+from .i18n import N_, tx
 
 SERVICES = ("home", "alarms", "location")
-LABEL = {"home": "Home", "alarms": "Wecker", "location": "Standort"}
+LABEL = {"home": N_("Home"), "alarms": N_("Wecker"), "location": N_("Standort")}  # Anzeige: translate
 TOOL = {"home": "apple_home", "alarms": "apple_wecker", "location": "apple_standort"}
 TOOL_NAMES = frozenset(TOOL.values())
 KINDS = ("iphone", "ipad", "mac")
@@ -167,7 +169,7 @@ class AppleDevices:
         """Anmeldung/Aktualisierung eines Geräts (`device.hello` bzw. `POST /api/apple/device`)."""
         did = str(body.get("device_id") or "").strip()[:80]
         if not re.fullmatch(r"[A-Za-z0-9_.:-]{6,80}", did):
-            raise ValueError("device_id fehlt oder ist ungültig")
+            raise ValueError(tx("device_id fehlt oder ist ungültig"))
         kind = body.get("kind") if body.get("kind") in KINDS else "iphone"
         caps = [c for c in (body.get("capabilities") or []) if c in SERVICES] if kind != "mac" else []
         perms = normalize_permissions(body.get("permissions"))
@@ -371,17 +373,18 @@ class AppleDevices:
             perm = dev["permissions"][s] if dev else "unknown"
             what = "iPad" if dev and dev["kind"] == "ipad" else "iPhone"
             if dev is None:
-                st, hint = "no_device", "Öffne AIS Scoops auf deinem iPhone, damit es sich anmeldet."
+                st, hint = "no_device", tx("Öffne AIS Scoops auf deinem iPhone, damit es sich anmeldet.")
             elif s not in dev["capabilities"]:
-                st, hint = "unsupported", f"„{dev['name']}“ kann das nicht (iOS 26 und eine aktuelle AIS-Scoops-App nötig)."
+                st, hint = "unsupported", tx("„{name}“ kann das nicht (iOS 26 und eine aktuelle AIS-Scoops-App nötig).",
+                                             name=dev["name"])
             elif not granted(s, perm):
-                st, hint = "needs_permission", f"Auf dem {what} in AIS Scoops erlauben."
+                st, hint = "needs_permission", tx("Auf dem {device} in AIS Scoops erlauben.", device=what)
             elif not enabled[s]:
                 st, hint = "off", None
             else:
                 st, hint = "ready", None
-            services.append({"id": s, "name": LABEL[s], "tool": TOOL[s], "enabled": enabled[s], "permission": perm,
-                             "available": st == "ready", "status": st, "hint": hint,
+            services.append({"id": s, "name": i18n.translate(LABEL[s]), "tool": TOOL[s], "enabled": enabled[s],
+                             "permission": perm, "available": st == "ready", "status": st, "hint": hint,
                              "device_id": dev["id"] if dev else None,
                              **({"background": perm == "always"} if s == "location" else {})})
         return {"device": ({**dev, "source": source} if dev else None), "device_choice": cfg.get("apple_device") or "auto",
@@ -393,7 +396,7 @@ class AppleDevices:
         for s in SERVICES:
             if s in body:
                 if not isinstance(body[s], bool):
-                    raise ValueError(f"{s}: true oder false")
+                    raise ValueError(tx("{key}: true oder false", key=s))
                 raw[s] = body[s]
         cfg["apple_services"] = raw
         if "device" in body:
@@ -488,11 +491,11 @@ class AppleDevices:
             params = {"id": scene["id"]}
             if scene.get("sensitive"):
                 return request_approval(
-                    f"Szene ausführen: „{scene.get('name')}“",
-                    "Die Szene schaltet Schlösser, Türen, Garagentore oder die Alarmanlage.",
+                    tx("Szene ausführen: „{name}“", name=scene.get("name")),
+                    tx("Die Szene schaltet Schlösser, Türen, Garagentore oder die Alarmanlage."),
                     {"kind": "apple", "service": "home", "command": "apple.home.scene", "sensitive": True,
                      "params": {**params, "confirmed": True}, "label": scene.get("name") or scene["id"],
-                     "done": f"Szene „{scene.get('name')}“ ausgeführt"})
+                     "done": tx("Szene „{name}“ ausgeführt", name=scene.get("name"))})
             return self._run("home", "apple.home.scene", params)
         if a == "schalten":
             if not tid:
@@ -509,13 +512,13 @@ class AppleDevices:
             sensitive_change = []
             if isinstance(i.get("verriegeln"), bool):
                 params["lock"] = "secured" if i["verriegeln"] else "unsecured"
-                sensitive_change.append("verriegeln" if i["verriegeln"] else "entriegeln")
+                sensitive_change.append(tx("verriegeln") if i["verriegeln"] else tx("entriegeln"))
             if isinstance(i.get("oeffnen"), bool):
                 params["door"] = "open" if i["oeffnen"] else "closed"
-                sensitive_change.append("öffnen" if i["oeffnen"] else "schließen")
+                sensitive_change.append(tx("öffnen") if i["oeffnen"] else tx("schließen"))
             if i.get("modus") in SECURITY_IN:
                 params["security"] = SECURITY_IN[i["modus"]]
-                sensitive_change.append(f"Alarmanlage: {i['modus']}")
+                sensitive_change.append(tx("Alarmanlage: {mode}", mode=i["modus"]))
             if len(params) == 1:
                 return "Fehler: nichts zu schalten (an, helligkeit, temperatur, position, verriegeln, oeffnen oder modus)."
             try:
@@ -530,7 +533,7 @@ class AppleDevices:
                 room = f" ({acc.get('room')})" if acc.get("room") else ""
                 return request_approval(
                     f"{name}{room}: {what}",
-                    "Schlösser, Türen, Garagentore und die Alarmanlage schaltet ein Scoop nur mit deiner Freigabe.",
+                    tx("Schlösser, Türen, Garagentore und die Alarmanlage schaltet ein Scoop nur mit deiner Freigabe."),
                     {"kind": "apple", "service": "home", "command": "apple.home.set", "sensitive": True,
                      "params": {**params, "confirmed": True}, "label": name, "done": f"{name}: {what}"})
             return self._run("home", "apple.home.set", params)
@@ -555,9 +558,9 @@ class AppleDevices:
                 secs = int(round(float(i["minuten"]) * 60))
             if not 5 <= secs <= 24 * 3600:
                 return "Fehler: Dauer zwischen 5 Sekunden und 24 Stunden angeben (minuten oder sekunden)."
-            return self._run("alarms", "apple.alarms.timer", {"seconds": secs, "title": title or "Timer"})
+            return self._run("alarms", "apple.alarms.timer", {"seconds": secs, "title": title or tx("Timer")})
         if a == "stellen":
-            p: dict = {"title": title or "Wecker"}
+            p: dict = {"title": title or tx("Wecker")}
             t = (i.get("uhrzeit") or "").strip()
             if t:
                 m = re.fullmatch(r"(\d{1,2})[:.](\d{2})(?:\s*uhr)?", t.lower())
@@ -676,14 +679,14 @@ def _find_scene(overview: dict, key: str) -> dict | None:
 def _describe_change(p: dict) -> str:
     parts = []
     if "on" in p:
-        parts.append("einschalten" if p["on"] else "ausschalten")
+        parts.append(tx("einschalten") if p["on"] else tx("ausschalten"))
     if "brightness" in p:
-        parts.append(f"Helligkeit {p['brightness']} %")
+        parts.append(tx("Helligkeit {value} %", value=p["brightness"]))
     if "target_temperature" in p:
         parts.append(f"{p['target_temperature']:g} °C")
     if "position" in p:
-        parts.append(f"Position {p['position']} %")
-    return ", ".join(parts) or "schalten"
+        parts.append(tx("Position {value} %", value=p["position"]))
+    return ", ".join(parts) or tx("schalten")
 
 
 def _trigger_label(on_entry, on_exit) -> str:
@@ -702,17 +705,18 @@ def _text(data) -> str:
 
 
 def _line_home(i: dict) -> str:
-    return {"schalten": "Schaltet ein Gerät", "szene": "Führt eine Szene aus"}.get(i.get("aktion") or "", "Schaut in Home")
+    return {"schalten": tx("Schaltet ein Gerät"), "szene": tx("Führt eine Szene aus")}.get(i.get("aktion") or "",
+                                                                                         tx("Schaut in Home"))
 
 
 def _line_alarms(i: dict) -> str:
-    return {"stellen": "Stellt einen Wecker", "timer": "Startet einen Timer", "loeschen": "Löscht einen Wecker"}.get(
-        i.get("aktion") or "", "Schaut nach deinen Weckern")
+    return {"stellen": tx("Stellt einen Wecker"), "timer": tx("Startet einen Timer"),
+            "loeschen": tx("Löscht einen Wecker")}.get(i.get("aktion") or "", tx("Schaut nach deinen Weckern"))
 
 
 def _line_location(i: dict) -> str:
-    return {"wo": "Schaut, wo du bist", "ort_anlegen": "Merkt sich einen Ort", "ort_loeschen": "Löscht einen Ort"}.get(
-        i.get("aktion") or "", "Schaut nach deinen Orten")
+    return {"wo": tx("Schaut, wo du bist"), "ort_anlegen": tx("Merkt sich einen Ort"),
+            "ort_loeschen": tx("Löscht einen Ort")}.get(i.get("aktion") or "", tx("Schaut nach deinen Orten"))
 
 
 def prompt_hint(services: list[str], user_name: str) -> list[str]:

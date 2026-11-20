@@ -67,9 +67,9 @@ nonisolated final class LiveAudioIO: @unchecked Sendable {
                                     options: [.defaultToSpeaker, .allowBluetoothHFP, .duckOthers])
             try session.setPreferredIOBufferDuration(0.02)
             try session.setActive(true, options: .notifyOthersOnDeactivation)
-            guard session.isInputAvailable else { return "Kein Mikrofon verfügbar." }
+            guard session.isInputAvailable else { return String(localized: "Kein Mikrofon verfügbar.") }
         } catch {
-            return "Audio konnte nicht gestartet werden."
+            return String(localized: "Audio konnte nicht gestartet werden.")
         }
         #endif
         lock.lock(); restarts = []; lock.unlock()
@@ -94,10 +94,10 @@ nonisolated final class LiveAudioIO: @unchecked Sendable {
             #endif
         }
         let inFormat = input.outputFormat(forBus: 0)
-        guard inFormat.channelCount > 0, inFormat.sampleRate > 0 else { return "Kein Mikrofon gefunden." }
+        guard inFormat.channelCount > 0, inFormat.sampleRate > 0 else { return String(localized: "Kein Mikrofon gefunden.") }
         guard let mono = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: inFormat.sampleRate,
                                        channels: 1, interleaved: false),
-              let conv = AVAudioConverter(from: mono, to: pcmFormat) else { return "Audioformat wird nicht unterstützt." }
+              let conv = AVAudioConverter(from: mono, to: pcmFormat) else { return String(localized: "Audioformat wird nicht unterstützt.") }
 
         let player = AVAudioPlayerNode()
         engine.attach(player)
@@ -111,7 +111,7 @@ nonisolated final class LiveAudioIO: @unchecked Sendable {
             try engine.start()
         } catch {
             input.removeTap(onBus: 0)
-            return "Mikrofon konnte nicht gestartet werden."
+            return String(localized: "Mikrofon konnte nicht gestartet werden.")
         }
         player.play()
         let observer = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine,

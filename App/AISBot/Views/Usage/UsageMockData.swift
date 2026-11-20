@@ -64,8 +64,10 @@ enum UsageMockData {
             let ct = Int(c * 285_000), ot = Int(o * 85_000)
             let key = hourly ? date.formatted(.iso8601.year().month().day().dateSeparator(.dash).time(includingFractionalSeconds: false))
                              : date.formatted(.iso8601.year().month().day().dateSeparator(.dash))
-            let label = hourly ? "\(cal.component(.hour, from: date)) Uhr"
-                               : "\(cal.component(.day, from: date)).\(cal.component(.month, from: date))."
+            // Achsenbeschriftung wie der Server (englisch „9:00“ bzw. „11/20“)
+            let hour = cal.component(.hour, from: date), day = cal.component(.day, from: date), month = cal.component(.month, from: date)
+            let label = hourly ? demoText("\(hour) Uhr", en: "\(hour):00")
+                               : demoText("\(day).\(month).", en: "\(month)/\(day)")
             series.append(.init(key: key, label: label, costUsd: c + o, tokens: ct + ot,
                                 claude: .init(costUsd: c, tokens: ct, apiUsd: c * scoopsShare * 0.6),
                                 openai: .init(costUsd: o, tokens: ot, apiUsd: o * scoopsShare * 0.6)))
@@ -106,7 +108,7 @@ enum UsageMockData {
                                  shareCost: scoopsShare, shareTokens: scoopsShare))
         }
         if source != "scoops" {
-            sources.append(.init(id: "other", label: "Andere Apps auf diesem Mac", costUsd: total * (1 - scoopsShare),
+            sources.append(.init(id: "other", label: demoText("Andere Apps auf diesem Mac", en: "Other apps on this Mac"), costUsd: total * (1 - scoopsShare),
                                  aboUsd: total * (1 - scoopsShare), tokens: Int(Double(tokTotal) * (1 - scoopsShare)),
                                  shareCost: 1 - scoopsShare, shareTokens: 1 - scoopsShare))
         }
@@ -144,7 +146,7 @@ enum UsageMockData {
         totals.cacheSavingsUsd = total * typeShare.cacheRead * 13
         totals.cachedShare = Double(tRead) / Double(tIn + tRead + tWrite)
         let accountTokens = source == "scoops" ? nil : UsageDetails.Account(openai: .init(
-            tokens: Int(Double(providers[1].tokens) * 1.18), label: "Laut OpenAI (alle Geräte)"))
+            tokens: Int(Double(providers[1].tokens) * 1.18), label: demoText("Laut OpenAI (alle Geräte)", en: "According to OpenAI (all devices)")))
         return UsageDetails(range: r.rawValue, bucket: hourly ? "hour" : "day", source: source, totals: totals, byType: byType,
                             providers: providers, sources: sources, apps: apps, models: modelRows, days: days,
                             scoops: scoops, series: series, account: accountTokens,
@@ -156,23 +158,23 @@ enum UsageMockData {
         let now = PreviewData.clock
         func iso(_ d: Date) -> String { UsageFormat.iso.string(from: d) }
         return UsageLimits(providers: [
-            .init(id: "claude", label: "Claude", appLabel: "Claude-Abo (Claude Code)", loggedIn: true, subscription: true,
+            .init(id: "claude", label: "Claude", appLabel: demoText("Claude-Abo (Claude Code)", en: "Claude subscription (Claude Code)"), loggedIn: true, subscription: true,
                   state: "ok", plan: "Max", source: "live", at: iso(now), windows: [
-                    .init(id: "five_hour", label: "5-Stunden-Fenster", kind: "session", usedPercent: 38,
+                    .init(id: "five_hour", label: demoText("5-Stunden-Fenster", en: "5-hour window"), kind: "session", usedPercent: 38,
                           resetsAt: iso(now.addingTimeInterval(2 * 3600 + 14 * 60)), windowMinutes: 300),
-                    .init(id: "seven_day", label: "Wöchentlich", kind: "weekly", usedPercent: 33,
+                    .init(id: "seven_day", label: demoText("Wöchentlich", en: "Weekly"), kind: "weekly", usedPercent: 33,
                           resetsAt: iso(now.addingTimeInterval(3 * 86400 + 3 * 3600)), windowMinutes: 10080),
-                    .init(id: "model:fable", label: "Wöchentlich · Fable", kind: "model", usedPercent: 23,
+                    .init(id: "model:fable", label: demoText("Wöchentlich · Fable", en: "Weekly · Fable"), kind: "model", usedPercent: 23,
                           resetsAt: iso(now.addingTimeInterval(3 * 86400 + 3 * 3600)), windowMinutes: 10080),
                   ], credits: nil, extraUsage: .init(enabled: false, usedPercent: nil), extra: nil, error: nil),
-            .init(id: "openai", label: "OpenAI", appLabel: "ChatGPT-Abo (Codex)", loggedIn: true, subscription: true,
+            .init(id: "openai", label: "OpenAI", appLabel: demoText("ChatGPT-Abo (Codex)", en: "ChatGPT subscription (Codex)"), loggedIn: true, subscription: true,
                   state: "ok", plan: "Pro", source: "live", at: iso(now), windows: [
-                    .init(id: "codex:primary:10080", label: "Wöchentlich", kind: "weekly", usedPercent: 46,
+                    .init(id: "codex:primary:10080", label: demoText("Wöchentlich", en: "Weekly"), kind: "weekly", usedPercent: 46,
                           resetsAt: iso(now.addingTimeInterval(21 * 3600 + 3 * 60)), windowMinutes: 10080),
-                    .init(id: "codex:secondary:300", label: "5-Stunden-Fenster", kind: "session", usedPercent: 71,
+                    .init(id: "codex:secondary:300", label: demoText("5-Stunden-Fenster", en: "5-hour window"), kind: "session", usedPercent: 71,
                           resetsAt: iso(now.addingTimeInterval(95 * 60)), windowMinutes: 300),
                   ], credits: .init(hasCredits: true, unlimited: false, balance: 70055.33), extraUsage: nil,
                   extra: .init(resetCredits: 3), error: nil),
-        ], scopeNote: "Gesamtes Abo, alle Apps und Geräte")
+        ], scopeNote: demoText("Gesamtes Abo, alle Apps und Geräte", en: "Entire subscription, all apps and devices"))
     }
 }

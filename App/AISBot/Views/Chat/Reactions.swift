@@ -39,11 +39,11 @@ struct ReactionCapsule: View {
         } label: {
             HStack(spacing: 2) {
                 ForEach(groups.prefix(4), id: \.emoji) { g in
-                    Text(g.emoji).font(.system(size: 14))
+                    Text(g.emoji).appFont(14)
                 }
                 if reactions.count > 1 {
                     Text("\(reactions.count)")
-                        .font(.system(size: 12, weight: .semibold))
+                        .appFont(12, weight: .semibold)
                         .foregroundStyle(theme.textSecondary)
                         .padding(.leading, 2)
                 }
@@ -65,9 +65,11 @@ struct ReactionCapsule: View {
 
     private var accessibilityText: String {
         let parts = reactions.sorted { $0.key < $1.key }.map { actor, emoji in
-            "\(emoji) von \(store.reactionActorName(actor, chatID: message.chatId))"
+            let name = store.reactionActorName(actor, chatID: message.chatId)
+            return String(localized: "\(emoji) von \(name)", comment: "Reaktion für VoiceOver: Emoji und wer (Dativ: „von dir“)")
         }
-        return "Reaktionen: " + parts.joined(separator: ", ")
+        let list = parts.joined(separator: ", ")
+        return String(localized: "Reaktionen: \(list)")
     }
 }
 
@@ -96,6 +98,8 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
     @State private var opensPickerAfterOverlay = false
     /// „Antworten“ im Overlay: Antwort erst setzen, wenn das Overlay weg ist (sonst greift der Fokus nicht)
     @State private var repliesAfterOverlay = false
+    /// „Bearbeiten“ bzw. „Erneut senden …“ im Overlay: ebenfalls erst danach
+    @State private var editsAfterOverlay = false
     /// Lage der Blase im Fenster. Bewusst kein beobachteter Zustand: Beim Scrollen ändert sie sich ständig,
     /// gebraucht wird sie nur im Moment des langen Drückens.
     @State private var frameBox = FrameBox()
@@ -116,6 +120,7 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
                     }
                 }
                 .accessibilityAction(named: "Mit Herz reagieren") { store.react(message, emoji: "❤️") }
+                .modifier(EditAccessibilityAction(message: message))
                 #if os(iOS)
                 .accessibilityAction(named: message.localState == nil ? "Reagieren" : "Aktionen") { openOverlay() }
                 #endif
@@ -140,6 +145,10 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
                 repliesAfterOverlay = false
                 store.startReply(to: message)
             }
+            if editsAfterOverlay {
+                editsAfterOverlay = false
+                store.startEditing(message)
+            }
         }) {
             ReactionOverlay(
                 message: message,
@@ -152,6 +161,9 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
                 onMore: { opensPickerAfterOverlay = true },
                 onCopy: { Clipboard.copy(copyText) },
                 onReply: store.canReply(to: message) ? { repliesAfterOverlay = true } : nil,
+                edit: store.editAction(for: message).map { action in
+                    (title: action.title, icon: action.icon, run: { editsAfterOverlay = true })
+                },
                 onFinish: {
                     hidesOriginal = false
                     withoutAnimation { showsOverlay = false }
@@ -206,6 +218,10 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
                         Label("Antworten", systemImage: "arrowshape.turn.up.left")
                     }
                 }
+                // Eigene Nachricht: jüngste bearbeiten, ältere erneut senden (App 1.3)
+                if let action = store.editAction(for: message) {
+                    Button { store.startEditing(message) } label: { Label(action.title, systemImage: action.icon) }
+                }
                 Button { Clipboard.copy(copyText) } label: { Label("Kopieren", systemImage: "doc.on.doc") }
             }
         #endif
@@ -251,9 +267,9 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
         if store.canReply(to: message) {
             Button { store.startReply(to: message) } label: {
                 Image(systemName: "arrowshape.turn.up.left")
-                    .font(.system(size: 12.5, weight: .medium))
+                    .appFont(12.5, weight: .medium)
                     .foregroundStyle(theme.textTertiary)
-                    .frame(width: 26, height: 26)
+                    .scaledFrame(26)
                     .background(theme.surfaceRaised, in: Circle())
             }
             .buttonStyle(.plain)
@@ -266,9 +282,9 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
     private var hoverButton: some View {
         Button { showsHoverBar = true } label: {
             Image(systemName: "face.smiling")
-                .font(.system(size: 14))
+                .appFont(14)
                 .foregroundStyle(theme.textTertiary)
-                .frame(width: 26, height: 26)
+                .scaledFrame(26)
                 .background(theme.surfaceRaised, in: Circle())
         }
         .buttonStyle(.plain)
@@ -282,7 +298,7 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
                         showsHoverBar = false
                         store.react(message, emoji: e == message.meta.reactions?["user"] ? nil : e)
                     } label: {
-                        Text(e).font(.system(size: 28))
+                        Text(e).appFont(28)
                             .frame(width: 40, height: 40)
                             .background(e == message.meta.reactions?["user"] ? theme.accent.opacity(0.2) : .clear, in: Circle())
                     }
@@ -295,8 +311,8 @@ struct ReactionsModifier<Preview: View>: ViewModifier {
                     showsPicker = true
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 40, height: 40)
+                        .appFont(16, weight: .semibold)
+                        .scaledFrame(40)
                         .background(theme.surfaceRaised, in: Circle())
                 }
                 .buttonStyle(.plain)
@@ -329,6 +345,8 @@ private struct ReactionOverlay<Bubble: View>: View {
     var onCopy: () -> Void
     /// „Antworten“ (nil = nicht möglich, z. B. ohne Schreibrecht)
     var onReply: (() -> Void)?
+    /// „Bearbeiten“ bzw. „Erneut senden …“ an eigenen Nachrichten (nil = nicht möglich)
+    var edit: (title: String, icon: String, run: () -> Void)?
     /// Nach der Ausblend-Animation: Overlay entfernen
     var onFinish: () -> Void
     @ViewBuilder var bubble: Bubble
@@ -428,7 +446,7 @@ private struct ReactionOverlay<Bubble: View>: View {
                     close()
                 } label: {
                     Text(e)
-                        .font(.system(size: emojiSize))
+                        .font(.fixed(emojiSize))
                         .frame(width: cell, height: cell)
                         .background(selected ? theme.accent.opacity(theme.kind == .nacht ? 0.38 : 0.22) : .clear, in: Circle())
                         .scaleEffect(picked == e ? 1.25 : 1)
@@ -444,7 +462,7 @@ private struct ReactionOverlay<Bubble: View>: View {
                 close()
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: (cell * 0.42).rounded(), weight: .semibold))
+                    .font(.fixed((cell * 0.42).rounded(), weight: .semibold))
                     .foregroundStyle(theme.textSecondary)
                     .frame(width: cell, height: cell)
                     .background(theme.textPrimary.opacity(0.08), in: Circle())
@@ -463,16 +481,20 @@ private struct ReactionOverlay<Bubble: View>: View {
         .accessibilitySortPriority(2)
     }
 
-    private var menuHeight: CGFloat { menuRowHeight * (onReply == nil ? 1 : 2) + 8 }
+    private var menuHeight: CGFloat { menuRowHeight * CGFloat(1 + (onReply == nil ? 0 : 1) + (edit == nil ? 0 : 1)) + 8 }
 
     private func menu(_ l: Layout) -> some View {
         let width = min(menuWidth, l.size.width - 2 * margin)
         return VStack(spacing: 0) {
             if let onReply {
-                menuRow("Antworten", icon: "arrowshape.turn.up.left") { onReply() }
+                menuRow(Text("Antworten"), icon: "arrowshape.turn.up.left") { onReply() }
                 Divider().padding(.leading, 16)
             }
-            menuRow("Kopieren", icon: "doc.on.doc") { onCopy() }
+            if let edit {
+                menuRow(Text(edit.title), icon: edit.icon) { edit.run() }
+                Divider().padding(.leading, 16)
+            }
+            menuRow(Text("Kopieren"), icon: "doc.on.doc") { onCopy() }
         }
         .padding(.vertical, 4)
         .frame(width: width)
@@ -483,17 +505,17 @@ private struct ReactionOverlay<Bubble: View>: View {
         .accessibilitySortPriority(1)
     }
 
-    private func menuRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+    private func menuRow(_ title: Text, icon: String, action: @escaping () -> Void) -> some View {
         Button {
             action()
             close()
         } label: {
             HStack {
-                Text(title)
+                title
                 Spacer()
                 Image(systemName: icon)
             }
-            .font(.system(size: 16))
+            .appFont(16)
             .foregroundStyle(theme.textPrimary)
             .padding(.horizontal, 16)
             .frame(height: menuRowHeight)
@@ -615,7 +637,7 @@ struct EmojiPickerSheet: View {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: 6)], spacing: 6) {
                         ForEach(Self.emojis, id: \.self) { e in
                             Button { pick(e) } label: {
-                                Text(e).font(.system(size: 32)).frame(width: 48, height: 48)
+                                Text(e).appFont(32).frame(width: 48, height: 48)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(e)
@@ -643,5 +665,19 @@ private extension Character {
     /// Emoji (auch zusammengesetzte) statt Buchstaben/Ziffern
     var isEmojiLike: Bool {
         unicodeScalars.contains { $0.properties.isEmojiPresentation || ($0.properties.isEmoji && $0.value > 0x238C) }
+    }
+}
+
+/// VoiceOver: „Bearbeiten“ bzw. „Erneut senden …“ als Aktion an eigenen Nachrichten (App 1.3).
+private struct EditAccessibilityAction: ViewModifier {
+    let message: Message
+    @Environment(AppStore.self) private var store
+
+    func body(content: Content) -> some View {
+        if let action = store.editAction(for: message) {
+            content.accessibilityAction(named: Text(action.title)) { store.startEditing(message) }
+        } else {
+            content
+        }
     }
 }

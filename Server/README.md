@@ -2,6 +2,10 @@
 
 Python-Server (FastAPI) für die Scoops: Chat, Gedächtnis, Routinen, Erinnerungen, Freigaben, Bot-Rechner (macOS-VM per Computer Use), Composio (Gmail, Notion …) und die MLP Team App (MCP, lesen und schreiben). Läuft als LaunchAgent auf dem Agenten-MacBook-Air. Die API für die App steht in [../docs/API.md](../docs/API.md).
 
+**Stand: Server 1.39.0** (für App 1.3, Überblick [../docs/neu-in-1.3.md](../docs/neu-in-1.3.md)). Version: `src/aisbot/version.py`.
+Sprache: Deutsch und Englisch pro Person ([../docs/sprache.md](../docs/sprache.md)). Tests: `bin/test` (ohne Netz und
+Schlüssel), Probedurchlauf `bin/probelauf` (21 Abläufe, [../docs/probelauf.md](../docs/probelauf.md)).
+
 ## Betrieb
 
 ```bash
@@ -44,10 +48,17 @@ Test der Edition `standard`: `uv run python tests/test_standard.py` (eigener Tem
 | `src/aisbot/server.py` | HTTP-API, WebSocket, Planer für Routinen, Bildschirm-Vorschau |
 | `src/aisbot/bots.py` | Scoop-Dienst: Läufe pro Scoop (Warteschlange, Stopp), Verlauf → Claude, Werkzeuge für Gedächtnis, Routinen, Erinnerungen, Freigaben, Tagebuch |
 | `src/aisbot/engine.py` | Agenten-Schleife: Claude + Computer-Toolset + Terminal + MCP (mit Werkzeugsuche) + Eskalation Haiku → Sonnet, geteilter Bot-Rechner mit Sperre |
-| `src/aisbot/prompts.py` | Identität, Charakter, Stil, Arbeits- und Gedächtnisregeln |
+| `src/aisbot/prompts.py` | Identität, Charakter, Stil, Arbeits- und Gedächtnisregeln, Sprachvorgabe (`language_note`) |
+| `src/aisbot/i18n.py`, `src/aisbot/i18n_en/` | Sprache pro Person (Deutsch/Englisch), `tx`/`txn`/`N_`, englische Tabellen je Bereich, `GET`/`PATCH /api/settings/language` ([../docs/sprache.md](../docs/sprache.md)) |
 | `src/aisbot/db.py` | SQLite-Schicht |
+| `src/aisbot/suche.py` | Suche über alle Chats: Volltext-Index `message_fts` mit Triggern, `GET /api/search`, Ausschnitt um eine Nachricht (docs/suche-chat.md) |
+| `src/aisbot/chat_edit.py` | Eigene Nachricht bearbeiten: neu antworten oder Korrektur, Wirkung eines Laufs (`effects`) |
 | Diktat | `POST /api/transcribe` → OpenAI GPT-Transcribe (Schlüssel im Schlüsselbund `ais-bot-openai`) |
+| `src/aisbot/bilder.py` | Bilder erstellen/bearbeiten über das ChatGPT-Abo (Codex), Werkzeuge `bild_erstellen`/`bild_bearbeiten`, siehe [../docs/bilder.md](../docs/bilder.md) |
 | `src/aisbot/push.py` | APNs (Mitteilungen, Widget-Aktualisierung), aktiv sobald ein Schlüssel hinterlegt ist |
+| `src/aisbot/ruhe.py` | Stummschalten pro Chat und Ruhezeiten pro Person (Inhaber und Gäste getrennt); entscheidet für `push.py`, ob eine Mitteilung normal, still oder gar nicht kommt ([../docs/ruhe.md](../docs/ruhe.md)) |
+| `src/aisbot/vorlagen.py` | Scoop-Vorlagen (`.scoop`): Export ohne Privates, strenge Prüfung, Import in einer Transaktion ([../docs/vorlagen.md](../docs/vorlagen.md)) |
+| `src/aisbot/today.py` | Seite „Heute“ und Freigaben-Postfach: offene Freigaben, Aufgaben, laufende Läufe, heute geplante und gelaufene Routinen (`GET /api/today`, `GET /api/approvals`, [../docs/heute.md](../docs/heute.md)) |
 | `src/aisbot/computer.py` | Treiber für den Computer-Server in der VM |
 | `src/aisbot/agent.py` | Einzelaufgaben von der Kommandozeile |
 | `vm/setup-computer-server.sh` | richtet den Computer-Server in der VM ein (Rechte, Autostart) |

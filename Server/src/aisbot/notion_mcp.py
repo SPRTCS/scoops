@@ -31,6 +31,8 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 
+from .i18n import tx
+
 from .profile import kc
 
 MCP_URL = "https://mcp.notion.com/mcp"
@@ -75,7 +77,7 @@ class KeychainStore:
         cmd = f'add-generic-password -U -s "{self.service}" -a "{self.account}" -w "{blob}"\n'
         r = subprocess.run(["security", "-i"], input=cmd, capture_output=True, text=True)
         if r.returncode != 0 or "error" in (r.stderr or "").lower():
-            raise NotionAuthError("Notion-Anmeldung konnte nicht im Schlüsselbund gespeichert werden.")
+            raise NotionAuthError(tx("Notion-Anmeldung konnte nicht im Schlüsselbund gespeichert werden."))
 
     def delete(self) -> None:
         subprocess.run(["security", "delete-generic-password", "-s", self.service, "-a", self.account],
@@ -124,7 +126,7 @@ class NotionMCP:
         d = self._data()
         if not (d.get("refresh_token") or d.get("access_token")):
             return None
-        return {"id": ACCOUNT_ID, "app": "notion", "alias": d.get("alias") or "Notion direkt",
+        return {"id": ACCOUNT_ID, "app": "notion", "alias": d.get("alias") or tx("Notion direkt"),
                 "email": d.get("workspace_name") or "", "status": "expired" if d.get("expired") else "active",
                 "created_at": d.get("connected_at"), "direct": True}
 
@@ -140,10 +142,10 @@ class NotionMCP:
             return self._meta
         r = self.http.get(ISSUER + "/.well-known/oauth-authorization-server")
         if r.status_code >= 400:
-            raise NotionAuthError(f"Notion ist gerade nicht erreichbar (HTTP {r.status_code}).")
+            raise NotionAuthError(tx("Notion ist gerade nicht erreichbar (HTTP {status}).", status=r.status_code))
         meta = r.json()
         if "S256" not in (meta.get("code_challenge_methods_supported") or ["S256"]):
-            raise NotionAuthError("Notion unterstützt die sichere Anmeldung (PKCE S256) nicht mehr.")
+            raise NotionAuthError(tx("Notion unterstützt die sichere Anmeldung (PKCE S256) nicht mehr."))
         self._meta = meta
         return meta
 
@@ -159,7 +161,7 @@ class NotionMCP:
                                       "response_types": ["code"], "token_endpoint_auth_method": "none"})
         if r.status_code >= 400 or not (r.json() if r.content else {}).get("client_id"):
             err, desc = _err_text(r)
-            raise NotionAuthError(f"Registrierung bei Notion fehlgeschlagen: {desc or err or r.status_code}")
+            raise NotionAuthError(tx("Registrierung bei Notion fehlgeschlagen: {error}", error=desc or err or r.status_code))
         d = self._data()
         d.update(client_id=r.json()["client_id"], redirect_uri=REDIRECT_URI)
         self._save(d)
@@ -187,17 +189,17 @@ class NotionMCP:
         u = urlparse(callback_url or "")
         q = {k: v[0] for k, v in parse_qs(u.query).items() if v}
         if u.scheme != CALLBACK_SCHEME or (u.netloc + u.path).rstrip("/") != "oauth/notion":
-            raise ValueError("Unbekannter Rücksprung-Link")
+            raise ValueError(tx("Unbekannter Rücksprung-Link"))
         if q.get("error"):
             if q["error"] == "access_denied":
-                raise ValueError("Die Anmeldung bei Notion wurde abgebrochen.")
-            raise ValueError(f"Notion hat die Anmeldung abgelehnt: {q.get('error_description') or q['error']}")
+                raise ValueError(tx("Die Anmeldung bei Notion wurde abgebrochen."))
+            raise ValueError(tx("Notion hat die Anmeldung abgelehnt: {error}", error=q.get("error_description") or q["error"]))
         with self._lock:
             pending = self._pending.pop(q.get("state") or "", None)
         if not pending or time.time() - pending["t"] > PENDING_TTL:
-            raise ValueError("Diese Anmeldung ist abgelaufen. Bitte tippe noch einmal auf Verbinden.")
+            raise ValueError(tx("Diese Anmeldung ist abgelaufen. Bitte tippe noch einmal auf Verbinden."))
         if not q.get("code"):
-            raise ValueError("Notion hat keinen Anmelde-Code geliefert.")
+            raise ValueError(tx("Notion hat keinen Anmelde-Code geliefert."))
         tok = self._token_request({"grant_type": "authorization_code", "code": q["code"], "redirect_uri": REDIRECT_URI,
                                    "client_id": pending["client_id"], "code_verifier": pending["verifier"],
                                    "resource": RESOURCE})
@@ -223,7 +225,7 @@ class NotionMCP:
             raise e
         tok = r.json()
         if not tok.get("access_token"):
-            raise NotionAuthError("Notion hat kein Zugangs-Token geliefert.")
+            raise NotionAuthError(tx("Notion hat kein Zugangs-Token geliefert."))
         return tok
 
     @staticmethod
@@ -238,7 +240,7 @@ class NotionMCP:
         """Gültiges Access-Token; erneuert bei Bedarf (einmal gleichzeitig, rotierendes Refresh-Token)."""
         d = self._data()
         if d.get("expired"):
-            raise NotionAuthError("Die Notion-Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu anmelden.")
+            raise NotionAuthError(tx("Die Notion-Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu anmelden."))
         if not force_refresh and d.get("access_token") and float(d.get("expires_at") or 0) - time.time() > REFRESH_EARLY:
             return d["access_token"]
         with self._refresh_lock:
@@ -246,7 +248,7 @@ class NotionMCP:
             if not force_refresh and d.get("access_token") and float(d.get("expires_at") or 0) - time.time() > REFRESH_EARLY:
                 return d["access_token"]
             if not d.get("refresh_token") or not d.get("client_id"):
-                raise NotionAuthError("Notion ist nicht verbunden.")
+                raise NotionAuthError(tx("Notion ist nicht verbunden."))
             try:
                 tok = self._token_request({"grant_type": "refresh_token", "refresh_token": d["refresh_token"],
                                            "client_id": d["client_id"], "resource": RESOURCE})
@@ -257,8 +259,8 @@ class NotionMCP:
                     self._save(d)
                     if self.on_change:  # Hub ohne Notion direkt → Composio-Notion gilt wieder
                         threading.Thread(target=self.on_change, daemon=True).start()
-                    raise NotionAuthError("Die Notion-Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu "
-                                          "anmelden.") from None
+                    raise NotionAuthError(tx("Die Notion-Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu "
+                                             "anmelden.")) from None
                 raise
             d.update(self._token_fields(tok))
             self._save(d)  # neues Refresh-Token sofort sichern (das alte ist ab jetzt verbraucht)

@@ -72,7 +72,7 @@ struct ApprovalCard: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
-                Label(message.meta.always == true ? "Immer erlaubt" : p.stateLabel,
+                Label(message.meta.always == true ? String(localized: "Immer erlaubt") : p.stateLabel,
                       systemImage: p.state == .declined ? "xmark.circle.fill" : "checkmark.circle.fill")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(p.state == .declined ? Color.secondary : Color.green)
@@ -86,7 +86,7 @@ struct ApprovalCard: View {
             Button("Immer erlauben") { decide(.always) }
             Button("Abbrechen", role: .cancel) {}
         } message: {
-            Text(message.meta.alwaysLabel ?? "Künftig fragt der Scoop hierfür nicht mehr.")
+            Text(message.meta.alwaysLabel ?? String(localized: "Künftig fragt der Scoop hierfür nicht mehr."))
         }
     }
 

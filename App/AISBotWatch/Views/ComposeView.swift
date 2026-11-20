@@ -6,7 +6,12 @@ struct ComposeView: View {
     @Environment(WatchStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    static let quickReplies = ["Ja, mach das", "Nein, lass es", "Später", "Wie ist der Stand?", "Danke!"]
+    /// Werden als eigene Nachricht gesendet (in der Sprache der App)
+    static var quickReplies: [String] {
+        [String(localized: "Ja, mach das"), String(localized: "Nein, lass es"),
+         String(localized: "Später", comment: "Schnellantwort auf der Uhr"), String(localized: "Wie ist der Stand?"),
+         String(localized: "Danke!")]
+    }
 
     var body: some View {
         let chat = store.chat(chatID)

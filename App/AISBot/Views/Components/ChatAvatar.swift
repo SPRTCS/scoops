@@ -71,7 +71,7 @@ struct WaitingBadge: View {
 
     var body: some View {
         Text("?")
-            .font(.system(size: size * 0.68, weight: .heavy, design: .rounded))
+            .font(.fixed(size * 0.68, weight: .heavy, design: .rounded))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(theme.danger, in: Circle())
@@ -141,7 +141,7 @@ struct HatchingAvatar: View {
                 ForEach(0..<3, id: \.self) { i in
                     let a = t * 2.2 + Double(i) * 2.1
                     Image(systemName: "sparkle")
-                        .font(.system(size: size * (0.16 + 0.05 * Double(i))))
+                        .font(.fixed(size * (0.16 + 0.05 * Double(i))))
                         .foregroundStyle(Color(hex: "#FFD84D"))
                         .opacity(0.5 + 0.5 * sin(a * 1.7))
                         .offset(x: cos(a) * size * 0.55, y: sin(a) * size * 0.45 - size * 0.1)

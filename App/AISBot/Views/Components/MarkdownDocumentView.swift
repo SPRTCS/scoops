@@ -55,12 +55,12 @@ struct MarkdownDocumentView: View {
                 Group {
                     if showSource {
                         Text(text)
-                            .font(.system(size: 13.5, design: .monospaced))
+                            .appFont(13.5, design: .monospaced)
                             .foregroundStyle(theme.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         MarkdownView(text: text, document: true)
-                            .font(.system(size: 16))
+                            .appFont(16)
                             .lineSpacing(4)
                             .foregroundStyle(theme.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -94,7 +94,7 @@ struct MarkdownDocumentView: View {
 
     /// UTF-8, sonst Latin-1 (ältere Dateien), sonst Fehlerhinweis
     static func load(_ url: URL) -> String {
-        guard let data = try? Data(contentsOf: url) else { return "*Die Datei konnte nicht gelesen werden.*" }
+        guard let data = try? Data(contentsOf: url) else { return String(localized: "*Die Datei konnte nicht gelesen werden.*") }
         return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
     }
 }

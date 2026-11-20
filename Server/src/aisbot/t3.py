@@ -13,6 +13,8 @@ import os
 import sqlite3
 import subprocess
 
+from .i18n import tx
+
 T3 = os.path.expanduser("~/.t3/bin/t3")
 STATE_DB = os.path.expanduser("~/.t3/userdata/statev2.sqlite")
 
@@ -25,11 +27,11 @@ def _run(args: list[str], stdin: str | None = None, timeout: float = 90) -> dict
     r = subprocess.run([T3, *args, "--json"], input=stdin, capture_output=True, text=True, timeout=timeout,
                        env={**os.environ, "PATH": "/opt/homebrew/bin:/usr/bin:/bin:" + os.environ.get("PATH", "")})
     if r.returncode not in (0, 2):
-        raise RuntimeError((r.stderr or r.stdout).strip()[:400] or f"t3 Exitcode {r.returncode}")
+        raise RuntimeError((r.stderr or r.stdout).strip()[:400] or tx("t3 Exitcode {code}", code=r.returncode))
     try:
         return json.loads(r.stdout)
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"Unerwartete Antwort von t3: {r.stdout[:200]}") from e
+        raise RuntimeError(tx("Unerwartete Antwort von t3: {output}", output=r.stdout[:200])) from e
 
 
 def projects() -> list[dict]:

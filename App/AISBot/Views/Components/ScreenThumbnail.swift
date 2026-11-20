@@ -204,30 +204,30 @@ struct ScreenThumbnail: View {
         }
     }
 
-    private func statusPill(_ text: String, compact: Bool) -> some View {
+    private func statusPill(_ text: LocalizedStringKey, compact: Bool) -> some View {
         HStack(spacing: 6) {
             ProgressView().controlSize(.mini).tint(.white)
             Text(text)
         }
-        .font(.system(size: compact ? 9 : 12, weight: .semibold))
+        .appFont(compact ? 9 : 12, weight: .semibold)
         .padding(.horizontal, 10).padding(.vertical, 5)
         .background(.black.opacity(0.55), in: Capsule())
         .foregroundStyle(.white)
     }
 
     @ViewBuilder
-    private func stateBox(icon: String, text: String, button: String, compact: Bool,
-                          detail: String = "Wird automatisch weiter versucht.") -> some View {
+    private func stateBox(icon: String, text: LocalizedStringKey, button: LocalizedStringKey, compact: Bool,
+                          detail: LocalizedStringKey = "Wird automatisch weiter versucht.") -> some View {
         if compact {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .appFont(13, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
         } else {
             VStack(spacing: 8) {
-                Image(systemName: icon).font(.system(size: 22))
-                Text(text).font(.system(size: 13, weight: .semibold))
+                Image(systemName: icon).appFont(22)
+                Text(text).appFont(13, weight: .semibold)
                 Text(detail)
-                    .font(.system(size: 11.5)).foregroundStyle(theme.textSecondary)
+                    .appFont(11.5).foregroundStyle(theme.textSecondary)
                     .multilineTextAlignment(.center)
                 Button(button) {
                     if let feed { feed.restart(store: store) } else { Task { await store.refreshComputer() } }
@@ -272,7 +272,7 @@ struct ScreenViewer: View {
             if controlling { controlBanner }
             if let error {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13))
+                    .appFont(13)
                     .foregroundStyle(theme.warning)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(10)
@@ -296,11 +296,11 @@ struct ScreenViewer: View {
     private var header: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(botName.isEmpty ? store.nodeName(store.computerNodeID) : "Bildschirm von \(botName)")
+                Text(botName.isEmpty ? store.nodeName(store.computerNodeID) : String(localized: "Bildschirm von \(botName)"))
                     .font(.headline).foregroundStyle(theme.textPrimary)
                 Text(subtitle)
                     .font(.caption).foregroundStyle(theme.textSecondary)
-                    .lineLimit(1)
+                    .adaptiveLineLimit(1)
             }
             Spacer()
             if controlling {
@@ -318,7 +318,11 @@ struct ScreenViewer: View {
                 Button { takeOver() } label: {
                     HStack(spacing: 6) {
                         if working { ProgressView().controlSize(.small) }
-                        Label("Übernehmen", systemImage: "cursorarrow.click.2")
+                        // Eigener Schlüssel: „Übernehmen“ heißt hier „Steuerung übernehmen“ (englisch „Take Over“),
+                        // sonst „Anwenden“ (englisch „Apply“)
+                        Label(String(localized: "computer.takeOver", defaultValue: "Übernehmen",
+                                     comment: "Bildschirm des Rechners: die Steuerung übernehmen (englisch „Take Over“)"),
+                              systemImage: "cursorarrow.click.2")
                     }
                     .lineLimit(1)
                     .fixedSize()
@@ -328,7 +332,7 @@ struct ScreenViewer: View {
             } else {
                 // Geteilter Scoop mit Rechner-Stufe „Zusehen“
                 Label("Nur zusehen", systemImage: "eye")
-                    .font(.system(size: 13, weight: .medium))
+                    .appFont(13, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .lineLimit(1)
                     .fixedSize()
@@ -341,18 +345,18 @@ struct ScreenViewer: View {
 
     private var subtitle: String {
         // Der Rechner selbst steht im Umschalter darunter (bei mehreren Rechnern)
-        if controlling { return "Live · du steuerst" }
+        if controlling { return String(localized: "Live · du steuerst") }
         if store.computer.online == false || store.computer.paused == true { return store.computer.displayText }
-        return "Live, aktualisiert alle 1,5 Sekunden · \(store.computer.displayText)"
+        return String(localized: "Live, aktualisiert alle 1,5 Sekunden · \(store.computer.displayText)")
     }
 
     private var controlBanner: some View {
         HStack(spacing: 8) {
             Circle().fill(theme.danger).frame(width: 8, height: 8)
-            Text("Du steuerst").font(.system(size: 13, weight: .semibold))
+            Text("Du steuerst").appFont(13, weight: .semibold)
             Text("Scoops, die den Rechner brauchen, warten, bis du zurückgibst.")
-                .font(.system(size: 12)).foregroundStyle(theme.textSecondary)
-                .lineLimit(1)
+                .appFont(12).foregroundStyle(theme.textSecondary)
+                .adaptiveLineLimit(1)
             Spacer(minLength: 0)
         }
         .foregroundStyle(theme.textPrimary)
@@ -478,8 +482,8 @@ struct MockScreenView: View {
                             .fill(Color(hex: "#E9E9EC"))
                             .frame(height: w * 0.035)
                             .overlay(alignment: .leading) {
-                                Text("booking.com/köln-deutz")
-                                    .font(.system(size: max(5, w * 0.022)))
+                                Text(verbatim: demoText("booking.com/köln-deutz", en: "booking.com/boston"))
+                                    .font(.fixed(max(5, w * 0.022)))
                                     .foregroundStyle(Color(hex: "#555")).padding(.leading, w * 0.015)
                             }
                     }
@@ -502,7 +506,7 @@ struct MockScreenView: View {
                         }
                         RoundedRectangle(cornerRadius: w * 0.01)
                             .fill(Color(hex: "#DDE7F3"))
-                            .overlay(Image(systemName: "map").font(.system(size: w * 0.06)).foregroundStyle(Color(hex: "#7E95B4")))
+                            .overlay(Image(systemName: "map").font(.fixed(w * 0.06)).foregroundStyle(Color(hex: "#7E95B4")))
                     }
                     .padding(w * 0.025)
                     .frame(maxHeight: .infinity, alignment: .top)

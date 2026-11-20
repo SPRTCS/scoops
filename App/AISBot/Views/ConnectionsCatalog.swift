@@ -105,16 +105,27 @@ nonisolated struct CatalogCategory: Codable, Hashable, Identifiable, Sendable {
         count = (try? c.decodeIfPresent(Int.self, forKey: .count)) ?? 0
     }
 
-    /// Deutscher Name für bekannte Kategorien, sonst der Name vom Server (Composio-Original).
+    /// Name in der App-Sprache für bekannte Kategorien, sonst der Name vom Server (Composio-Original).
     var displayName: String { Self.germanNames[id] ?? name }
 
-    static let germanNames = [
-        "popular": "Beliebt", "connected": "Verbunden", "apple": "Apple",
-        "productivity": "Produktivität", "communication": "Kommunikation", "design": "Design",
-        "development": "Entwicklung", "data": "Daten", "finance": "Finanzen", "marketing": "Marketing",
-        "sales": "Vertrieb & CRM", "ai": "KI", "commerce": "Handel", "hr": "Personal", "education": "Bildung",
-        "lifestyle": "Freizeit",
-    ]
+    static var germanNames: [String: String] { [
+        "popular": String(localized: "Beliebt", comment: "Kategorie in „Apps verbinden“"),
+        "connected": String(localized: "Verbunden", comment: "Kategorie in „Apps verbinden“: verbundene Apps"),
+        "apple": "Apple",
+        "productivity": String(localized: "Produktivität", comment: "Kategorie in „Apps verbinden“"),
+        "communication": String(localized: "Kommunikation", comment: "Kategorie in „Apps verbinden“"),
+        "design": String(localized: "Design", comment: "Kategorie in „Apps verbinden“"),
+        "development": String(localized: "Entwicklung", comment: "Kategorie in „Apps verbinden“"),
+        "data": String(localized: "Daten", comment: "Kategorie in „Apps verbinden“"),
+        "finance": String(localized: "Finanzen", comment: "Kategorie in „Apps verbinden“"),
+        "marketing": String(localized: "Marketing", comment: "Kategorie in „Apps verbinden“"),
+        "sales": String(localized: "Vertrieb & CRM", comment: "Kategorie in „Apps verbinden“"),
+        "ai": String(localized: "KI", comment: "Kategorie in „Apps verbinden“: künstliche Intelligenz"),
+        "commerce": String(localized: "Handel", comment: "Kategorie in „Apps verbinden“"),
+        "hr": String(localized: "Personal", comment: "Kategorie in „Apps verbinden“: Personalwesen (HR)"),
+        "education": String(localized: "Bildung", comment: "Kategorie in „Apps verbinden“"),
+        "lifestyle": String(localized: "Freizeit", comment: "Kategorie in „Apps verbinden“"),
+    ] }
 }
 
 nonisolated struct CatalogCategoryList: Codable, Sendable {
@@ -203,8 +214,9 @@ final class ConnectionCatalogModel {
     var selected: String = CatalogCategory.popular
     var query: String = ""
     private(set) var categories: [CatalogCategory] = [
-        CatalogCategory(id: CatalogCategory.popular, name: "Beliebt"),
-        CatalogCategory(id: CatalogCategory.connected, name: "Verbunden"),
+        CatalogCategory(id: CatalogCategory.popular, name: String(localized: "Beliebt", comment: "Kategorie in „Apps verbinden“")),
+        CatalogCategory(id: CatalogCategory.connected,
+                        name: String(localized: "Verbunden", comment: "Kategorie in „Apps verbinden“: verbundene Apps")),
     ]
     private(set) var items: [CatalogApp] = []
     private(set) var total = 0
@@ -231,7 +243,7 @@ final class ConnectionCatalogModel {
     func reload(_ service: BotService?, overview: ConnectionsOverview?, quiet: Bool = false) async {
         generation += 1
         let gen = generation
-        guard let service else { error = "Keine Verbindung zum Server."; return }
+        guard let service else { error = String(localized: "Keine Verbindung zum Server."); return }
         if legacy { applyLegacy(overview); return }
         if !quiet { loading = true }
         defer { if gen == generation { loading = false } }
@@ -295,8 +307,9 @@ final class ConnectionCatalogModel {
     /// Chips in der Reihenfolge Beliebt, Verbunden, (Apple), dann die Kategorien vom Server.
     var chips: [CatalogCategory] {
         var out = categories.filter { $0.id == CatalogCategory.popular || $0.id == CatalogCategory.connected }
-        if out.isEmpty { out = [CatalogCategory(id: CatalogCategory.popular, name: "Beliebt"),
-                                CatalogCategory(id: CatalogCategory.connected, name: "Verbunden")] }
+        if out.isEmpty { out = [CatalogCategory(id: CatalogCategory.popular, name: String(localized: "Beliebt", comment: "Kategorie in „Apps verbinden“")),
+                                CatalogCategory(id: CatalogCategory.connected,
+                                                name: String(localized: "Verbunden", comment: "Kategorie in „Apps verbinden“: verbundene Apps"))] }
         if ConnectionsAppleSlot.isEnabled { out.append(CatalogCategory(id: CatalogCategory.apple, name: "Apple")) }
         out += categories.filter { $0.id != CatalogCategory.popular && $0.id != CatalogCategory.connected
             && $0.id != CatalogCategory.apple }
@@ -363,11 +376,11 @@ struct AppLogo: View {
                 shape.fill(theme.selection)
                 if let symbol, !symbol.isEmpty {
                     Image(systemName: SymbolName.resolve(symbol, fallback: "app.connected.to.app.below.fill"))
-                        .font(.system(size: size * 0.44, weight: .semibold))
+                        .font(.fixed(size * 0.44, weight: .semibold))
                         .foregroundStyle(theme.textPrimary)
                 } else {
                     Text(String(name.prefix(1)).uppercased())
-                        .font(.system(size: size * 0.45, weight: .semibold, design: .rounded))
+                        .font(.fixed(size * 0.45, weight: .semibold, design: .rounded))
                         .foregroundStyle(theme.textSecondary)
                 }
             }

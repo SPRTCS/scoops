@@ -38,6 +38,10 @@ struct SystemBarItems: ToolbarContent {
     var showActions: Bool = true
     /// Untere Leiste statt oben rechts: iPad, unten in der Seitenleiste (siehe `SidebarActionBar`)
     var atBottom: Bool = false
+    /// iPhone-Chat (seit App 1.3 steht dort auch die Suche im Chat; mit vier Knöpfen blieb vom Namen nur „…“):
+    /// „Aufgaben“ bleibt ein eigener Knopf (ein Tipp, zeigt an, wenn Aufgaben warten), „Neu“ und „Apps verbinden“
+    /// liegen im Drei-Punkte-Menü. Im Chat legt man selten einen neuen Scoop an; in der Chatliste steht „Neu“ wie bisher.
+    var collapseActions: Bool = false
 
     @Environment(AppStore.self) private var store
 
@@ -78,6 +82,14 @@ struct SystemBarItems: ToolbarContent {
                 }
             } else {
                 ToolbarItem(placement: .topBarTrailing) { keyboardButton }
+            }
+        } else if showActions, collapseActions {
+            if #available(iOS 27, *) {
+                ToolbarItem(placement: .topBarTrailing) { tasksButton }
+                ToolbarItem(placement: .topBarPinnedTrailing) { actionsMenu }
+            } else {
+                ToolbarItem(placement: .topBarTrailing) { tasksButton }
+                ToolbarItem(placement: .topBarTrailing) { actionsMenu }
             }
         } else if showActions {
             if #available(iOS 27, *) {
@@ -137,6 +149,20 @@ struct SystemBarItems: ToolbarContent {
             Label("Mehr", systemImage: "ellipsis")
         }
         .accessibilityLabel("Mehr: Neu, Apps verbinden, Aufgaben")
+    }
+
+    /// Drei-Punkte-Menü im iPhone-Chat: Neuer Scoop, Neue Gruppe, Neuer Bereich, Apps verbinden, Befehle (siehe
+    /// `collapseActions`)
+    private var actionsMenu: some View {
+        Menu {
+            NewChatMenuItems()
+            Divider()
+            connectionsButton
+            PaletteMenuButton()
+        } label: {
+            Label("Mehr", systemImage: "ellipsis")
+        }
+        .accessibilityLabel("Mehr: Neu, Apps verbinden, Befehle")
     }
 
     private var newMenu: some View {

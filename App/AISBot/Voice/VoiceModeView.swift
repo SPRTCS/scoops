@@ -61,7 +61,7 @@ struct VoiceModeView: View {
 
                 VStack(spacing: 8) {
                     Text(statusText(current))
-                        .font(.system(size: 15, weight: .semibold))
+                        .appFont(15, weight: .semibold)
                         .foregroundStyle(statusIsActive(current) ? theme.accent : theme.textSecondary)
                         .contentTransition(.opacity)
                         .multilineTextAlignment(.center)
@@ -69,7 +69,7 @@ struct VoiceModeView: View {
                         liveCaptions
                     } else {
                         Text(captionText(current))
-                            .font(.system(size: 17))
+                            .appFont(17)
                             .foregroundStyle(theme.textPrimary)
                             .multilineTextAlignment(.center)
                             .lineLimit(5)
@@ -101,7 +101,7 @@ struct VoiceModeView: View {
         .onChange(of: live.state) { _, state in
             // Live gescheitert → automatisch Gerätestimme
             if case .failed(let message) = state, phase == .live {
-                fallbackNote = "\(message) Ich nutze die Gerätestimme."
+                fallbackNote = String(localized: "\(message) Ich nutze die Gerätestimme.")
                 phase = .starting
                 listen()
             }
@@ -121,18 +121,18 @@ struct VoiceModeView: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(bot?.name ?? "Sprechmodus")
-                    .font(.system(size: 17, weight: .semibold))
+                    .appFont(17, weight: .semibold)
                     .foregroundStyle(theme.textPrimary)
                 if usesLive {
                     liveBadge
                 } else if let fallbackNote {
                     Label(fallbackNote, systemImage: "speaker.wave.2")
-                        .font(.system(size: 12))
+                        .appFont(12)
                         .foregroundStyle(theme.textSecondary)
-                        .lineLimit(2)
+                        .adaptiveLineLimit(2)
                 } else if demoPhase == nil {
                     Label("Gerätestimme", systemImage: "speaker.wave.2")
-                        .font(.system(size: 12))
+                        .appFont(12)
                         .foregroundStyle(theme.textTertiary)
                 }
             }
@@ -149,13 +149,13 @@ struct VoiceModeView: View {
         return HStack(spacing: 6) {
             HStack(spacing: 4) {
                 Circle().fill(theme.danger).frame(width: 6, height: 6)
-                Text("Live").font(.system(size: 11.5, weight: .bold))
+                Text("Live").appFont(11.5, weight: .bold)
             }
             .padding(.horizontal, 7).padding(.vertical, 3)
             .background(theme.danger.opacity(0.12), in: Capsule())
             .foregroundStyle(theme.danger)
             Text([voice, Self.duration(seconds), "≈ " + Self.dollars(cost)].compactMap { $0 }.joined(separator: " · "))
-                .font(.system(size: 12).monospacedDigit())
+                .appFont(12).monospacedDigit()
                 .foregroundStyle(theme.textSecondary)
         }
         .accessibilityElement(children: .combine)
@@ -168,28 +168,29 @@ struct VoiceModeView: View {
     }
 
     static func dollars(_ v: Double) -> String {
-        v.formatted(.currency(code: "USD").precision(.fractionLength(v < 0.1 ? 3 : 2)).locale(Locale(identifier: "de-DE")))
+        v.formatted(.currency(code: "USD").precision(.fractionLength(v < 0.1 ? 3 : 2)).locale(.app))
     }
 
     // MARK: Untertitel (Live)
 
     private var liveCaptions: some View {
         let lines: [LiveVoiceSession.Caption] = isLiveDemo ? [
-            .init(id: 1, role: "user", text: "Was steht morgen bei mir an?"),
-            .init(id: 2, role: "assistant", text: "Um neun hast du Jonas, danach geht's nach Köln-Deutz. Soll ich dir die Bahn raussuchen?"),
+            .init(id: 1, role: "user", text: demoText("Was steht morgen bei mir an?", en: "What’s on my schedule tomorrow?")),
+            .init(id: 2, role: "assistant", text: demoText("Um neun hast du Jonas, danach geht's nach Köln-Deutz. Soll ich dir die Bahn raussuchen?",
+                                                         en: "You’re meeting Jonas at nine, then heading to Brooklyn. Want me to check the subway?")),
         ] : Array(live.captions.suffix(3))
         return VStack(spacing: 8) {
             if let text = isLiveDemo ? nil : live.taskText, live.taskRunning {
                 Label(text, systemImage: "gearshape.2")
-                    .font(.system(size: 12.5))
+                    .appFont(12.5)
                     .foregroundStyle(theme.textSecondary)
-                    .lineLimit(2)
+                    .adaptiveLineLimit(2)
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .background(theme.surface, in: Capsule())
             }
             ForEach(lines) { line in
                 Text(line.text)
-                    .font(.system(size: line.id == lines.last?.id ? 17 : 15))
+                    .appFont(line.id == lines.last?.id ? 17 : 15)
                     .foregroundStyle(line.role == "user" ? theme.textSecondary : theme.textPrimary)
                     .multilineTextAlignment(.center)
                     .lineLimit(line.id == lines.last?.id ? 4 : 2)
@@ -198,7 +199,7 @@ struct VoiceModeView: View {
             }
             if lines.isEmpty {
                 Text(liveIdleCaption)
-                    .font(.system(size: 17))
+                    .appFont(17)
                     .foregroundStyle(theme.textSecondary)
             }
         }
@@ -209,9 +210,9 @@ struct VoiceModeView: View {
     private var liveIdleCaption: String {
         switch live.state {
         case .connecting:
-            return live.awaitingPermission ? "Bitte erlaube den Zugriff aufs Mikrofon." : "Verbinde mit der Live-Stimme …"
+            return live.awaitingPermission ? String(localized: "Bitte erlaube den Zugriff aufs Mikrofon.") : String(localized: "Verbinde mit der Live-Stimme …")
         case .ended(let m): return m
-        default: return "Sprich einfach los – du kannst jederzeit dazwischenreden."
+        default: return String(localized: "Sprich einfach los – du kannst jederzeit dazwischenreden.")
         }
     }
 
@@ -219,7 +220,8 @@ struct VoiceModeView: View {
 
     @ViewBuilder
     private func controls(_ current: Phase) -> some View {
-        HStack(spacing: 18) {
+        // Passen die Knöpfe nicht nebeneinander (große Schrift), stehen sie untereinander
+        AdaptiveButtonRow(spacing: 18, alignment: .center) {
             if usesLive, case .ended = live.state, !isLiveDemo {
                 controlButton("arrow.clockwise", label: "Neu starten") { Task { await start() } }
             } else if usesLive {
@@ -230,8 +232,8 @@ struct VoiceModeView: View {
                 // Lautsprecher an/aus (aus = Hörmuschel, wie beim Telefonieren)
                 Button { live.setSpeaker(!live.speakerOn) } label: {
                     Image(systemName: live.speakerOn ? "speaker.wave.3.fill" : "iphone.gen3")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 48, height: 48)
+                        .appFont(17, weight: .semibold)
+                        .scaledFrame(48)
                         .foregroundStyle(live.speakerOn ? theme.textOnAccent : theme.textPrimary)
                         .background(live.speakerOn ? theme.accent : theme.surface, in: Circle())
                         .overlay(Circle().strokeBorder(theme.surfaceBorder))
@@ -245,7 +247,7 @@ struct VoiceModeView: View {
             }
             Button(action: end) {
                 Label("Beenden", systemImage: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
+                    .appFont(15, weight: .semibold)
                     .padding(.horizontal, 22).padding(.vertical, 13)
                     .foregroundStyle(theme.textOnAccent)
                     .background(theme.danger, in: Capsule())
@@ -253,12 +255,15 @@ struct VoiceModeView: View {
             .buttonStyle(.plain)
             .keyboardShortcut(.cancelAction)
         }
+        .adaptiveLineLimit(1)
+        // Große runde Bedienknöpfe: wachsen bis zur größten normalen Stufe mit
+        .dynamicTypeSize(...AppFont.controlCap)
     }
 
-    private func controlButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+    private func controlButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(label, systemImage: symbol)
-                .font(.system(size: 15, weight: .semibold))
+                .appFont(15, weight: .semibold)
                 .padding(.horizontal, 20).padding(.vertical, 13)
                 .foregroundStyle(theme.textPrimary)
                 .background(theme.surface, in: Capsule())
@@ -300,49 +305,52 @@ struct VoiceModeView: View {
     }
 
     private func statusText(_ phase: Phase) -> String {
-        let name = bot?.name ?? "Scoop"
+        let name = bot?.name ?? String(localized: "Scoop")
         if usesLive {
-            if isLiveDemo { return "\(name) spricht" }
+            if isLiveDemo { return String(localized: "\(name) spricht") }
             switch live.state {
-            case .idle, .connecting: return "Einen Moment …"
-            case .ended: return "Gespräch beendet"
+            case .idle, .connecting: return String(localized: "Einen Moment …")
+            case .ended: return String(localized: "Gespräch beendet")
             case .failed(let m): return m
             case .live:
-                if live.muted { return "Stumm – \(name) hört nicht zu" }
-                if live.botSpeaking { return "\(name) spricht" }
-                if live.taskRunning { return "\(name) erledigt das gerade …" }
-                return "Ich höre zu …"
+                if live.muted { return String(localized: "Stumm – \(name) hört nicht zu") }
+                if live.botSpeaking { return String(localized: "\(name) spricht") }
+                if live.taskRunning { return String(localized: "\(name) erledigt das gerade …") }
+                return String(localized: "Ich höre zu …")
             }
         }
         switch phase {
-        case .starting, .live: return "Einen Moment …"
-        case .listening: return "Ich höre zu …"
-        case .thinking: return "\(name) denkt nach …"
-        case .speaking: return "\(name) spricht"
-        case .paused: return "Pausiert"
+        case .starting, .live: return String(localized: "Einen Moment …")
+        case .listening: return String(localized: "Ich höre zu …")
+        case .thinking: return String(localized: "\(name) denkt nach …")
+        case .speaking: return String(localized: "\(name) spricht")
+        case .paused: return String(localized: "Pausiert")
         case .failed(let message): return message
         }
     }
 
     private func captionText(_ phase: Phase) -> String {
         if demoPhase != nil {
-            return phase == .speaking ? "Klar! Dein Termin mit Jonas ist um neun, danach geht's nach Köln-Deutz." : "Wie sieht mein Tag morgen aus?"
+            return phase == .speaking
+                ? demoText("Klar! Dein Termin mit Jonas ist um neun, danach geht's nach Köln-Deutz.",
+                           en: "Sure! You’re meeting Jonas at nine, then heading to Brooklyn.")
+                : demoText("Wie sieht mein Tag morgen aus?", en: "What does my day look like tomorrow?")
         }
         switch phase {
-        case .listening: return dictation.transcript.isEmpty ? "Sprich einfach los." : dictation.transcript
+        case .listening: return dictation.transcript.isEmpty ? String(localized: "Sprich einfach los.") : dictation.transcript
         case .thinking: return preciseText ?? dictation.transcript
         case .speaking: return lastReply
-        case .paused: return "Tippe auf „Weiter“, um wieder zu sprechen."
+        case .paused: return String(localized: "Tippe auf „Weiter“, um wieder zu sprechen.")
         default: return ""
         }
     }
 
     private func accessibilityHint(_ phase: Phase) -> String {
-        if usesLive { return live.botSpeaking ? "Antwort unterbrechen" : "Maskottchen" }
+        if usesLive { return live.botSpeaking ? String(localized: "Antwort unterbrechen") : String(localized: "Maskottchen") }
         switch phase {
-        case .speaking: return "Antwort unterbrechen"
-        case .listening: return "Jetzt senden"
-        default: return "Maskottchen"
+        case .speaking: return String(localized: "Antwort unterbrechen")
+        case .listening: return String(localized: "Jetzt senden")
+        default: return String(localized: "Maskottchen")
         }
     }
 
@@ -364,7 +372,7 @@ struct VoiceModeView: View {
         }
         let info = await store.loadLiveVoice(refresh: true, chatID: chatID)
         guard info.available, let request = await store.liveVoiceRequest(chatID: chatID) else {
-            fallbackNote = (info.reason ?? "Live ist nicht verfügbar.") + " Ich nutze die Gerätestimme."
+            fallbackNote = String(localized: "\(info.reason ?? String(localized: "Live ist nicht verfügbar.")) Ich nutze die Gerätestimme.")
             listen()
             return
         }
@@ -400,7 +408,7 @@ struct VoiceModeView: View {
         if let m = await store.send(t, to: chatID, voice: true) {
             sentMessageID = m.id
         } else {
-            phase = .failed("Senden hat nicht geklappt.")
+            phase = .failed(String(localized: "Senden hat nicht geklappt."))
         }
     }
 

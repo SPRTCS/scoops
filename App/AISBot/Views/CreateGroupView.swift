@@ -22,7 +22,7 @@ struct CreateGroupView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Neue Gruppe").font(.system(size: 15, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                Text("Neue Gruppe").appFont(15, weight: .semibold).foregroundStyle(theme.textPrimary)
                 Spacer()
                 CircleIconButton(systemName: "xmark", help: "Abbrechen", size: 28) { dismiss() }
             }
@@ -36,7 +36,7 @@ struct CreateGroupView: View {
                         .overlay {
                             if selected.isEmpty {
                                 Image(systemName: "person.3")
-                                    .font(.system(size: 40, weight: .light))
+                                    .appFont(40, weight: .light)
                                     .foregroundStyle(theme.textTertiary)
                             }
                         }
@@ -50,10 +50,10 @@ struct CreateGroupView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Scoops").font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textSecondary)
+                            Text("Scoops").appFont(12.5, weight: .medium).foregroundStyle(theme.textSecondary)
                             Spacer()
                             Text("\(selected.count) von 2–6")
-                                .font(.system(size: 12))
+                                .appFont(12)
                                 .foregroundStyle(selected.count > Self.maxMembers ? theme.danger : theme.textTertiary)
                                 .monospacedDigit()
                         }
@@ -63,7 +63,7 @@ struct CreateGroupView: View {
                     }
 
                     Text("Sprich einzelne Scoops mit @Name an oder alle mit @alle. Ohne Erwähnung antwortet, wer am besten passt.")
-                        .font(.system(size: 12))
+                        .appFont(12)
                         .foregroundStyle(theme.textTertiary)
                         .multilineTextAlignment(.center)
                 }
@@ -72,7 +72,7 @@ struct CreateGroupView: View {
             }
 
             Divider().overlay(theme.surfaceBorder)
-            HStack(spacing: 10) {
+            AdaptiveButtonRow(spacing: 10, stretchWhenStacked: true) {
                 Spacer()
                 Button("Abbrechen") { dismiss() }
                     .buttonStyle(PillButtonStyle(kind: .secondary))
@@ -82,6 +82,8 @@ struct CreateGroupView: View {
                     .disabled(!canSave)
                     .keyboardShortcut(.defaultAction)
             }
+            // Fußzeile eines Blatts: wächst bis zur größten normalen Stufe mit, bleibt so in einer Zeile
+            .dynamicTypeSize(...AppFont.controlCap)
             .padding(.horizontal, 18).padding(.vertical, 12)
         }
         .background(theme.background)
@@ -103,12 +105,12 @@ struct CreateGroupView: View {
                 ZStack(alignment: .topTrailing) {
                     MascotView(mascot: bot.mascot, size: 52, seed: bot.id, animated: false)
                     Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 17))
+                        .appFont(17)
                         .foregroundStyle(isOn ? theme.accent : theme.textTertiary)
                         .background(Circle().fill(theme.background).padding(2))
                         .offset(x: 6, y: -2)
                 }
-                Text(bot.name).font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textPrimary).lineLimit(1)
+                Text(bot.name).appFont(12.5, weight: .medium).foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
             }
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity)

@@ -99,6 +99,31 @@ ART_RULE_TEAMAPP = ART_RULE.replace("jede Woche denselben Bericht an dasselbe Te
                                     "der Team App abhaken").replace("wochenbericht-team-senden", "teamapp-checkouts-abhaken")
 
 
+# Sprache der Antworten (docs/sprache.md). Die Anweisungen oben bleiben deutsch; für Personen mit anderer Sprache kommt
+# dieser Block dazu (auf Englisch, damit das Modell nicht ins Deutsche kippt). Für Deutsch gibt es keinen Zusatz.
+LANGUAGE_NOTES = {
+    "en": (
+        "Language: {name} uses AIS Scoops in English. Write everything meant for people in English: chat replies, "
+        "questions, spoken replies, task titles and summaries, memory and journal entries, routine and reminder "
+        "titles, approval card titles and details, file names and file contents you create, and messages to guests. "
+        "The instructions above are in German for internal reasons only: never copy German phrases, greetings or "
+        "example sentences from them, use natural English instead (for example \u201cGot it.\u201d instead of "
+        "\u201cGemerkt.\u201d). Keep control tokens such as [NICHTS], tool names and IDs exactly as they are. "
+        "Exceptions: if {name} clearly writes to you in another language, answer in that language; content that "
+        "must stay in its original language (quotes, names, an email to a German-speaking recipient) stays as it is."
+    ),
+}
+
+
+def language_note(lang: str | None, user_name: str = "Arman") -> str | None:
+    """Zusatz zur Systemanweisung: In welcher Sprache der Scoop mit der Person spricht (None für Deutsch)."""
+    note = LANGUAGE_NOTES.get(lang or "de")
+    if not note:
+        return None
+    name = user_name if user_name and user_name != "du" else "The user"
+    return note.replace("{name}", name)
+
+
 def bot_system(bot: dict, memories: list[dict], routines: list[dict], user_name: str, w: int, h: int,
                group: dict | None = None, members: list[dict] | None = None,
                skills: list[dict] | None = None, vault: list[dict] | None = None,

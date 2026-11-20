@@ -136,7 +136,7 @@ final class LiveActivityManager {
                 let now = Date()
                 let done = State(scoops: current.state.scoops.map { e in
                     var e = e
-                    if e.isRunning { e.state = "done"; e.statusLine = "Fertig"; e.finishedAt = now }
+                    if e.isRunning { e.state = "done"; e.statusLine = String(localized: "Fertig", comment: "Live-Aktivität: Scoop hat seine Arbeit beendet"); e.finishedAt = now }
                     return e
                 }, updatedAt: now)
                 Self.end(id: current.id, state: done, after: 5)
@@ -181,14 +181,14 @@ final class LiveActivityManager {
             let before = previous[bot.id]
             let startedAt = bot.runStartedAt ?? (before?.isRunning == true ? before!.startedAt : now)
             scoops.append(Entry(id: bot.id, name: bot.name, label: bot.label, mascot: bot.mascot, state: "running",
-                                statusLine: bot.statusLine ?? before?.statusLine ?? "Arbeitet …",
+                                statusLine: bot.statusLine ?? before?.statusLine ?? String(localized: "Arbeitet …"),
                                 steps: before?.isRunning == true ? before!.steps : 0,
                                 startedAt: startedAt, finishedAt: nil))
         }
         // Bisher Laufende, die nicht mehr arbeiten → fertig; Abgeschlossene eine Weile behalten.
         for e in old?.scoops ?? [] where !scoops.contains(where: { $0.id == e.id }) && snapshot.bot(e.id) != nil {
             var e = e
-            if e.isRunning { e.state = "done"; e.statusLine = "Fertig"; e.finishedAt = now }
+            if e.isRunning { e.state = "done"; e.statusLine = String(localized: "Fertig", comment: "Live-Aktivität: Scoop hat seine Arbeit beendet"); e.finishedAt = now }
             if now.timeIntervalSince(e.finishedAt ?? now) < keepFinished { scoops.append(e) }
         }
         return State(scoops: scoops, updatedAt: old.map { scoops == $0.scoops ? $0.updatedAt : now } ?? now)
@@ -207,17 +207,17 @@ final class LiveActivityManager {
         for id in Self.allActivityIDs() { Self.end(id: id, state: nil, after: 0) }
         let now = Date()
         let state = State(scoops: [
-            Entry(id: "b_mila", name: "Mila", label: "Recherche",
+            Entry(id: "b_mila", name: "Mila", label: demoText("Recherche", en: "Research"),
                   mascot: Mascot(shape: "bean", color: "#FF5FA8", eyes: "dots", accessory: "beret"),
-                  state: "running", statusLine: "Vergleicht drei Angebote", steps: 4,
+                  state: "running", statusLine: demoText("Vergleicht drei Angebote", en: "Compares three quotes"), steps: 4,
                   startedAt: now.addingTimeInterval(-94), finishedAt: nil),
             Entry(id: "b_theo", name: "Theo", label: nil,
                   mascot: Mascot(shape: "cloud", color: "#3D84F5", eyes: "ovals", accessory: "glasses"),
-                  state: "running", statusLine: "Ist im Browser auf google.com", steps: 7,
+                  state: "running", statusLine: demoText("Ist im Browser auf google.com", en: "Browses google.com"), steps: 7,
                   startedAt: now.addingTimeInterval(-312), finishedAt: nil),
             Entry(id: "b_tina", name: "Tina", label: nil,
                   mascot: Mascot(shape: "egg", color: "#FFB524", eyes: "happy", accessory: "headphones"),
-                  state: "done", statusLine: "Fertig", steps: 3,
+                  state: "done", statusLine: demoText("Fertig", en: "Done"), steps: 3,
                   startedAt: now.addingTimeInterval(-600), finishedAt: now.addingTimeInterval(-30)),
         ], updatedAt: now)
         Task {

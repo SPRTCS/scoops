@@ -3,7 +3,7 @@ import Foundation
 import Speech
 import Synchronization
 
-/// Diktat auf dem Gerät (Speech-Framework, de-DE). Liefert laufend den erkannten Text,
+/// Diktat auf dem Gerät (Speech-Framework, Sprache der App: `AppLanguage.speechIdentifier`, z. B. de-DE oder en-US). Liefert laufend den erkannten Text,
 /// optional mit Ende-der-Rede-Erkennung nach einer Pause (Sprachmodus).
 @Observable
 final class Dictation {
@@ -20,7 +20,7 @@ final class Dictation {
 
     /// Erst beim Start anlegen: SFSpeechRecognizer spricht beim Erzeugen mit einem Systemdienst (blockiert sonst
     /// den Hauptthread bei jedem Öffnen eines Chats).
-    @ObservationIgnored private lazy var recognizer = SFSpeechRecognizer(locale: Locale(identifier: "de-DE"))
+    @ObservationIgnored private lazy var recognizer = SFSpeechRecognizer(locale: Locale(identifier: AppLanguage.speechIdentifier))
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private let requestBox = RequestBox()
     @ObservationIgnored private var task: SFSpeechRecognitionTask?
@@ -32,28 +32,28 @@ final class Dictation {
     @ObservationIgnored private var committed = ""
     @ObservationIgnored private var partial = ""
 
-    /// Startet die Aufnahme. Gibt eine deutsche Fehlermeldung zurück oder nil.
+    /// Startet die Aufnahme. Gibt eine Fehlermeldung (in der Sprache der App) zurück oder nil.
     func start(continuous: Bool) async -> String? {
         stop()
         self.continuous = continuous
         guard await Self.requestSpeechPermission() else {
-            return "Bitte erlaube die Spracherkennung in den Einstellungen."
+            return String(localized: "Bitte erlaube die Spracherkennung in den Einstellungen.")
         }
         guard await Self.requestMicPermission() else {
-            return "Bitte erlaube den Zugriff aufs Mikrofon in den Einstellungen."
+            return String(localized: "Bitte erlaube den Zugriff aufs Mikrofon in den Einstellungen.")
         }
         guard let recognizer, recognizer.isAvailable else {
-            return "Die Spracherkennung ist gerade nicht verfügbar."
+            return String(localized: "Die Spracherkennung ist gerade nicht verfügbar.")
         }
         #if os(iOS)
         do {
             try AudioSessionConfig.activate()
         } catch {
-            return "Mikrofon konnte nicht gestartet werden."
+            return String(localized: "Mikrofon konnte nicht gestartet werden.")
         }
-        guard AVAudioSession.sharedInstance().isInputAvailable else { return "Kein Mikrofon verfügbar." }
+        guard AVAudioSession.sharedInstance().isInputAvailable else { return String(localized: "Kein Mikrofon verfügbar.") }
         #else
-        guard AVCaptureDevice.default(for: .audio) != nil else { return "Kein Mikrofon verfügbar." }
+        guard AVCaptureDevice.default(for: .audio) != nil else { return String(localized: "Kein Mikrofon verfügbar.") }
         #endif
 
         let engine = AVAudioEngine()
@@ -61,7 +61,7 @@ final class Dictation {
         let gen = generation
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
-        guard format.channelCount > 0, format.sampleRate > 0 else { return "Kein Mikrofon gefunden." }
+        guard format.channelCount > 0, format.sampleRate > 0 else { return String(localized: "Kein Mikrofon gefunden.") }
         let recorder = AudioRecorderSink(inputFormat: format)
         Self.installTap(on: input, format: format, box: requestBox, recorder: recorder) { [weak self] level in
             Task { @MainActor in
@@ -74,7 +74,7 @@ final class Dictation {
             try engine.start()
         } catch {
             input.removeTap(onBus: 0)
-            return "Mikrofon konnte nicht gestartet werden."
+            return String(localized: "Mikrofon konnte nicht gestartet werden.")
         }
         self.engine = engine
         self.recorder = recorder
@@ -268,43 +268,47 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     }
 }
 
-/// Verfügbare deutsche Stimmen.
+/// Verfügbare Stimmen in der Sprache der App (Deutsch bzw. Englisch).
 nonisolated enum VoiceCatalog {
     /// Stimmenliste einmalig laden (Systemabfrage ist langsam), danach aus dem Zwischenspeicher.
     private static let cache = Mutex<[AVSpeechSynthesisVoice]?>(nil)
 
     static func preload() {
-        Task.detached(priority: .utility) { _ = germanVoices() }
+        Task.detached(priority: .utility) { _ = voices() }
     }
 
-    static func germanVoices() -> [AVSpeechSynthesisVoice] {
+    /// Stimmen der App-Sprache, Stimmen der Region des Geräts zuerst (z. B. en-US vor en-GB), dann nach Qualität.
+    static func voices() -> [AVSpeechSynthesisVoice] {
         if let hit = cache.withLock({ $0 }) { return hit }
-        let list = loadGermanVoices()
+        let list = loadVoices()
         cache.withLock { $0 = list }
         return list
     }
 
-    private static func loadGermanVoices() -> [AVSpeechSynthesisVoice] {
-        AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("de") && !$0.voiceTraits.contains(.isNoveltyVoice) }
+    private static func loadVoices() -> [AVSpeechSynthesisVoice] {
+        let preferred = AppLanguage.speechIdentifier
+        return AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix(AppLanguage.code) && !$0.voiceTraits.contains(.isNoveltyVoice) }
             .sorted { a, b in
+                // Deutsch wie bisher nur nach Qualität und Name; Englisch zusätzlich Region des Geräts zuerst
+                if !AppLanguage.isGerman, (a.language == preferred) != (b.language == preferred) { return a.language == preferred }
                 if a.quality != b.quality { return a.quality.rawValue > b.quality.rawValue }
                 return a.name < b.name
             }
     }
 
-    /// Gewählte Stimme, sonst die beste deutsche (Premium vor Erweitert vor Standard).
+    /// Gewählte Stimme, sonst die beste der App-Sprache (Premium vor Erweitert vor Standard).
     static func voice(for identifier: String?) -> AVSpeechSynthesisVoice? {
-        // Feld `voice` des Scoops: „device:<id>“, alte Kennung oder „live:<name>“ (dann beste deutsche Gerätestimme)
+        // Feld `voice` des Scoops: „device:<id>“, alte Kennung oder „live:<name>“ (dann beste Gerätestimme)
         if let id = VoiceChoice(identifier).deviceID, let v = AVSpeechSynthesisVoice(identifier: id) { return v }
-        return germanVoices().first ?? AVSpeechSynthesisVoice(language: "de-DE")
+        return voices().first ?? AVSpeechSynthesisVoice(language: AppLanguage.speechIdentifier)
     }
 
     static func qualityLabel(_ v: AVSpeechSynthesisVoice) -> String {
         switch v.quality {
-        case .premium: "Premium"
-        case .enhanced: "Erweitert"
-        default: "Standard"
+        case .premium: String(localized: "Premium", comment: "Qualität einer Gerätestimme")
+        case .enhanced: String(localized: "Erweitert", comment: "Qualität einer Gerätestimme (Enhanced)")
+        default: String(localized: "Standard", comment: "Qualität einer Gerätestimme")
         }
     }
 }

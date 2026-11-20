@@ -98,7 +98,11 @@ struct ServerSettingsView: View {
 
             Section("Konto") {
                 LabeledContent("Status") {
-                    Text(m.linked ? "Verbunden" + (m.ownerName.map { " (\($0))" } ?? "") : "Nicht verbunden")
+                    if m.linked, let owner = m.ownerName {
+                        Text("Verbunden (\(owner))", comment: "Konto: verbunden, mit Name des Kontos")
+                    } else {
+                        Text(m.linked ? "Verbunden" : "Nicht verbunden")
+                    }
                 }
                 if let e = m.cloudError, !e.isEmpty { Text(e).font(.caption).foregroundStyle(.orange) }
                 LabeledContent("Mitteilungen") { Text(m.pushSummary) }
@@ -124,7 +128,7 @@ struct ServerSettingsView: View {
                     LabeledContent("Status") {
                         HStack(spacing: 6) {
                             StatusDot(color: model.statusColor)
-                            Text(controller.test ? "Gekoppelt (Testmodus, nicht verbunden)" : model.statusLine)
+                            Text(controller.test ? String(localized: "Gekoppelt (Testmodus, nicht verbunden)") : model.statusLine)
                                 .multilineTextAlignment(.trailing)
                         }
                     }
@@ -151,7 +155,7 @@ struct ServerSettingsView: View {
             Section("Erreichbarkeit") {
                 LabeledContent("Adresse") {
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(m.publicURL.isEmpty ? "nur auf diesem Mac" : m.publicURL).textSelection(.enabled)
+                        Text(m.publicURL.isEmpty ? String(localized: "nur auf diesem Mac") : m.publicURL).textSelection(.enabled)
                         Text(controller.reachabilityKind).font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -164,11 +168,11 @@ struct ServerSettingsView: View {
                         LabeledContent("Tailscale") { Text("keine Freigabe aktiv").foregroundStyle(.secondary) }
                     } else {
                         ForEach(controller.tailscaleEntries) { e in
-                            LabeledContent(e.funnel ? "Tailscale Funnel" : "Tailscale Serve") {
+                            LabeledContent(e.funnel ? "Tailscale Funnel" : "Tailscale Serve" as String) {
                                 VStack(alignment: .trailing, spacing: 2) {
                                     Text("\(e.url) → \(e.target)").textSelection(.enabled)
                                     if let tp = e.targetPort, tp != m.port, e.url == m.publicURL || e.url == m.tailnetURL {
-                                        Text("zeigt auf Port \(tp), der Server läuft auf \(m.port)").font(.caption).foregroundStyle(.orange)
+                                        Text("zeigt auf Port \(String(tp)), der Server läuft auf \(String(m.port))").font(.caption).foregroundStyle(.orange)
                                     }
                                 }
                             }
@@ -205,9 +209,14 @@ struct ServerSettingsView: View {
             if AppUpdater.shared.isAvailable {
                 Section("Updates") {
                     LabeledContent("Version", value: AppModel.appVersion)
-                    Text(AppUpdater.shared.pendingVersion.map { "Update \($0) ist geladen und wird installiert, sobald kein Scoop arbeitet." }
-                         ?? "Neue Versionen werden automatisch geladen und installiert, sobald kein Scoop arbeitet. Der Server startet danach von selbst neu.")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Group {
+                        if let v = AppUpdater.shared.pendingVersion {
+                            Text("Update \(v) ist geladen und wird installiert, sobald kein Scoop arbeitet.")
+                        } else {
+                            Text("Neue Versionen werden automatisch geladen und installiert, sobald kein Scoop arbeitet. Der Server startet danach von selbst neu.")
+                        }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
                     Button("Nach Updates suchen …") { AppUpdater.shared.checkForUpdates() }
                 }
             }
@@ -219,7 +228,8 @@ struct ServerSettingsView: View {
         .task { if !controller.test { await controller.repairTailscale() } }
         .alert("Ältere AIS-Bot-Installation deaktivieren?", isPresented: $confirmDisableAgent) {
             Button("Deaktivieren") {
-                agentMessage = controller.disableOldAgent() ?? "✓ Deaktiviert. Die Datei heißt jetzt „\(OldAISBotAgent.label).plist.deaktiviert“; Daten unter ~/.local/share/ais-bot bleiben erhalten."
+                agentMessage = controller.disableOldAgent()
+                    ?? String(localized: "✓ Deaktiviert. Die Datei heißt jetzt „\(OldAISBotAgent.label).plist.deaktiviert“; Daten unter ~/.local/share/ais-bot bleiben erhalten.")
             }
             Button("Abbrechen", role: .cancel) {}
         } message: {
@@ -244,10 +254,18 @@ struct ServerMenuSection: View {
                 Text(m.statusTitle).font(.caption.weight(.medium))
                 if let v = m.version { Text("· \(v)").font(.caption).foregroundStyle(.tertiary) }
             }
-            Text(m.linked ? "Konto: \(m.ownerName ?? "verbunden")" : "Noch nicht mit einem Konto verbunden")
+            Group {
+                if m.linked, let owner = m.ownerName {
+                    Text("Konto: \(owner)")
+                } else if m.linked {
+                    Text("Konto: verbunden")
+                } else {
+                    Text("Noch nicht mit einem Konto verbunden")
+                }
+            }
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             if m.linked { Text("Mitteilungen: \(m.pushSummary)").font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
-            Text(m.publicURL.isEmpty ? "Nur auf diesem Mac erreichbar" : m.publicURL)
+            Text(m.publicURL.isEmpty ? String(localized: "Nur auf diesem Mac erreichbar") : m.publicURL)
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             if !controller.setupDone {
                 Text("Einrichtung noch nicht abgeschlossen").font(.caption2).foregroundStyle(.orange)

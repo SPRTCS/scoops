@@ -1,4 +1,4 @@
-# AIS Bot – Server-API (v1, Stand 1.22)
+# AIS Bot – Server-API (v1, Stand: Server 1.39, App 1.3)
 
 Vertrag zwischen Bot-Server (Python, läuft auf dem Agenten-Air) und der App (SwiftUI, iPhone/iPad/Mac).
 
@@ -93,7 +93,7 @@ Vertrag zwischen Bot-Server (Python, läuft auf dem Agenten-Air) und der App (Sw
 | GET | `/api/usage` | – | `{"today_usd": 0.12, "month_usd": 3.4, "by_model": {"claude-haiku-5-5": 0.8}}` |
 | POST | `/api/devices` | `{"apns_token": "…", "platform": "ios|macos", "name": "…"}` | `{"ok": true}` (für Push, sobald eingerichtet) |
 
-Fehler: HTTP-Status ≥ 400 mit `{"error": "Text auf Deutsch"}`.
+Fehler: HTTP-Status ≥ 400 mit `{"error": "Text"}`, auf Deutsch oder in der Sprache der anfragenden Person (ab App 1.3, siehe [sprache.md](sprache.md)).
 
 ## WebSocket `/api/ws?token=…`
 
@@ -385,6 +385,8 @@ Die App holt nach einem 401 mit JWT einmal ein frisches Token (`/auth/refresh`) 
   `PATCH /api/setup/config` mit beliebigen dieser Felder: `user_name`, `public_url`, `tailnet_url` (http/https), `server_name`,
   `default_computer_node` (ordnet ohne VM-Funktion auch alle Scoops ohne Rechner zu), `host` (`127.0.0.1`/`0.0.0.0`, wirkt nach
   Neustart), `provider` (`anthropic`/`openai`: Standardmodelle und bestehende Scoops umstellen); leerer Text entfernt den Wert.
+  Ab App 1.3 auch `language` (`de`/`en`/`null`, Sprache des Inhabers, `GET /api/setup` → `server.language`,
+  `server.languages`); alle Einrichtungstexte kommen nach `?lang=` bzw. `Accept-Language` ([sprache.md](sprache.md)).
   Antwort wie `GET /api/setup`. `POST /api/setup/node-pair` → Rechner-Kopplungscode wie `POST /api/nodes/pair` (ohne Token).
   `POST /api/setup/reload` → legt bei Bedarf die Composio-Sitzung an und lädt die Apps (MCP) neu.
   `POST /api/setup/this-mac` `{"node_id", "device_id", "replaces": [], "make_default": false}` → „Dieser Mac“ ist Rechner
@@ -1009,3 +1011,166 @@ Vollständig in [mcp.md](mcp.md#api-v135): `GET/POST /api/mcp-servers`, `POST /a
 Freigabe-Karten mit sicherer Eingabe: `meta.secret_fields`, Entscheidung mit `edits.secrets` (Liste `[{key, value}]`
 oder Objekt). Ereignis `meta.kind = mcp_login` öffnet die Anmeldung.
 
+## App 1.3 (Server ab 1.39)
+
+Neue Fähigkeiten für App 1.3 (Überblick: [neu-in-1.3.md](neu-in-1.3.md)). Ein Server meldet in `GET /api/health`, was er kann; fehlt ein Feld (älterer Server),
+blendet die App die Funktion aus bzw. nimmt den bisherigen Weg. Gäste fragen `/api/health` nicht ab, für sie stehen die
+Felder, die für Gäste gelten, in `GET /api/shared/me`.
+
+| Feld in `/api/health` | Wert | Für Gäste (`/api/shared/me`) | App bei älterem Server |
+|---|---|---|---|
+| `search` | `true` | ja | sucht nur in geladenen Nachrichten |
+| `message_edit` | `true` | ja | nur „Erneut senden …“ statt „Bearbeiten“ |
+| `today` | `true` | – (nur Admin) | keine Seite „Heute“, Startansicht wie bisher |
+| `mute` | `true` | ja | kein „Stummschalten“ (erkennt es auch am Feld `mute` im Scoop-JSON) |
+| `quiet_hours` | `true` | ja | „Ruhezeiten“ ausgegraut („Server aktualisieren“) |
+| `templates` | `1` (höchste lesbare Formatversion) | – (nur Admin) | kein Export und Import von Vorlagen |
+| `images` | `{"supported", "available", "via", "hint"}` | – | nichts (Bilder kommen ohnehin als Dateien an) |
+| `languages` | `["de", "en"]`, dazu `language` (wirksame Sprache der Anfrage) | ja | keine Sprachwahl für den Server, Texte deutsch |
+
+- **Neue Routen für Gäste geteilter Scoops:** `GET /api/search`, `GET /api/chats/{chat_id}/messages/around/{mid}`,
+  `PATCH /api/messages/{mid}`, `PUT /api/chats/{chat_id}/mute`, `GET`/`PATCH /api/settings/quiet-hours`.
+  **Nur für den Admin:** `GET /api/today`, `GET /api/approvals`, `GET /api/bots/{id}/template`,
+  `POST /api/templates/check`, `POST /api/templates/import` (Gäste: 403). Geprüft in `Server/tests/test_sharing.py`.
+- **Neue WebSocket-Ereignisse:** `message.deleted` (`{"id", "bot_id"}`, Antwort nach dem Bearbeiten verworfen; auch an
+  Gäste des Scoops) und `quiet_hours.updated` (gleiche Daten wie `GET /api/settings/quiet-hours`, an die Geräte der
+  Person). Die App hält damit auch die Seite „Heute“ aktuell.
+- **Systemintegration** (Teilen-Menü, Kurzbefehle, Controls, Spotlight, tiefe Links `aisbot://…`): keine neuen Routen
+  und kein Health-Feld; sie nutzt die vorhandenen Endpunkte, siehe [`system.md`](system.md).
+
+### Suche und Chat-Komfort
+
+Ausführlich: [`docs/suche-chat.md`](suche-chat.md). Umsetzung: `Server/src/aisbot/suche.py`, `chat_edit.py`.
+
+- **Fähigkeiten:** `GET /api/health` → zusätzlich `"search": true`, `"message_edit": true` (für Gäste dieselben Felder
+  in `GET /api/shared/me`). Ohne die Felder sucht die App nur in geladenen Nachrichten und bearbeitet nicht.
+- **Suche:** `GET /api/search?q=…&limit=30&chat=<chat_id>&before=<message_id>` →
+  `{"query", "hits": [{"message_id", "chat_id", "chat_kind": "bot|group", "chat_name", "role", "author_id",
+  "author_name", "created_at", "snippet", "marks": [[start, ende], …]}], "total", "truncated", "index"}`. Neueste zuerst,
+  `limit` bis 200. Durchsucht `user`, `bot`, `event` und `approval` (Titel, Details) in Einzel- und Gruppenchats;
+  Teilwörter („rechn“ findet „Rechnung“), Groß-/Kleinschreibung und Umlaute egal, Sonderzeichen ohne Fehler.
+  Gäste: nur geteilte Scoops, keine Freigabe-Karten; `chat=<nicht geteilt>` → 403.
+- **Zur Fundstelle:** `GET /api/chats/{chat_id}/messages/around/{message_id}?before=25&after=25` →
+  `{"messages": [Message], "has_older", "has_newer"}`. `GET /api/bots/{id}/messages` und
+  `/api/groups/{id}/messages` nehmen zusätzlich `after=<message_id>` (die nächsten Nachrichten, aufsteigend).
+- **Bearbeiten:** `PATCH /api/messages/{message_id}` `{"text": "…"}` → `Message` mit
+  `meta.edited = {"at", "mode": "replaced" | "corrected"}`. Nur die jüngste eigene Nachricht (sonst 409), Gäste ab
+  Rolle „Schreiben“ nur eigene (403). `replaced`: Antwort auf die alte Fassung verworfen, der Scoop antwortet neu.
+  `corrected`: Die alte Fassung hat schon etwas ausgelöst; nichts wird gelöscht, Ereignis „Nachricht bearbeitet“, der
+  Scoop bekommt die Korrektur als neuen Auftrag.
+- **Nachrichten:** Statuszeilen tragen `meta.effects` (bool: Der Lauf kann etwas bewirkt haben), Antworten
+  `meta.run_info.effects`.
+- **WebSocket:** neu `message.deleted` mit `{"id": "m_…", "bot_id": "<chat_id>"}` (auch an Gäste des Scoops).
+
+### Seite „Heute“ und Freigaben-Postfach
+
+Überblick über alle Scoops in einer Antwort und ein Postfach für offene Freigaben. Verhalten der App:
+[`heute.md`](heute.md). Umsetzung: `Server/src/aisbot/today.py`, Tests: `Server/tests/test_today.py`. Beide Endpunkte nur
+für den Admin (Gäste geteilter Scoops: 403); sie lesen nur.
+
+- `GET /api/health` → zusätzlich `"today": true`. Fehlt das Feld (ältere Server), blendet die App die Seite aus.
+- `GET /api/approvals` → `{"approvals": [Freigabe], "count": 3}`: offene Freigaben aus Einzelchats, Gruppen und
+  Hintergrund-Aufgaben, neueste zuerst.
+
+  ```json
+  {"id": "a_1", "chat_id": "b_…|g_…", "bot_id": "b_…", "kind": "freigabe|mail|vault|call|t3|apple|scoop_update|…",
+   "title": "Mail an Jonas senden", "created_at": "…", "expires_at": "…" | null,
+   "task_id": "t_…" | null, "task_title": "Belege abgleichen" | null, "requested_by": "Lena" | null,
+   "message": { Message }}
+  ```
+  - `bot_id` = Scoop, der fragt (in Gruppen der Akteur). `message` ist die vollständige Karten-Nachricht
+    (`role: "approval"`, `meta.approval_id == id`), damit Apps dieselben Karten wie im Chat zeigen. Entschieden wird wie
+    bisher über `POST /api/approvals/{id}`.
+  - „Offen“ wie beim roten „?“ (`Bot.waiting`): Karte steht auf `pending` und ist jünger als 48 Stunden
+    (`expires_at`); ältere gelten als liegengeblieben. Hält eine Aufgabe wegen der Karte an (`state = waiting`), gibt es
+    keine Frist (`expires_at: null`). Karten, deren Chat, Scoop oder Nachricht es nicht mehr gibt, zählen nicht.
+  - `requested_by`: Name des Gasts, aus dessen Lauf die Freigabe stammt (geteilter Scoop).
+- `GET /api/today?since=<ISO-8601>` → alles für die Seite:
+
+  ```json
+  {"now": "…", "since": "…", "day_end": "…",
+   "approvals": [Freigabe],
+   "tasks": [Aufgabe],
+   "running": [{"chat_id": "b_…|g_…", "bot_id": "b_…" | null, "run_id": "r_…", "message_id": "m_…",
+                "line": "Öffnet Safari", "steps": 2, "started_at": "…", "uses_computer": true}],
+   "planned": [{"id": "rt_…", "kind": "routine|erinnerung", "bot_id": "b_…", "chat_id": "b_…", "title": "Mail-Check",
+                "at": "…", "schedule_text": "Stündlich", "more_today": 3}],
+   "routines_done": [{"id": "rt_…", "kind": "routine|erinnerung", "bot_id": "b_…", "chat_id": "b_…",
+                      "title": "Morgenbriefing", "at": "…"}],
+   "counts": {"approvals": 3, "questions": 1, "waiting": 4, "review": 2, "running": 2, "planned": 3, "done": 5}}
+  ```
+  - `since` (Parameter): letzter Besuch der Seite. „Erledigt“ reicht mindestens 24 Stunden zurück; war der letzte
+    Besuch länger her, bis dorthin, höchstens 7 Tage. Die Antwort nennt den wirksamen Beginn (`since`) und das Ende
+    von „heute“ (`day_end`, Mitternacht Europe/Berlin).
+  - `tasks`: Aufgaben wie im Board (`GET /api/tasks`), die die Seite braucht: in Arbeit (auch wartend, `column =
+    "active"`), „Zu prüfen“ (`review`, höchstens 100), geplant mit Termin bis `day_end` (`planned`) und seit `since`
+    abgeschlossen (`done`). Die App ordnet sie selbst zu und hält sie über `task.updated`/`task.deleted` aktuell.
+    Rückfragen von Aufgaben (`state = "waiting"`, `waiting_kind = "frage"`) zählen zu „wartet auf dich“
+    (`counts.questions`), Warten auf einen anderen Scoop (`waiting_kind = "scoop"`) nicht.
+  - `running`: Chat-Läufe mit laufender Statuskarte (letzte Zeile in `line`); Hintergrund-Aufgaben stehen in `tasks`,
+    stille Läufe (Initiative) erscheinen nicht. Stopp wie bisher: `POST /api/bots/{id}/stop` bzw.
+    `POST /api/tasks/{id}/stop`.
+  - `planned`: eingeschaltete Routinen und Erinnerungen mit nächstem Lauf bis `day_end`, nach Uhrzeit; `more_today` =
+    weitere Läufe derselben Routine heute. `routines_done`: Routinen und Erinnerungen mit Lauf seit `since` (je
+    Routine der letzte), neueste zuerst.
+  - `counts.waiting` = `approvals` + `questions` (Zähler am Eintrag „Heute“).
+- **Live:** keine neuen Ereignisse. Karten kommen und gehen über `message.created`/`message.updated` (`meta.state`),
+  `bot.updated`/`group.updated` melden `waiting` und `busy`, dazu `task.updated`, `routine.updated`, `bot.deleted`,
+  `group.deleted` und `message.deleted` (nach dem Bearbeiten verworfene Antwort, auch eine laufende Statuskarte).
+  Freigaben stummer Chats stehen wie alle anderen im Postfach.
+- **Verlauf leeren** (`POST /api/bots/{id}/reset`, `/api/groups/{id}/reset`) setzt offene Freigaben des Chats jetzt auf
+  `declined` (ohne etwas auszuführen): Die Karten sind weg, also wartet dort nichts mehr (`waiting: false`).
+### Stummschalten, Ruhezeiten und Scoop-Vorlagen
+
+Vollständig in [ruhe.md](ruhe.md) und [vorlagen.md](vorlagen.md). Kurzfassung:
+
+- **Stummschalten** (pro Chat und Person): Scoop- und Gruppen-JSON tragen `mute: {"muted": bool, "until": "<ISO>" | null}`
+  (`until: null` bei `muted: true` = dauerhaft; Gäste sehen ihre eigene Stummschaltung). Ändern mit
+  `PUT /api/chats/{chat_id}/mute` und `{"forever": true}`, `{"until": "<ISO>"}`, `{"minutes": 60}` bzw. `{}` zum
+  Aufheben → `{"chat_id", "mute"}`. Inhaber für alle Chats, Gäste (ab Rolle Lesen) für geteilte Scoops. Aus stummen
+  Chats schickt der Server keine Mitteilungen; Freigabe-Anfragen und Erinnerungen kommen trotzdem. Stumme Chats zählen
+  nicht in `aps.badge`.
+- **Ruhezeiten** (pro Person): `GET`/`PATCH /api/settings/quiet-hours` →
+  `{"enabled", "start": "22:00", "end": "07:00", "days": [1…7], "approvals", "timezone": "Europe/Berlin", "active"}`.
+  In der Ruhezeit tragen Mitteilungen `aps."interruption-level": "passive"` und keinen `sound` (Priorität 5).
+  WebSocket: `quiet_hours.updated`. Erinnerungen tragen neben `aps` zusätzlich `"reminder": true`.
+- **Scoop-Vorlagen** (nur Inhaber): `GET /api/bots/{id}/template`, `POST /api/templates/check`,
+  `POST /api/templates/import`. Dateiformat `.scoop` mit `"format": 1`.
+- **`GET /api/health`** meldet zusätzlich `"mute": true`, `"quiet_hours": true` und `"templates": 1` (höchste lesbare
+  Formatversion). `GET /api/shared/me` meldet Gästen `"mute": true` und `"quiet_hours": true`.
+- `PATCH /api/routines/{id}` mit `{"enabled": true}`: Ist der Termin einer Routine verstrichen, setzt der Server den
+  nächsten Termin laut Zeitplan, statt sofort zu laufen (Erinnerungen unverändert).
+
+### Bilder über das ChatGPT-Abo
+
+Ausführlich in [`docs/bilder.md`](bilder.md). Keine neuen Endpunkte.
+
+- `GET /api/health` → zusätzlich `"images": {"supported": true, "available": bool, "via": "chatgpt_abo", "hint": str|null}`.
+  `available`: ChatGPT-Abo in Codex angemeldet (und nicht mit `images: false` abgeschaltet); `hint`: was der Nutzer tun
+  kann („In den Einstellungen unter „KI-Abos“ ChatGPT verbinden …“). Ältere Server haben das Feld nicht.
+- Fertige Bilder: Ereignis (`role = "event"`) mit `meta.file_id` (Bibliotheksdatei, `kind = "bild"`), `meta.icon = "photo"`,
+  `meta.image = true`, Text „Bild erstellt: <Name>“ bzw. „Bild bearbeitet: <Name>“, in Aufgaben zusätzlich `meta.task_id`,
+  in Gruppen `meta.author_id`. Die App zeigt Ereignisse mit Bilddatei ab 1.3 als Bildvorschau (ältere als Dateikarte).
+- Statuszeile: „Erstellt ein Bild“ bzw. „Bearbeitet ein Bild“; Bildläufe stehen in `GET /api/usage` unter `abo`
+  (Modell des Bildlaufs, ohne Betrag).
+- Werkzeuge der Scoops: `bild_erstellen`, `bild_bearbeiten` (Chat und Aufgaben, nicht für Gäste).
+
+### Sprache (Deutsch und Englisch)
+
+Vollständig in [`sprache.md`](sprache.md) (Vertrag, Glossar, was die App selbst übersetzt). Umsetzung:
+`Server/src/aisbot/i18n.py`, Tabellen in `Server/src/aisbot/i18n_en/`. Kurzfassung:
+
+- **Pro Person** (Inhaber und jeder Gast getrennt): `GET`/`PATCH /api/settings/language` →
+  `{"language": "en", "stored": "en" | null, "available": ["de", "en"], "default": "de"}`; `PATCH` mit
+  `{"language": "de" | "en" | null}` (`null` = löschen), sonst 400. WebSocket `language.updated` an die Geräte der Person.
+- **Rückfall:** Ohne gespeicherte Sprache gilt `Accept-Language` für die Antwort der jeweiligen Anfrage, sonst Deutsch;
+  `?lang=` geht vor. Hintergrund (Routinen, Aufgaben, Initiative, Mitteilungen an den Inhaber) nimmt die gespeicherte
+  Sprache des Inhabers, sonst Deutsch.
+- **Einrichtung:** `/api/setup…` richtet sich nach `?lang=` bzw. `Accept-Language`; `PATCH /api/setup/config` nimmt
+  `language` (Sprache des Inhabers), `GET /api/setup` meldet `server.language` und `server.languages`.
+- **Fähigkeit:** `GET /api/health` und `GET /api/shared/me` → `"languages": ["de", "en"]`, `"language": "<wirksam>"`.
+- **Gespeicherte Texte** (Ereigniszeilen, Statuszeilen, Karten, Board) entstehen in der Sprache des Inhabers, auch in
+  Gruppen und geteilten Chats; alte Einträge bleiben. Feldnamen, Aufzählungswerte und IDs ändern sich nicht.
+- **Start-Scoop:** Die Begrüßung trägt `meta.welcome = true` (sprachunabhängig, für die Einführung der App) und folgt
+  der Sprache des Inhabers, solange niemand mit dem Start-Scoop geschrieben hat.
+- **Modellkatalog:** Einträge dürfen `hint_en` haben; `/api/models` liefert `hint` in der Sprache der Anfrage.

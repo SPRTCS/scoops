@@ -25,7 +25,7 @@ struct PersonAvatar: View {
 
     var body: some View {
         Text(initials)
-            .font(.system(size: size * (initials.count > 1 ? 0.36 : 0.44), weight: .semibold))
+            .font(.fixed(size * (initials.count > 1 ? 0.36 : 0.44), weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(color.gradient, in: Circle())
@@ -41,8 +41,8 @@ struct ShareTag: View {
 
     var body: some View {
         HStack(spacing: 3) {
-            if let symbol { Image(systemName: symbol).font(.system(size: 9.5, weight: .semibold)) }
-            Text(text).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+            if let symbol { Image(systemName: symbol).appFont(9.5, weight: .semibold) }
+            Text(text).appFont(11, weight: .semibold).lineLimit(1)
         }
         .fixedSize()
         .foregroundStyle(theme.textSecondary)
@@ -99,14 +99,15 @@ struct ShareSection: View {
             }
             Button("Abbrechen", role: .cancel) { toRemove = nil }
         } message: {
-            Text("\(toRemove?.name ?? "Die Person") sieht \(bot.name) danach nicht mehr. Der gemeinsame Verlauf bleibt bei dir.")
+            let name = toRemove?.name ?? String(localized: "Die Person")
+            Text("\(name) sieht \(bot.name) danach nicht mehr. Der gemeinsame Verlauf bleibt bei dir.")
         }
     }
 
     private var footer: String {
         members.isEmpty
-            ? "Lade Personen ein, mit \(bot.name) zu chatten. \(bot.name) läuft weiter auf deinem Server und arbeitet mit deinen Konten und API-Schlüsseln – Freigaben landen immer bei dir."
-            : "Gäste arbeiten mit deinen Konten und auf deine Kosten. Freigaben (Mails, Anrufe, kritische Aktionen) landen immer bei dir, Tresor und Passwörter bleiben privat."
+            ? String(localized: "Lade Personen ein, mit \(bot.name) zu chatten. \(bot.name) läuft weiter auf deinem Server und arbeitet mit deinen Konten und API-Schlüsseln – Freigaben landen immer bei dir.")
+            : String(localized: "Gäste arbeiten mit deinen Konten und auf deine Kosten. Freigaben (Mails, Anrufe, kritische Aktionen) landen immer bei dir, Tresor und Passwörter bleiben privat.")
     }
 
     /// Person: Bild, Name und eine ruhige Zeile mit Rolle und Rechner-Stufe. Die ganze Zeile öffnet das Menü.
@@ -135,18 +136,18 @@ struct ShareSection: View {
                 PersonAvatar(name: member.name, size: Self.avatar)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(member.name)
-                        .font(.system(size: 15, weight: .medium))
+                        .appFont(15, weight: .medium)
                         .foregroundStyle(theme.textPrimary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                     Text("\(member.role.title) · \(member.computer.shortTitle)")
-                        .font(.system(size: 12.5))
+                        .appFont(12.5)
                         .foregroundStyle(theme.textSecondary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                         .truncationMode(.tail)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .appFont(11, weight: .semibold)
                     .foregroundStyle(theme.textTertiary)
             }
             .groupedRow(vertical: 9)
@@ -163,7 +164,7 @@ struct ShareSection: View {
 
     private func circleIcon(_ name: String, tint: Color, background: Color) -> some View {
         Image(systemName: name)
-            .font(.system(size: 15, weight: .semibold))
+            .appFont(15, weight: .semibold)
             .foregroundStyle(tint)
             .frame(width: Self.avatar, height: Self.avatar)
             .background(background, in: Circle())
@@ -180,19 +181,19 @@ struct ShareSection: View {
                 circleIcon("envelope.badge", tint: theme.textSecondary, background: theme.selection)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Einladung offen")
-                        .font(.system(size: 15, weight: .medium))
+                        .appFont(15, weight: .medium)
                         .foregroundStyle(theme.textPrimary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                     Text([invite.role.title, invite.computer.shortTitle, expiryText(invite.expiresAt)]
                         .compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 12.5))
+                        .appFont(12.5)
                         .foregroundStyle(theme.textSecondary)
-                        .lineLimit(2)
+                        .adaptiveLineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .appFont(11, weight: .semibold)
                     .foregroundStyle(theme.textTertiary)
             }
             .groupedRow(vertical: 9)
@@ -209,7 +210,7 @@ struct ShareSection: View {
             HStack(spacing: 12) {
                 circleIcon("plus", tint: theme.accent, background: theme.accent.opacity(0.14))
                 Text("Person einladen")
-                    .font(.system(size: 15, weight: .medium))
+                    .appFont(15, weight: .medium)
                     .foregroundStyle(theme.accent)
                 Spacer()
             }
@@ -220,23 +221,19 @@ struct ShareSection: View {
 
     /// Kopfzeile mit Anzahl („Personen · 2“)
     private var header: String {
-        members.isEmpty ? "Personen" : "Personen · \(members.count)"
+        members.isEmpty ? String(localized: "Personen") : String(localized: "Personen · \(members.count)")
     }
 
     /// Kurzinfo für die Zeile „Teilen“ im Profil: „2 Personen“ bzw. „Nicht geteilt“
     static func summary(store: AppStore, bot: Bot) -> String {
         let count = store.shareLists[bot.id]?.members.count ?? bot.shared?.count ?? 0
-        switch count {
-        case 0: return "Nicht geteilt"
-        case 1: return "1 Person"
-        default: return "\(count) Personen"
-        }
+        return count == 0 ? String(localized: "Nicht geteilt") : String(localized: "\(count) Personen")
     }
 
     private func expiryText(_ date: Date?) -> String? {
         guard let date else { return nil }
         let days = Int((date.timeIntervalSinceNow / 86400).rounded(.up))
-        return days <= 1 ? "läuft heute ab" : "noch \(days) Tage"
+        return days <= 1 ? String(localized: "läuft heute ab") : String(localized: "noch \(days) Tage")
     }
 }
 
@@ -261,9 +258,9 @@ struct InviteSheet: View {
                     HStack(spacing: 14) {
                         MascotView(mascot: bot.mascot, size: 54, seed: bot.id, animated: false)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(bot.name).font(.system(size: 17, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                            Text(bot.name).appFont(17, weight: .semibold).foregroundStyle(theme.textPrimary)
                             Text("Die eingeladene Person chattet mit \(bot.name) in ihrer eigenen AIS-Scoops-App.")
-                                .font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                                .appFont(13).foregroundStyle(theme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -306,14 +303,14 @@ struct InviteSheet: View {
             } icon: {
                 Image(systemName: "info.circle")
             }
-            .font(.system(size: 12.5))
+            .appFont(12.5)
             .foregroundStyle(theme.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
             if let error {
-                Text(error).font(.system(size: 13)).foregroundStyle(theme.danger).fixedSize(horizontal: false, vertical: true)
+                Text(error).appFont(13).foregroundStyle(theme.danger).fixedSize(horizontal: false, vertical: true)
             }
             Button { Task { await create() } } label: {
-                HStack(spacing: 8) {
+                AdaptiveButtonRow(spacing: 8) {
                     if creating { ProgressView().controlSize(.small) }
                     Text("Einladungslink erzeugen")
                 }
@@ -331,7 +328,7 @@ struct InviteSheet: View {
         Button(action: action) {
             GroupedLabelRow(icon: symbol, iconColor: selected ? theme.accent : nil, title: title, subtitle: detail) {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 19))
+                    .appFont(19)
                     .foregroundStyle(selected ? theme.accent : theme.textTertiary)
             }
         }
@@ -344,9 +341,9 @@ struct InviteSheet: View {
         let url = invite.shareURL
         GroupedSection("Einladungslink", footer: "Gültig 7 Tage und nur einmal verwendbar. Wer den Link öffnet, sieht \(bot.name), dich als Admin, die Rolle „\(role.title)“ und den Rechner-Zugriff „\(computer.title)“.") {
             Text(url.absoluteString)
-                .font(.system(size: 13, design: .monospaced))
+                .appFont(13, design: .monospaced)
                 .foregroundStyle(theme.textPrimary)
-                .lineLimit(3)
+                .adaptiveLineLimit(3)
                 .textSelection(.enabled)
                 .groupedRow()
             ShareLink(item: url, subject: Text("Einladung zu \(bot.name)"),
@@ -405,7 +402,7 @@ struct GuestToolsSection: View {
         let groups = visibleGroups(settings: settings, tools: tools)
         guard !groups.isEmpty else { return nil }
         let on = groups.filter { tools.isOn($0) }.count
-        return on == 0 ? "Alle aus" : "\(on) von \(groups.count) an"
+        return on == 0 ? String(localized: "Alle aus") : String(localized: "\(on) von \(groups.count) an")
     }
 
     /// Gruppen, die der Server anbietet (unbekannte Optionen: alle bekannten zeigen)
@@ -463,15 +460,15 @@ struct GuestToolsSection: View {
                            group: String, item: String?) -> some View {
         HStack(spacing: 12) {
             if let icon {
-                Image(systemName: icon).font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(theme.textSecondary).frame(width: 22)
+                Image(systemName: icon).appFont(15, weight: .medium)
+                    .foregroundStyle(theme.textSecondary).scaledFrame(width: 22)
             } else if inset {
-                Color.clear.frame(width: 22)
+                Color.clear.scaledFrame(width: 22)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                Text(title).appFont(15).foregroundStyle(theme.textPrimary)
                 if let subtitle {
-                    Text(subtitle).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                    Text(subtitle).appFont(12.5).foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -503,9 +500,9 @@ struct GuestBudgetSection: View {
         GroupedSection("Tageslimit pro Gast",
                        footer: "Danach antwortet \(bot.name) dem Gast bis morgen nur noch „Tageslimit erreicht“. 0\u{00A0}$ = Gäste können nur mitlesen.") {
             HStack(spacing: 12) {
-                Image(systemName: "dollarsign.circle").font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(theme.textSecondary).frame(width: 22)
-                Text(Formatting.usd(budget) + " pro Tag").font(.system(size: 15)).monospacedDigit()
+                Image(systemName: "dollarsign.circle").appFont(15, weight: .medium)
+                    .foregroundStyle(theme.textSecondary).scaledFrame(width: 22)
+                Text("\(Formatting.usd(budget)) pro Tag").appFont(15).monospacedDigit()
                     .foregroundStyle(theme.textPrimary)
                 Spacer()
                 Stepper("Tageslimit", value: $budget, in: 0...100, step: budget < 5 ? 0.5 : 1)
@@ -571,9 +568,9 @@ struct CostSection: View {
     private func ownerSection(_ u: BotUsage) -> some View {
         let persons = u.sortedPersons
         let shared = persons.count > 1 || bot.isSharedByMe
-        GroupedSection("Kosten", footer: shared
-                       ? "Pro Person zählt, wer den Lauf ausgelöst hat – Sprechmodus eingeschlossen."
-                       : "Alle Läufe dieses Scoops, Sprechmodus eingeschlossen.") {
+        GroupedSection(String(localized: "Kosten"), footer: shared
+                       ? String(localized: "Pro Person zählt, wer den Lauf ausgelöst hat – Sprechmodus eingeschlossen.")
+                       : String(localized: "Alle Läufe dieses Scoops, Sprechmodus eingeschlossen.")) {
             totalsRow(today: u.todayUsd, month: u.monthUsd, total: u.totalUsd)
         }
         personsSection(u)
@@ -583,7 +580,7 @@ struct CostSection: View {
     private func personsSection(_ u: BotUsage) -> some View {
         let persons = u.sortedPersons
         if persons.count > 1 || bot.isSharedByMe, !persons.isEmpty {
-            GroupedSection("Kosten pro Person · Monat", footer: perPersonOnly ? nil : budgetFooter(u), dividerInset: 60) {
+            GroupedSection(String(localized: "Kosten pro Person · Monat"), footer: perPersonOnly ? nil : budgetFooter(u), dividerInset: 60) {
                 ForEach(persons) { p in personRow(p, budget: u.guestBudget) }
             }
         }
@@ -593,25 +590,25 @@ struct CostSection: View {
     static func summary(store: AppStore, bot: Bot) -> String? {
         guard let u = store.botUsage[bot.id] else { return nil }
         let today = store.isGuestChat(bot.id) ? (u.byPerson.first { !$0.isOwner }?.todayUsd ?? u.todayUsd) : u.todayUsd
-        return "heute \(Formatting.usd(today))"
+        return String(localized: "heute \(Formatting.usd(today))")
     }
 
     @ViewBuilder
     private func guestSection(_ u: BotUsage) -> some View {
         let me = u.byPerson.first { !$0.isOwner } ?? u.byPerson.first
-        let owner = store.ownerName(of: bot.id) ?? "Der Admin"
+        let owner = store.ownerName(of: bot.id) ?? String(localized: "Der Admin")
         GroupedSection("Deine Kosten", footer: "\(owner) bezahlt die Läufe, die du auslöst. Ist dein Tageslimit erreicht, antwortet \(bot.name) dir erst morgen wieder.") {
             totalsRow(today: me?.todayUsd ?? u.todayUsd, month: me?.monthUsd ?? u.monthUsd, total: nil)
             if let budget = u.guestBudget, budget > 0 {
                 let left = me?.budgetLeftUsd ?? max(0, budget - (me?.todayUsd ?? u.todayUsd))
-                budgetRow(used: budget - left, budget: budget, title: "Tageslimit")
+                budgetRow(used: budget - left, budget: budget, title: String(localized: "Tageslimit"))
             }
         }
     }
 
     private func budgetFooter(_ u: BotUsage) -> String? {
         guard let b = u.guestBudget else { return nil }
-        return "Tageslimit pro Gast: \(Formatting.usd(b)). Ändern unter Profil → „Teilen“."
+        return String(localized: "Tageslimit pro Gast: \(Formatting.usd(b)). Ändern unter Profil → „Teilen“.")
     }
 
     private func totalsRow(today: Double, month: Double, total: Double?) -> some View {
@@ -628,32 +625,37 @@ struct CostSection: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func stat(_ title: String, _ value: Double) -> some View {
+    private func stat(_ title: LocalizedStringKey, _ value: Double) -> some View {
         VStack(spacing: 2) {
-            Text(Formatting.usd(value)).font(.system(size: 16, weight: .semibold)).monospacedDigit()
+            Text(Formatting.usd(value)).appFont(16, weight: .semibold).monospacedDigit()
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text(title).font(.system(size: 12)).foregroundStyle(theme.textSecondary)
+            Text(title).appFont(12).foregroundStyle(theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
 
     private func personRow(_ p: BotUsage.Person, budget: Double?) -> some View {
-        let role = p.isOwner ? "Admin (du)" : (p.role?.title ?? "Gast")
-        var detail = "\(role) · heute \(Formatting.usd(p.todayUsd))"
-        if !p.isOwner, let budget, budget > 0 { detail += " von \(Formatting.usd(budget))" }
+        let role = p.isOwner ? String(localized: "Admin (du)") : (p.role?.title ?? String(localized: "Gast"))
+        let today = Formatting.usd(p.todayUsd)
+        let detail: String
+        if !p.isOwner, let budget, budget > 0 {
+            detail = String(localized: "\(role) · heute \(today) von \(Formatting.usd(budget))")
+        } else {
+            detail = String(localized: "\(role) · heute \(today)")
+        }
         return HStack(alignment: .top, spacing: 12) {
             PersonAvatar(name: p.name, size: 32)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(p.name).font(.system(size: 15, weight: .medium)).foregroundStyle(theme.textPrimary).lineLimit(1)
+                    Text(p.name).appFont(15, weight: .medium).foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
                     Spacer(minLength: 8)
-                    Text(Formatting.usd(p.monthUsd)).font(.system(size: 15, weight: .semibold)).monospacedDigit()
+                    Text(Formatting.usd(p.monthUsd)).appFont(15, weight: .semibold).monospacedDigit()
                         .foregroundStyle(theme.textPrimary).fixedSize()
                 }
-                Text(detail).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary).lineLimit(1)
+                Text(detail).appFont(12.5).foregroundStyle(theme.textSecondary).lineLimit(1)
                     .minimumScaleFactor(0.85)
                 if !p.isOwner, let budget, budget > 0 {
                     let left = p.budgetLeftUsd ?? max(0, budget - p.todayUsd)
@@ -672,10 +674,10 @@ struct CostSection: View {
         let left = max(0, budget - used)
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(title).font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                Text(title).appFont(15).foregroundStyle(theme.textPrimary)
                 Spacer()
                 Text(left <= 0 ? "Erreicht" : "noch \(Formatting.usd(left)) von \(Formatting.usd(budget))")
-                    .font(.system(size: 13.5)).monospacedDigit()
+                    .appFont(13.5).monospacedDigit()
                     .foregroundStyle(left <= 0 ? theme.danger : theme.textSecondary)
             }
             ProgressView(value: min(1, max(0, used / budget)))
@@ -731,13 +733,13 @@ struct InviteAcceptSheet: View {
         VStack(spacing: 8) {
             MascotView(mascot: info.botMascot ?? .default, size: 96, seed: "invite-\(info.botName)", showsGround: true)
                 .padding(.top, 10)
-            Text(info.botName).font(.system(size: 22, weight: .semibold)).foregroundStyle(theme.textPrimary)
+            Text(info.botName).appFont(22, weight: .semibold).foregroundStyle(theme.textPrimary)
             if let label = info.botLabel, !label.isEmpty {
-                Text(label).font(.system(size: 14)).foregroundStyle(theme.textSecondary)
+                Text(label).appFont(14).foregroundStyle(theme.textSecondary)
             }
             HStack(spacing: 6) {
                 PersonAvatar(name: info.ownerName, size: 20)
-                Text("\(info.ownerName) lädt dich ein").font(.system(size: 14)).foregroundStyle(theme.textSecondary)
+                Text("\(info.ownerName) lädt dich ein").appFont(14).foregroundStyle(theme.textSecondary)
             }
         }
         .frame(maxWidth: .infinity)
@@ -751,17 +753,17 @@ struct InviteAcceptSheet: View {
             Label {
                 Text("\(info.botName) läuft bei \(info.ownerName), mit deren Konten. Alle im Chat sehen deine Nachrichten. \(info.ownerName) kann deine Rechte jederzeit ändern, du kannst jederzeit austreten.")
             } icon: { Image(systemName: "info.circle") }
-                .font(.system(size: 12.5))
+                .appFont(12.5)
                 .foregroundStyle(theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if let acceptError {
-                Text(acceptError).font(.system(size: 13)).foregroundStyle(theme.danger)
+                Text(acceptError).appFont(13).foregroundStyle(theme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if store.account.isSignedIn {
                 Button { accept() } label: {
-                    HStack(spacing: 8) {
+                    AdaptiveButtonRow(spacing: 8) {
                         if accepting { ProgressView().controlSize(.small) }
                         Text("Annehmen")
                     }
@@ -773,20 +775,20 @@ struct InviteAcceptSheet: View {
             } else {
                 VStack(spacing: 10) {
                     Text("Melde dich an, um die Einladung anzunehmen.")
-                        .font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                        .appFont(13.5).foregroundStyle(theme.textSecondary)
                     AppleSignInButton(height: 48)
                 }
             }
             if let expires = info.expiresAt {
-                Text("Gültig bis \(Formatting.shortDate(expires))").font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                Text("Gültig bis \(Formatting.shortDate(expires))").appFont(12).foregroundStyle(theme.textTertiary)
             }
         }
     }
 
     private func problem(_ text: String) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "link.badge.plus").font(.system(size: 34)).foregroundStyle(theme.warning)
-            Text(text).font(.system(size: 15)).foregroundStyle(theme.textSecondary).multilineTextAlignment(.center)
+            Image(systemName: "link.badge.plus").appFont(34).foregroundStyle(theme.warning)
+            Text(text).appFont(15).foregroundStyle(theme.textSecondary).multilineTextAlignment(.center)
             Button("Schließen") { dismiss() }.buttonStyle(PillButtonStyle(kind: .secondary))
         }
         .padding(.top, 30)
@@ -800,7 +802,8 @@ struct InviteAcceptSheet: View {
             if let error = await store.acceptInvite(code: code) {
                 acceptError = error
             } else {
-                store.showToast("\(info?.botName ?? "Scoop") steht jetzt unter „Mit mir geteilt“")
+                let name = info?.botName ?? "Scoop"
+                store.showToast(String(localized: "\(name) steht jetzt unter „Mit mir geteilt“"))
                 dismiss()
             }
             accepting = false
@@ -821,13 +824,13 @@ struct ForeignUserBubble: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 PersonAvatar(name: name, size: 20)
-                Text(name).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.textSecondary)
+                Text(name).appFont(12.5, weight: .semibold).foregroundStyle(theme.textSecondary)
                 if message.meta.authorRole == "admin" || (message.meta.authorUserId == nil && store.isGuestChat(message.chatId)) {
                     ShareTag(text: "Admin")
                 }
                 if let to = message.meta.toPeople, !to.isEmpty {
                     Label("an \(to.joined(separator: ", "))", systemImage: "arrow.turn.down.right")
-                        .font(.system(size: 12, weight: .medium))
+                        .appFont(12, weight: .medium)
                         .foregroundStyle(theme.textTertiary)
                 }
             }
@@ -842,7 +845,7 @@ struct ForeignUserBubble: View {
             if !message.text.isEmpty {
                 HStack(alignment: .bottom, spacing: 6) {
                     Text(Mentions.attributed(message.text, bots: store.bots, theme: theme))
-                        .font(.system(size: 15))
+                        .appFont(15)
                         .lineSpacing(3)
                         .foregroundStyle(theme.textPrimary)
                         #if os(macOS)
@@ -859,13 +862,15 @@ struct ForeignUserBubble: View {
                         .messageReactions(message, trailing: false, copyText: message.text)
                     if message.meta.voice == true {
                         Image(systemName: "waveform")
-                            .font(.system(size: 11, weight: .semibold))
+                            .appFont(11, weight: .semibold)
                             .foregroundStyle(theme.textTertiary)
                             .padding(.bottom, 10)
                             .accessibilityLabel("Gesprochen")
                     }
                     Spacer(minLength: 60)
                 }
+                if message.meta.edited != nil { EditedLabel() }
+                MessageLinkPreview(text: message.text)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -887,7 +892,7 @@ struct GuestApprovalGate<Content: View>: View {
                 content
                 if let name = message.meta.requestedBy?.name {
                     Label("Angefragt von \(name)", systemImage: "person.fill.questionmark")
-                        .font(.system(size: 11.5, weight: .medium))
+                        .appFont(11.5, weight: .medium)
                         .foregroundStyle(theme.textTertiary)
                         .padding(.leading, 6)
                 }
@@ -896,29 +901,29 @@ struct GuestApprovalGate<Content: View>: View {
     }
 
     private var guestCard: some View {
-        let owner = store.ownerName(of: message.chatId) ?? "den Admin"
+        let owner = store.ownerName(of: message.chatId) ?? String(localized: "den Admin", comment: "Steht für den Namen des Admins: „Freigegeben durch den Admin“")
         let state = message.meta.state ?? "pending"
         let title: String = {
             if let t = message.meta.title, message.meta.guestView == true, !t.isEmpty { return t }
             switch state {
-            case "pending": return "Wartet auf Freigabe durch \(owner)"
-            case "approved": return "Freigegeben durch \(owner)"
-            default: return "Abgelehnt durch \(owner)"
+            case "pending": return String(localized: "Wartet auf Freigabe durch \(owner)")
+            case "approved": return String(localized: "Freigegeben durch \(owner)")
+            default: return String(localized: "Abgelehnt durch \(owner)")
             }
         }()
         let icon = state == "pending" ? "hourglass" : (state == "approved" ? "checkmark.circle.fill" : "xmark.circle.fill")
         let color = state == "pending" ? theme.warning : (state == "approved" ? theme.success : theme.textTertiary)
         return HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .appFont(13)
                 .foregroundStyle(color)
-                .frame(width: 26, height: 26)
+                .scaledFrame(26)
                 .background(color.opacity(0.14), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                Text(title).appFont(14, weight: .semibold).foregroundStyle(theme.textPrimary)
                 if state == "pending" {
                     Text("\(owner) entscheidet über Mails, Anrufe und andere wichtige Schritte.")
-                        .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                        .appFont(12.5).foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -938,13 +943,13 @@ struct ReadOnlyComposerHint: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        let owner = store.ownerName(of: chatID) ?? "Der Admin"
+        let owner = store.ownerName(of: chatID) ?? String(localized: "Der Admin")
         Label {
             Text("Du kannst hier nur mitlesen. \(owner) hat dir die Rolle „Lesen“ gegeben.")
         } icon: {
             Image(systemName: "eye")
         }
-        .font(.system(size: 13.5))
+        .appFont(13.5)
         .foregroundStyle(theme.textSecondary)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)

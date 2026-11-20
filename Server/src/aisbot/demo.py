@@ -24,11 +24,12 @@ from __future__ import annotations
 
 import re
 
+from .i18n import N_, tx
 from .profile import _read_config
 
 MODEL = "claude-haiku-5-5"
 MAIL_ACCOUNT = {"id": "demo", "alias": "Demo", "email": "demo@scoops.example"}
-DISABLED_TEXT = "Auf dem Demo-Server ausgeschaltet."
+DISABLED_TEXT = N_("Auf dem Demo-Server ausgeschaltet.")  # Ausgabe übersetzt (server.py, i18n.translate)
 
 # Chat-Werkzeuge, die im Demo-Modus bleiben. Alles andere (auch neue Werkzeuge) fehlt, bis es hier steht.
 ALLOWED_TOOLS = frozenset({
@@ -132,7 +133,7 @@ def budget_left(db, cfg: dict | None = None) -> tuple[float | None, str | None]:
     if left >= 0.01:
         return left, None
     if daily and today >= daily - 0.01:
-        return 0.0, (f"Das Tageslimit dieses Servers ({daily:.2f} $) ist erreicht. Morgen geht es weiter. "
-                     f"(Daily spending limit of this server reached; it resets at midnight, Berlin time.)")
-    return 0.0, (f"Das Monatslimit dieses Servers ({monthly:.2f} $) ist erreicht. "
-                 f"(Monthly spending limit of this server reached.)")
+        return 0.0, tx("Das Tageslimit dieses Servers ({limit:.2f} $) ist erreicht. Morgen geht es weiter. "
+                       "(Daily spending limit of this server reached; it resets at midnight, Berlin time.)", limit=daily)
+    return 0.0, tx("Das Monatslimit dieses Servers ({limit:.2f} $) ist erreicht. "
+                   "(Monthly spending limit of this server reached.)", limit=monthly)

@@ -36,7 +36,9 @@ from typing import Any, Callable
 from fastapi import WebSocket  # auf Modulebene: FastAPI löst die (String-)Annotation darüber auf
 
 from .config import Usage
-from .prompts import now_line, personalize
+from .prompts import language_note, now_line, personalize
+from . import i18n
+from .i18n import N_, tx
 
 LIVE_URL = "wss://api.openai.com/v1/live/sessions"
 MODEL = "gpt-live-1"
@@ -51,21 +53,37 @@ MAX_SESSIONS = 2  # gleichzeitige Live-Sitzungen pro Server (Kosten)
 # Auswahl für die App. Alle Namen stehen in der Live-Doku (`audio.output.voice`); die deutschen Stimmen sind dort
 # ausdrücklich als Deutsch markiert, die übrigen sind mehrsprachig.
 VOICES: list[dict[str, str]] = [
-    {"id": "marin", "name": "Marin", "note": "warm, natürlich (Standard)"},
-    {"id": "cedar", "name": "Cedar", "note": "ruhig, männlich"},
-    {"id": "juni", "name": "Juni", "note": "deutsch, weiblich"},
-    {"id": "nuri", "name": "Nuri", "note": "deutsch, weiblich"},
-    {"id": "flitz", "name": "Flitz", "note": "deutsch, männlich"},
-    {"id": "coral", "name": "Coral", "note": "hell, freundlich"},
-    {"id": "sage", "name": "Sage", "note": "sanft"},
-    {"id": "shimmer", "name": "Shimmer", "note": "klar, weiblich"},
-    {"id": "ballad", "name": "Ballad", "note": "ausdrucksstark"},
-    {"id": "verse", "name": "Verse", "note": "lebhaft"},
-    {"id": "ash", "name": "Ash", "note": "kräftig, männlich"},
-    {"id": "echo", "name": "Echo", "note": "neutral, männlich"},
-    {"id": "alloy", "name": "Alloy", "note": "neutral"},
+    {"id": "marin", "name": "Marin", "note": N_("warm, natürlich (Standard)")},
+    {"id": "cedar", "name": "Cedar", "note": N_("ruhig, männlich")},
+    {"id": "juni", "name": "Juni", "note": N_("deutsch, weiblich")},
+    {"id": "nuri", "name": "Nuri", "note": N_("deutsch, weiblich")},
+    {"id": "flitz", "name": "Flitz", "note": N_("deutsch, männlich")},
+    {"id": "coral", "name": "Coral", "note": N_("hell, freundlich")},
+    {"id": "sage", "name": "Sage", "note": N_("sanft")},
+    {"id": "shimmer", "name": "Shimmer", "note": N_("klar, weiblich")},
+    {"id": "ballad", "name": "Ballad", "note": N_("ausdrucksstark")},
+    {"id": "verse", "name": "Verse", "note": N_("lebhaft")},
+    {"id": "ash", "name": "Ash", "note": N_("kräftig, männlich")},
+    {"id": "echo", "name": "Echo", "note": N_("neutral, männlich")},
+    {"id": "alloy", "name": "Alloy", "note": N_("neutral")},
 ]
 VOICE_IDS = {v["id"] for v in VOICES}
+
+
+def voices() -> list[dict[str, str]]:
+    """Stimmen für die App, Beschreibung in der Sprache der Anfrage."""
+    return [{**v, "note": i18n.translate(v["note"])} for v in VOICES]
+
+
+# Sprache, die der Live-Scoop spricht (Teil der internen, deutschen Anweisung)
+SPEAK = {"de": "Sprich Deutsch", "en": "Sprich Englisch"}
+# Feste Begrüßungsanweisung: Das Beispiel landet fast wörtlich in der Stimme, deshalb je Sprache
+GREETING = {
+    "de": "Begrüße {user} jetzt von dir aus in einem ganz kurzen, lockeren Satz in deinem Charakter "
+          "(z. B. „Hey, ich hör dich – was gibt's?“). Keine lange Vorstellung.",
+    "en": "Greet {user} now, on your own, with one very short, casual sentence in English and in your character "
+          "(for example “Hey, I can hear you – what's up?”). No long introduction.",
+}
 
 _active: set[str] = set()  # laufende Sitzungen (IDs)
 
@@ -122,15 +140,17 @@ def _clip(t: str, n: int) -> str:
     return t if len(t) <= n else t[: n - 1] + "…"
 
 
-def build_instructions(bot: dict, memories: list[dict], messages: list[dict], user_name: str) -> str:
-    """Kurzfassung von prompts.bot_system für gesprochene Gespräche (max. ~16k Tokens erlaubt, wir bleiben weit drunter)."""
+def build_instructions(bot: dict, memories: list[dict], messages: list[dict], user_name: str,
+                       lang: str = "de") -> str:
+    """Kurzfassung von prompts.bot_system für gesprochene Gespräche (max. ~16k Tokens erlaubt, wir bleiben weit drunter).
+    `lang`: Sprache der sprechenden Person (docs/sprache.md); für Englisch kommt die Sprachvorgabe dazu."""
     character = bot.get("character") or "freundlich, aufmerksam und unkompliziert"
     label = f" ({bot['label']})" if bot.get("label") else ""
     parts = [
         f"Du bist {bot['name']}{label}, ein Scoop von {user_name}. Scoops sind die persönlichen, flauschigen Bots in "
         f"der App „AIS Scoops“. Du hast einen eigenen Mac, Gedächtnis und Zugriff auf {user_name}s verbundene Apps.",
         f"Dein Charakter: {character}. Bleib in diesem Charakter.",
-        f"Ihr sprecht gerade live miteinander (Sprechmodus der App). Sprich Deutsch, natürlich und warm wie in einem "
+        f"Ihr sprecht gerade live miteinander (Sprechmodus der App). {SPEAK.get(lang, SPEAK['de'])}, natürlich und warm wie in einem "
         f"entspannten Telefonat mit einem Kollegen, duze {user_name}. Meist ein bis drei kurze Sätze, keine Listen, "
         "kein Markdown, keine Emojis, keine technischen Kennungen oder Werkzeugnamen. Höre auch während du sprichst "
         "zu; wirst du unterbrochen, hör auf und geh auf das Neue ein. Frag nach, wenn Namen oder Zahlen unklar sind.",
@@ -168,7 +188,9 @@ def build_instructions(bot: dict, memories: list[dict], messages: list[dict], us
     if recent:
         parts.append("Die letzten Nachrichten im Chat (zum Anknüpfen, nicht wiederholen):\n" + "\n".join(recent))
     parts.append(now_line())
-    return personalize("\n\n".join(parts), user_name)
+    text = personalize("\n\n".join(parts), user_name)
+    note = language_note(lang, user_name)
+    return text + "\n\n" + note if note else text
 
 
 def _clip_block(t: str, n: int) -> str:
@@ -231,11 +253,14 @@ class LiveSession:
     """Eine Live-Sitzung für einen Einzelchat. `app` ist die Starlette-WebSocket der App (bereits angenommen)."""
 
     def __init__(self, *, service, chat_id: str, bot: dict, app, key: str, cfg: dict,
-                 opener: Callable[[str, str], Any] = open_live, guest=None, budget_left: float | None = None) -> None:
+                 opener: Callable[[str, str], Any] = open_live, guest=None, budget_left: float | None = None,
+                 lang: str | None = None) -> None:
         """`guest` (sharing.Share): Gast eines geteilten Scoops – Absender an Nachrichten, Aufträge als Gast-Lauf,
-        Dauer durch sein Tageslimit begrenzt, Kosten zählen zu ihm."""
+        Dauer durch sein Tageslimit begrenzt, Kosten zählen zu ihm. `lang`: Sprache der sprechenden Person
+        (Standard: gespeicherte Sprache des Gasts bzw. des Inhabers)."""
         self.service, self.db = service, service.db
         self.guest = guest
+        self.lang = i18n.normalize(lang) or i18n.lang_of(guest.user_id if guest is not None else None)
         self.chat_id, self.bot, self.app, self.key = chat_id, bot, app, key
         self.st = settings(cfg)
         if guest is not None and budget_left is not None:
@@ -299,20 +324,22 @@ class LiveSession:
         try:
             await self.live.send(json.dumps(event, ensure_ascii=False))
         except Exception:  # noqa: BLE001
-            await self.finish("error", "Verbindung zu OpenAI unterbrochen.")
+            await self.finish("error", tx("Verbindung zu OpenAI unterbrochen."))
 
     # ---- Ablauf
     async def run(self) -> None:
-        if len(_active) >= MAX_SESSIONS:
-            await self.to_app({"type": "error", "fallback": True, "message": "Es laufen schon zu viele Live-Gespräche."})
-            return
-        _active.add(self.sid)
-        try:
-            await self._run()
-        finally:
-            _active.discard(self.sid)
-            await self._close_live()
-            self._record_usage()
+        with i18n.use(self.lang):  # Texte an die App in der Sprache der sprechenden Person
+            if len(_active) >= MAX_SESSIONS:
+                await self.to_app({"type": "error", "fallback": True,
+                                   "message": tx("Es laufen schon zu viele Live-Gespräche.")})
+                return
+            _active.add(self.sid)
+            try:
+                await self._run()
+            finally:
+                _active.discard(self.sid)
+                await self._close_live()
+                self._record_usage()
 
     async def _run(self) -> None:
         user = self.service.user_name
@@ -321,7 +348,7 @@ class LiveSession:
             # Gast: nur Einträge dieses Scoops (nichts, was „alle Scoops“ über den Admin wissen)
             user = self.guest.name
             mems = [m for m in mems if m.get("bot_id") == self.chat_id and m.get("kind") != "profil"]
-        instructions = build_instructions(self.bot, mems, self.db.messages(self.chat_id, limit=20), user)
+        instructions = build_instructions(self.bot, mems, self.db.messages(self.chat_id, limit=20), user, self.lang)
         if self.guest is not None:
             instructions += (f"\n\nWichtig: Du sprichst mit {self.guest.name}, einem Gast. Der Scoop gehört "
                              f"{self.service.user_name} (Admin). Gib Privates von {self.service.user_name} nicht weiter.")
@@ -333,10 +360,10 @@ class LiveSession:
             started = await asyncio.wait_for(self._await_started(), 15)
         except Exception as e:  # noqa: BLE001
             print(f"Live-Start fehlgeschlagen: {type(e).__name__}: {str(e)[:200]}", flush=True)
-            await self.to_app({"type": "error", "fallback": True, "message": "Live-Stimme gerade nicht erreichbar."})
+            await self.to_app({"type": "error", "fallback": True, "message": tx("Live-Stimme gerade nicht erreichbar.")})
             return
         if not started:
-            await self.to_app({"type": "error", "fallback": True, "message": "Live-Stimme gerade nicht erreichbar."})
+            await self.to_app({"type": "error", "fallback": True, "message": tx("Live-Stimme gerade nicht erreichbar.")})
             return
         self.started_at = time.monotonic()
         self.metrics["ready_ms"] = round((self.started_at - t0) * 1000)
@@ -346,8 +373,7 @@ class LiveSession:
                            "price_per_minute_usd": PRICE_PER_MINUTE})
         # Kurze Begrüßung, damit man sofort hört, dass die Leitung steht
         await self.to_live({"type": "session.instructions.append", "event_id": self.greeting_id, "delegation_id": None,
-                            "content": f"Begrüße {user} jetzt von dir aus in einem ganz kurzen, lockeren Satz in deinem "
-                                       "Charakter (z. B. „Hey, ich hör dich – was gibt's?“). Keine lange Vorstellung."})
+                            "content": GREETING.get(self.lang, GREETING["de"]).replace("{user}", user)})
         tasks = [asyncio.create_task(self._app_pump()), asyncio.create_task(self._live_pump()),
                  asyncio.create_task(self._ticker())]
         try:
@@ -371,9 +397,9 @@ class LiveSession:
         return False
 
     def end_message(self) -> str:
-        return {"idle": "Nach längerer Stille beendet.", "limit": "Zeitlimit für das Live-Gespräch erreicht.",
-                "stopped": "Gespräch beendet.", "expired": "OpenAI hat die Sitzung beendet (Zeitlimit).",
-                }.get(self.end_reason, getattr(self, "_end_text", None) or "Gespräch beendet.")
+        return {"idle": tx("Nach längerer Stille beendet."), "limit": tx("Zeitlimit für das Live-Gespräch erreicht."),
+                "stopped": tx("Gespräch beendet."), "expired": tx("OpenAI hat die Sitzung beendet (Zeitlimit)."),
+                }.get(self.end_reason, getattr(self, "_end_text", None) or tx("Gespräch beendet."))
 
     async def finish(self, reason: str, text: str | None = None) -> None:
         if self.ended:
@@ -487,7 +513,7 @@ class LiveSession:
         except Exception as e:  # noqa: BLE001
             if not self.ended:
                 print(f"Live-Verbindung getrennt: {type(e).__name__}", flush=True)
-        await self.finish("error", "Verbindung zu OpenAI getrennt.")
+        await self.finish("error", tx("Verbindung zu OpenAI getrennt."))
 
     async def _event(self, e: dict) -> None:
         typ = e.get("type")
@@ -545,7 +571,7 @@ class LiveSession:
                 self.usage_seconds = float(secs)
             self.metrics["finalized"] = True
             reason = e.get("reason")
-            await self.finish("expired" if reason == "expired" else "closed", "OpenAI hat die Sitzung beendet.")
+            await self.finish("expired" if reason == "expired" else "closed", tx("OpenAI hat die Sitzung beendet."))
         elif typ == "error":
             err = e.get("error") or {}
             print(f"Live-Fehler: {err.get('code')} {str(err.get('message'))[:200]}", flush=True)
@@ -629,7 +655,9 @@ class LiveSession:
 
     async def _delegate(self, auftrag: str) -> dict:
         """Normalen Scoop-Lauf anstoßen und auf seine Antwort warten (Ereigniszeile im Chat macht es sichtbar)."""
-        ev = await asyncio.to_thread(self.service._add, self.chat_id, "event", f"Live-Auftrag: {auftrag}", {
+        with i18n.for_owner():  # Ereigniszeile im Chat: Sprache des Inhabers (auch im Gespräch eines Gasts)
+            line = tx("Live-Auftrag: {auftrag}", auftrag=auftrag)
+        ev = await asyncio.to_thread(self.service._add, self.chat_id, "event", line, {
             "icon": "waveform", "live": True,
             "prompt": f"Auftrag aus dem Live-Gespräch: {auftrag}\nErledige ihn jetzt. Deine Antwort wird anschließend "
                       "vorgelesen: schreib sie kurz und gut sprechbar (ohne Tabellen), Details gern als Datei oder "
@@ -734,13 +762,20 @@ class LiveSession:
 
 # -- Probehören -----------------------------------------------------------------
 PREVIEW_TEXT = "Hallo! So klinge ich, wenn wir live miteinander sprechen."
+# Probesatz je Sprache (wird gesprochen, also für Menschen); Deutsch bleibt Datei `<stimme>.wav`
+PREVIEW_TEXTS = {"de": PREVIEW_TEXT, "en": "Hi! This is how I sound when we talk live."}
+PREVIEW_SPEAK = {"de": "Sprich auf Deutsch", "en": "Sprich auf Englisch"}
 
 
-async def preview(voice: str, key: str, cfg: dict, cache_dir, opener: Callable[[str, str], Any] = open_live) -> bytes:
-    """Kurzer Probesatz in der Live-Stimme (WAV). Einmal pro Stimme erzeugt und auf dem Server zwischengespeichert."""
+async def preview(voice: str, key: str, cfg: dict, cache_dir, opener: Callable[[str, str], Any] = open_live,
+                  lang: str = "de") -> bytes:
+    """Kurzer Probesatz in der Live-Stimme (WAV). Einmal pro Stimme und Sprache erzeugt und auf dem Server
+    zwischengespeichert."""
     if voice not in VOICE_IDS:
-        raise ValueError("Unbekannte Stimme")
-    path = cache_dir / f"{voice}.wav"
+        raise ValueError(tx("Unbekannte Stimme"))
+    lang = lang if lang in PREVIEW_TEXTS else "de"
+    sentence = PREVIEW_TEXTS[lang]
+    path = cache_dir / (f"{voice}.wav" if lang == "de" else f"{voice}-{lang}.wav")
     if path.exists() and path.stat().st_size > 1000:
         return path.read_bytes()
     st = settings(cfg)
@@ -750,7 +785,7 @@ async def preview(voice: str, key: str, cfg: dict, cache_dir, opener: Callable[[
         await live.send(json.dumps({"type": "session.start", "session": {
             "model": MODEL, "store": False,
             "audio": {"format": {"type": "audio/pcm", "rate": RATE}, "output": {"voice": voice}},
-            "instructions": "Du bist eine Stimmprobe. Sprich auf Deutsch genau den Satz, um den du gebeten wirst, "
+            "instructions": f"Du bist eine Stimmprobe. {PREVIEW_SPEAK[lang]} genau den Satz, um den du gebeten wirst, "
                             "natürlich und freundlich, und sag danach nichts mehr.",
             "delegation": {"type": "client"},
         }}))
@@ -765,10 +800,10 @@ async def preview(voice: str, key: str, cfg: dict, cache_dir, opener: Callable[[
                 t = e.get("type")
                 if t == "session.started":
                     await live.send(json.dumps({"type": "session.instructions.append", "event_id": greet,
-                                                "delegation_id": None, "content": f"Sag jetzt genau: „{PREVIEW_TEXT}“"}))
+                                                "delegation_id": None, "content": f"Sag jetzt genau: „{sentence}“"}))
                 elif t == "session.instructions.appended" and e.get("client_event_id") == greet:
                     await live.send(json.dumps({"type": "session.commentary.append", "delegation_id": None,
-                                                "content": f"Sprich jetzt: „{PREVIEW_TEXT}“"}))
+                                                "content": f"Sprich jetzt: „{sentence}“"}))
                 elif t == "session.output_audio.delta":
                     chunk = base64.b64decode(e.get("delta") or "")
                     if voiced(chunk):  # Live streamt auch Stille: nur hörbare Teile zählen
@@ -830,9 +865,9 @@ def register(app, *, service, token_ok, keychain, kc, load_config, auth_dep, dat
         st = settings(load_config())
         has_key = bool(key())
         return {"available": st["enabled"] and has_key,
-                "reason": None if has_key and st["enabled"] else ("Live-Stimme ist ausgeschaltet." if not st["enabled"]
-                                                                  else "Kein OpenAI-Schlüssel auf dem Server."),
-                "model": MODEL, "default_voice": st["default_voice"], "voices": VOICES,
+                "reason": None if has_key and st["enabled"] else (tx("Live-Stimme ist ausgeschaltet.") if not st["enabled"]
+                                                                  else tx("Kein OpenAI-Schlüssel auf dem Server.")),
+                "model": MODEL, "default_voice": st["default_voice"], "voices": voices(),
                 "max_seconds": st["max_seconds"], "idle_seconds": st["idle_seconds"],
                 "price_per_minute_usd": PRICE_PER_MINUTE}
 
@@ -840,14 +875,14 @@ def register(app, *, service, token_ok, keychain, kc, load_config, auth_dep, dat
     async def live_preview(body: dict):
         voice = str((body or {}).get("voice") or "")
         if voice not in VOICE_IDS:
-            raise HTTPException(400, "Unbekannte Stimme")
+            raise HTTPException(400, tx("Unbekannte Stimme"))
         k = key()
         if not k:
-            raise HTTPException(503, "Kein OpenAI-Schlüssel hinterlegt")
+            raise HTTPException(503, tx("Kein OpenAI-Schlüssel hinterlegt"))
         try:
-            data = await preview(voice, k, load_config(), data_dir / "voice-previews")
+            data = await preview(voice, k, load_config(), data_dir / "voice-previews", lang=i18n.current())
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(502, f"Stimmprobe fehlgeschlagen: {str(e)[:120]}") from None
+            raise HTTPException(502, tx("Stimmprobe fehlgeschlagen: {error}", error=str(e)[:120])) from None
         return Response(data, media_type="audio/wav", headers={"Cache-Control": "max-age=86400"})
 
     @app.websocket("/api/voice/live")
@@ -871,23 +906,29 @@ def register(app, *, service, token_ok, keychain, kc, load_config, auth_dep, dat
                     await websocket.close(code=4403)
                     return
         await websocket.accept()
-        if guest is not None and budget_left is not None and budget_left < 0.01:
-            await websocket.send_text(json.dumps({"type": "error", "fallback": False,
-                                                  "message": "Tageslimit erreicht."}, ensure_ascii=False))
-            await websocket.close()
-            return
-        bot = service.bot_json(chat) if chat.startswith("b_") else None
-        k = key()
-        st = settings(load_config())
-        problem = ("Live gibt es nur im Einzelchat mit einem Scoop." if not bot else
-                   "Live-Stimme ist ausgeschaltet." if not st["enabled"] else
-                   "Kein OpenAI-Schlüssel auf dem Server." if not k else None)
-        if problem:
-            await websocket.send_text(json.dumps({"type": "error", "fallback": True, "message": problem}, ensure_ascii=False))
-            await websocket.close()
-            return
+        # Sprache der sprechenden Person: gespeichert, sonst Kopfzeile bzw. `?lang=` (WebSocket ohne Middleware)
+        lang = i18n.request_lang(guest.user_id if guest is not None else None,
+                                 param=websocket.query_params.get("lang"),
+                                 header=websocket.headers.get("accept-language"))
+        with i18n.use(lang):
+            if guest is not None and budget_left is not None and budget_left < 0.01:
+                await websocket.send_text(json.dumps({"type": "error", "fallback": False,
+                                                      "message": tx("Tageslimit erreicht.")}, ensure_ascii=False))
+                await websocket.close()
+                return
+            bot = service.bot_json(chat) if chat.startswith("b_") else None
+            k = key()
+            st = settings(load_config())
+            problem = (tx("Live gibt es nur im Einzelchat mit einem Scoop.") if not bot else
+                       tx("Live-Stimme ist ausgeschaltet.") if not st["enabled"] else
+                       tx("Kein OpenAI-Schlüssel auf dem Server.") if not k else None)
+            if problem:
+                await websocket.send_text(json.dumps({"type": "error", "fallback": True, "message": problem},
+                                                     ensure_ascii=False))
+                await websocket.close()
+                return
         session = LiveSession(service=service, chat_id=chat, bot=bot, app=websocket, key=k, cfg=load_config(),
-                              guest=guest, budget_left=budget_left)
+                              guest=guest, budget_left=budget_left, lang=lang)
         try:
             await session.run()
         finally:

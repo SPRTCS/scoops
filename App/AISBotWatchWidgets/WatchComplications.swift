@@ -123,10 +123,10 @@ struct ApprovalsComplicationView: View {
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(entry.count > 0 ? .orange : .secondary)
                 .widgetAccentable()
-                .widgetLabel { Text(entry.count == 1 ? "1 Freigabe" : "\(entry.count) Freigaben") }
+                .widgetLabel { Text("\(entry.count) Freigaben") }
                 .containerBackground(.clear, for: .widget)
         case .accessoryInline:
-            Label(entry.count == 0 ? "Keine Freigaben" : (entry.count == 1 ? "1 Freigabe offen" : "\(entry.count) Freigaben offen"),
+            Label(entry.count == 0 ? String(localized: "Keine Freigaben") : String(localized: "\(entry.count) Freigaben offen"),
                   systemImage: symbol)
                 .containerBackground(.clear, for: .widget)
         default:
@@ -138,7 +138,7 @@ struct ApprovalsComplicationView: View {
         }
     }
 
-    private var label: String { entry.count == 1 ? "1 offene Freigabe" : "\(entry.count) offene Freigaben" }
+    private var label: String { String(localized: "\(entry.count) offene Freigaben") }
 
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -157,7 +157,7 @@ struct ApprovalsComplicationView: View {
                 Text(first.title)
                     .font(.footnote.weight(.semibold))
                     .lineLimit(1)
-                Text(entry.more > 0 ? "\(first.chatName) · +\(entry.more) weitere" : first.chatName)
+                Text(entry.more > 0 ? String(localized: "\(first.chatName) · +\(entry.more) weitere") : first.chatName)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -192,7 +192,7 @@ struct ScoopEntity: AppEntity {
     init(_ chat: WatchWidgetChat) {
         id = chat.id
         name = chat.name
-        subtitle = chat.isGroup ? "Gruppe" : chat.label
+        subtitle = chat.isGroup ? String(localized: "Gruppe", comment: "Unterzeile eines Gruppenchats") : chat.label
     }
 }
 
@@ -309,7 +309,8 @@ struct ScoopComplicationView: View {
                 .widgetLabel { Text(unread > 0 ? "\(name) · \(unread)" : name) }
                 .containerBackground(.clear, for: .widget)
         case .accessoryInline:
-            Text(unread > 0 ? "\(name) · \(unread) neu" : (entry.chat?.waiting == true ? "\(name) wartet" : name))
+            Text(unread > 0 ? String(localized: "\(name) · \(unread) neu")
+                 : (entry.chat?.waiting == true ? String(localized: "\(name) wartet") : name))
                 .containerBackground(.clear, for: .widget)
         default:
             HStack(spacing: 7) {
@@ -330,7 +331,7 @@ struct ScoopComplicationView: View {
                             Image(systemName: "questionmark.circle.fill").foregroundStyle(.red)
                         }
                     }
-                    Text(entry.chat?.preview ?? "Antippen und diktieren")
+                    Text(entry.chat?.preview ?? String(localized: "Antippen und diktieren"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -347,8 +348,8 @@ struct ScoopComplicationView: View {
 
     private var accessibility: String {
         var parts = [name]
-        if unread > 0 { parts.append("\(unread) ungelesen") }
-        if entry.chat?.waiting == true { parts.append("wartet auf dich") }
+        if unread > 0 { parts.append(String(localized: "\(unread) ungelesen")) }
+        if entry.chat?.waiting == true { parts.append(String(localized: "wartet auf dich")) }
         return parts.joined(separator: ", ")
     }
 }

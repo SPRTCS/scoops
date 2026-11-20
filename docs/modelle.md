@@ -44,6 +44,7 @@ den Wechsel außerdem sofort per `models.updated`.
 | `label` | ja | Anzeigename in der App, z. B. „Fable 5.2“. |
 | `provider` | ja | `anthropic` oder `openai`, muss zur Kennung passen. |
 | `hint` | nein | Kurzer deutscher Hinweis unter dem Namen („Schnell & günstig“). |
+| `hint_en` | nein | Englische Fassung des Hinweises (höchstens 80 Zeichen). Fehlt sie, übersetzt der Server bekannte Hinweise aus seiner Tabelle (`i18n_en/kataloge.py`), sonst bleibt der deutsche Hinweis ([sprache.md](sprache.md)). |
 | `rank` | ja | Stärke innerhalb des Anbieters (größer = stärker). Bestimmt Reihenfolge und Verstärkung. |
 | `price` | ja | US-Dollar pro 1 Mio. Tokens: `input`, `output`, `cache_read`, `cache_write`. Cache-Werte dürfen fehlen (dann 10 % bzw. 125 % der Eingabe). |
 | `routes` | nein | Wege: `api` (API-Schlüssel), `claude_abo` (Claude-Abo über Claude Code), `chatgpt_abo` (ChatGPT-Abo über Codex). Standard nur `api`. |

@@ -86,17 +86,17 @@ nonisolated struct LimitsSnapshot: Codable, Hashable, Sendable {
     static func demo(now: Date = Date()) -> LimitsSnapshot {
         LimitsSnapshot(generatedAt: now.addingTimeInterval(-4 * 60), providers: [
             Provider(id: "claude", name: "Claude", plan: "Max", state: "ok", windows: [
-                Window(id: "seven_day", label: "Wöchentlich", kind: "weekly", usedPercent: 34,
+                Window(id: "seven_day", label: demoText("Wöchentlich", en: "Weekly"), kind: "weekly", usedPercent: 34,
                        resetsAt: now.addingTimeInterval(3 * 86400 + 3 * 3600), windowMinutes: 10080),
-                Window(id: "model:fable", label: "Wöchentlich · Fable", kind: "model", usedPercent: 23,
+                Window(id: "model:fable", label: demoText("Wöchentlich · Fable", en: "Weekly · Fable"), kind: "model", usedPercent: 23,
                        resetsAt: now.addingTimeInterval(3 * 86400 + 3 * 3600), windowMinutes: 10080),
-                Window(id: "five_hour", label: "5 Stunden", kind: "session", usedPercent: 38,
+                Window(id: "five_hour", label: demoText("5 Stunden", en: "5 hours"), kind: "session", usedPercent: 38,
                        resetsAt: now.addingTimeInterval(2 * 3600 + 14 * 60), windowMinutes: 300),
             ]),
             Provider(id: "openai", name: "Codex", plan: "Pro", state: "ok", windows: [
-                Window(id: "codex:primary:10080", label: "Wöchentlich", kind: "weekly", usedPercent: 46,
+                Window(id: "codex:primary:10080", label: demoText("Wöchentlich", en: "Weekly"), kind: "weekly", usedPercent: 46,
                        resetsAt: now.addingTimeInterval(21 * 3600 + 3 * 60), windowMinutes: 10080),
-                Window(id: "codex:secondary:300", label: "5 Stunden", kind: "session", usedPercent: 71,
+                Window(id: "codex:secondary:300", label: demoText("5 Stunden", en: "5 hours"), kind: "session", usedPercent: 71,
                        resetsAt: now.addingTimeInterval(95 * 60), windowMinutes: 300),
             ], creditsBalance: 70055.33, resetCredits: 3),
         ])

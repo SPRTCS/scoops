@@ -88,7 +88,7 @@ struct AccessStep: View {
                        link: "https://platform.composio.dev",
                        guide: ["Auf platform.composio.dev anmelden.", "Unter **API Keys** einen Schlüssel erstellen und hier einfügen."])
             }
-            Text("Schlüssel liegen nur im **Schlüsselbund dieses Macs**, nicht in der Cloud und nicht bei AIS. Für Sprechmodus, Bilder und Diktat braucht es einen Schlüssel auch mit Abo.")
+            Text("Schlüssel liegen nur im **Schlüsselbund dieses Macs**, nicht in der Cloud und nicht bei AIS. Für Sprechmodus und Diktat braucht es einen Schlüssel auch mit Abo, Bilder entstehen nur über das ChatGPT-Abo.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -96,7 +96,7 @@ struct AccessStep: View {
     @ViewBuilder
     private var statusBox: some View {
         if controller.hasModelAccess {
-            InfoBox(style: .success, text: "**KI-Zugang steht:** \(controller.accessSummary ?? "bereit"). Deine Scoops können loslegen.")
+            InfoBox(style: .success, text: "**KI-Zugang steht:** \(controller.accessSummary ?? String(localized: "bereit")). Deine Scoops können loslegen.")
         } else {
             InfoBox(style: .info, text: choice == .abo
                     ? "Noch kein KI-Zugang. Melde dich oben mit deinem Abo an, oder wechsle zu **Mit API-Schlüssel**."
@@ -107,7 +107,7 @@ struct AccessStep: View {
 
 /// Aufklappbare Hilfe „Wo bekomme ich das?“
 struct HelpDisclosure<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     @ViewBuilder var content: Content
     @State private var open = false
 
@@ -129,13 +129,13 @@ struct KeysStep: View {
     let controller: ServerController
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Ohne Abo brauchen deine Scoops einen eigenen Schlüssel. Die Kosten laufen direkt über dein Konto beim Anbieter (eine normale Chat-Antwort kostet meist weniger als einen Cent). Für Sprechmodus, Bilder und Diktat braucht es den Schlüssel auch mit Abo.")
+            Text("Ohne Abo brauchen deine Scoops einen eigenen Schlüssel. Die Kosten laufen direkt über dein Konto beim Anbieter (eine normale Chat-Antwort kostet meist weniger als einen Cent). Für Sprechmodus und Diktat braucht es den Schlüssel auch mit Abo, Bilder entstehen nur über das ChatGPT-Abo.")
                 .fixedSize(horizontal: false, vertical: true)
             KeyRow(controller: controller, kind: .anthropic, badge: "Empfohlen",
                    help: "Schlüssel erstellen unter console.anthropic.com → API Keys.",
                    link: "https://console.anthropic.com/settings/keys")
             KeyRow(controller: controller, kind: .openai, badge: "Optional",
-                   help: "GPT-Modelle und Diktat. platform.openai.com → API keys.",
+                   help: "GPT-Modelle, Sprechmodus und Diktat. platform.openai.com → API keys.",
                    link: "https://platform.openai.com/api-keys")
             KeyRow(controller: controller, kind: .composio, badge: "Optional",
                    help: "Verbindet Gmail, Kalender, Notion & Co. platform.composio.dev → API Keys.",
@@ -149,8 +149,8 @@ struct KeysStep: View {
 struct KeyRow: View {
     let controller: ServerController
     let kind: SecretStore.Kind
-    var badge: String?
-    let help: String
+    var badge: LocalizedStringKey?
+    let help: LocalizedStringKey
     let link: String
     var guide: [LocalizedStringKey] = []
 
@@ -158,9 +158,11 @@ struct KeyRow: View {
     @State private var busy = false
     @State private var message: String?
     @State private var ok = false
+    /// Prüfung war nicht eindeutig (kein Netz, unerwartete Antwort): „Trotzdem speichern“ anbieten
+    @State private var canForce = false
     @State private var stored: Bool
 
-    init(controller: ServerController, kind: SecretStore.Kind, badge: String? = nil, help: String, link: String,
+    init(controller: ServerController, kind: SecretStore.Kind, badge: LocalizedStringKey? = nil, help: LocalizedStringKey, link: String,
          guide: [LocalizedStringKey] = []) {
         self.controller = controller
         self.kind = kind
@@ -181,13 +183,18 @@ struct KeyRow: View {
                 }
                 Spacer()
                 Link("Schlüssel holen", destination: URL(string: link)!).font(.caption)
-                    .accessibilityLabel("Schlüssel für \(kind.title) holen")
+                    .accessibilityLabel(Text("Schlüssel für \(kind.title) holen"))
             }
             HStack {
-                SecureField(stored ? "Neuen Schlüssel einfügen, um ihn zu ersetzen" : "Schlüssel einfügen", text: $value)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityLabel("Schlüssel für \(kind.title)")
-                    .onSubmit { Task { await save(force: false) } }
+                // Platzhalter statt Beschriftung: In den Einstellungen (Form) stünde der Text sonst als umbrechendes Label
+                // links neben einem schmalen Feld.
+                SecureField(text: $value, prompt: Text(stored ? "Neuen Schlüssel einfügen, um ihn zu ersetzen" : "Schlüssel einfügen")) {
+                    EmptyView()
+                }
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(Text("Schlüssel für \(kind.title)"))
+                .onSubmit { Task { await save(force: false) } }
                 Button(busy ? "Prüfe …" : "Prüfen und speichern") { Task { await save(force: false) } }
                     .disabled(busy || value.trimmingCharacters(in: .whitespaces).isEmpty)
                 if stored {
@@ -195,14 +202,14 @@ struct KeyRow: View {
                         Image(systemName: "trash")
                     }
                     .help("Schlüssel entfernen")
-                    .accessibilityLabel("Schlüssel für \(kind.title) entfernen")
+                    .accessibilityLabel(Text("Schlüssel für \(kind.title) entfernen"))
                 }
             }
             if let message {
                 HStack {
                     Label(message, systemImage: ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(ok ? .green : .orange)
-                    if !ok, !value.isEmpty, message.contains("trotzdem") {
+                    if !ok, !value.isEmpty, canForce {
                         Button("Trotzdem speichern") { Task { await save(force: true) } }.font(.caption)
                     }
                 }
@@ -228,6 +235,7 @@ struct KeyRow: View {
     private func save(force: Bool) async {
         let v = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !v.isEmpty else { return }
+        canForce = false
         guard SecretStore.isPlausible(v) else { ok = false; message = SecretStore.SaveError.implausible.localizedDescription; return }
         busy = true
         defer { busy = false }
@@ -235,7 +243,7 @@ struct KeyRow: View {
             switch await KeyCheck.check(kind, key: v) {
             case .valid: break
             case .invalid(let m): ok = false; message = m; return
-            case .unknown(let m): ok = false; message = m; return
+            case .unknown(let m): ok = false; message = m; canForce = true; return
             }
         }
         do {
@@ -243,7 +251,8 @@ struct KeyRow: View {
             value = ""
             stored = true
             ok = true
-            message = force ? "Im Schlüsselbund gespeichert (ohne Prüfung)." : "Geprüft und im Schlüsselbund gespeichert."
+            message = force ? String(localized: "Im Schlüsselbund gespeichert (ohne Prüfung).")
+                : String(localized: "Geprüft und im Schlüsselbund gespeichert.")
         } catch {
             ok = false
             message = error.localizedDescription
@@ -286,7 +295,7 @@ struct ThisMacStep: View {
                 HStack {
                     TextField("Name dieses Macs", text: $name).textFieldStyle(.roundedBorder).frame(maxWidth: 240)
                         .accessibilityLabel("Name dieses Macs")
-                    Button(busy ? "Verbinde …" : "Diesen Mac anschließen") { Task { await register() } }
+                    Button(busy ? String(localized: "Verbinde …") : String(localized: "Diesen Mac anschließen")) { Task { await register() } }
                         .disabled(busy || controller.manager.phase != .running)
                     if busy { ProgressView().controlSize(.small) }
                 }
@@ -329,6 +338,7 @@ struct ReachStep: View {
     }
     @State private var busy = false
     @State private var message: String?
+    @State private var messageOK = false
     @State private var messageLink: URL?
     @State private var confirmFunnel = false
 
@@ -344,7 +354,7 @@ struct ReachStep: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(reachable ? "Von unterwegs erreichbar: Ja" : "Von unterwegs erreichbar: Nein").font(.headline)
-                    Text(m.publicURL.isEmpty ? "Im Moment nur auf diesem Mac." : "\(controller.reachabilityKind): \(m.publicURL)")
+                    Text(m.publicURL.isEmpty ? String(localized: "Im Moment nur auf diesem Mac.") : "\(controller.reachabilityKind): \(m.publicURL)")
                         .font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                 }
             }
@@ -396,7 +406,7 @@ struct ReachStep: View {
                     .disabled(busy || controller.test)
             }
             if let message {
-                InfoBox(style: message.hasPrefix("✓") ? .success : .warning, text: "\(message)")
+                InfoBox(style: messageOK ? .success : .warning, text: "\(message)")
                 if let messageLink {
                     Link("In Tailscale öffnen: \(messageLink.absoluteString)", destination: messageLink)
                         .font(.callout).lineLimit(1).truncationMode(.middle)
@@ -425,19 +435,22 @@ struct ReachStep: View {
         guard let ts = tailscale, !controller.test else { return }
         busy = true
         messageLink = nil
-        message = publicly ? "Richte Funnel auf Port \(m.port) ein …" : "Richte Tailscale Serve auf Port \(m.port) ein …"
+        messageOK = false
+        message = publicly ? String(localized: "Richte Funnel auf Port \(String(m.port)) ein …")
+            : String(localized: "Richte Tailscale Serve auf Port \(String(m.port)) ein …")
         defer { busy = false }
         // Immer der AKTUELLE Port des Servers (kann nach einem Ausweichen z. B. 8788 statt 8787 sein).
         switch await Tailscale.share(info: ts, localPort: m.port, publicly: publicly) {
         case .success(let url):
             do {
                 try await controller.setPublicURL(url, tailnet: publicly ? nil : url)
-                message = "✓ Erreichbar unter \(url). AIS Scoops bekommt die Adresse in wenigen Sekunden."
+                messageOK = true
+                message = String(localized: "✓ Erreichbar unter \(url). AIS Scoops bekommt die Adresse in wenigen Sekunden.")
             } catch {
-                message = "Freigabe aktiv, aber die Adresse ließ sich nicht speichern: \(error.localizedDescription)"
+                message = String(localized: "Freigabe aktiv, aber die Adresse ließ sich nicht speichern: \(error.localizedDescription)")
             }
         case .failure(let e):
-            message = "Tailscale meldet: \(e.message)"
+            message = String(localized: "Tailscale meldet: \(e.message)")
             messageLink = e.link
         }
     }
@@ -448,10 +461,12 @@ struct ReachStep: View {
         messageLink = nil
         do {
             try await action()
+            messageOK = true
             message = m.publicURL.hasPrefix("https://")
-                ? "✓ Gespeichert. Der Server startet kurz neu; die öffentliche Adresse \(m.publicURL) bleibt bestehen."
-                : "✓ Gespeichert. Der Server startet kurz neu."
+                ? String(localized: "✓ Gespeichert. Der Server startet kurz neu; die öffentliche Adresse \(m.publicURL) bleibt bestehen.")
+                : String(localized: "✓ Gespeichert. Der Server startet kurz neu.")
         } catch {
+            messageOK = false
             message = error.localizedDescription
         }
     }

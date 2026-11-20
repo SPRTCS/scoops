@@ -21,6 +21,11 @@ final class AppStore {
     private(set) var phase: ConnectionPhase = .unconfigured
     private(set) var socketState: SocketState = .disconnected
     private(set) var serverVersion: String?
+    /// Fähigkeiten des eigenen Servers laut `/api/health` (App 1.3: Ruhezeiten, Scoop-Vorlagen)
+    private(set) var serverHealth: Health?
+    /// Ruhezeiten (AppStore+Ruhe.swift) und offene Vorlagen-Blätter (AppStore+Templates.swift)
+    let ruhe = RuheStore()
+    let templates = TemplateStore()
     var userName: String = "Arman"
 
     // Daten
@@ -49,6 +54,11 @@ final class AppStore {
     var files: [String: [LibraryFile]] = [:]
     private(set) var hasMoreHistory: [String: Bool] = [:]
     private(set) var loadingHistory: Set<String> = []
+    /// Chats, die gerade nur einen Ausschnitt zeigen (Sprung zu einer älteren Fundstelle): Neuere Nachrichten sind
+    /// nicht geladen, bis man ans Ende zurückkehrt (Search/AppStore+Suche.swift)
+    var detachedChats: Set<String> = []
+    /// Was der eigene Server kann (Suche über alle Chats, Nachricht bearbeiten), aus `/api/health`
+    var capabilities = ServerCapabilities()
     var memories: [String: [Memory]] = [:]
     var routines: [String: [Routine]] = [:]
     /// v1.20: dauerhafte Freigaben („Immer erlauben“) je Scoop, nur für eigene Scoops geladen
@@ -126,6 +136,10 @@ final class AppStore {
     var showTaskBoard = false
     /// Aufgaben-Board über alle Scoops (nur eigener Server)
     let taskBoard = TaskBoardStore()
+    /// Seite „Heute“ (Views/Today): Freigaben-Postfach und Überblick über alle Scoops (nur eigener Server)
+    let today = TodayStore()
+    /// iPhone: Seite „Heute“ liegt im Stapel über der Chatliste. iPad/Mac zeigen sie, solange kein Chat gewählt ist.
+    var showToday = false
 
     /// Chat öffnen (Seitenleiste, Befehlspalette): schließt auch das Aufgaben-Board – auch wenn genau dieser Chat
     /// schon gewählt war (dann ändert sich `selectedChatID` nicht und `onChange` greift nicht).
@@ -144,6 +158,8 @@ final class AppStore {
     var showServerSwitcher = false
     var searchText = ""
     var searchFocusRequest = 0
+    /// Suche im geöffneten Chat einblenden (Knopf im Chat-Kopf, ⌘F)
+    var chatFindRequest = 0
 
     // Build 12: Befehlspalette (⌘K)
     var showCommandPalette = false
@@ -216,6 +232,8 @@ final class AppStore {
             // Zurück in der App: Hing der Aufbau (z. B. von iOS mitten im Laden pausiert) oder ist der Server
             // offline, gleich neu versuchen statt den alten Zustand stehen zu lassen.
             if isAppActive, !oldValue { resumeConnectionIfNeeded() }
+            // Seite „Heute“ und Zähler der offenen Freigaben abgleichen (Entscheidungen auf anderen Geräten)
+            if isAppActive, !oldValue, phase == .online { refreshToday() }
             // Geteilte Scoops: Verzeichnis und Admin-Server abgleichen
             if isAppActive, !oldValue, account.isSignedIn { Task { await refreshSharedWithMe() } }
             #if os(iOS)
@@ -292,8 +310,28 @@ final class AppStore {
         persistsTheme = true
         observeWidgetSnapshot()
         observeBadge()
+        #if os(iOS)
+        // Erstes Entsperren nach einem Neustart: Anmeldung nachlesen, falls die App vorher im Hintergrund startete
+        if !mock {
+            NotificationCenter.default.addObserver(forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+                                                   object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.recoverLoginAfterFirstUnlock() }
+            }
+        }
+        #endif
         taskBoard.service = { [weak self] in self?.service as? TaskBoardService }
         taskBoard.onError = { [weak self] error in self?.report(error) }
+        taskBoard.searchNames = { [weak self] task in
+            guard let self else { return [] }
+            return [self.bot(task.botId)?.title, ChatGroup.isGroupID(task.chatId) ? self.group(task.chatId)?.name : nil]
+                .compactMap { $0 }
+        }
+        today.service = { [weak self] in self?.service as? TodayService }
+        // Letzter Besuch je Server; im Demo-Modus nichts speichern
+        today.storageKey = { [weak self] in
+            guard let self, !self.isMock else { return nil }
+            return Self.draftServerKey(self.settings)
+        }
         account.onSignedOut = { [weak self] in
             // Abgemeldet: geteilte Scoops und eine Verbindung über das Konto gelten nicht mehr
             // (Token-Verbindungen bleiben)
@@ -315,8 +353,9 @@ final class AppStore {
 
     /// Anzahl Chats (Scoops + Gruppen) mit ungelesenen Nachrichten – rote Zahl am App-Symbol.
     var unreadChatCount: Int {
-        bots.filter { $0.unread > 0 }.count + groups.filter { $0.unread > 0 }.count
-            + sharedBots.filter { $0.unread > 0 }.count
+        // Stumme Chats zählen am App-Symbol nicht mit (docs/ruhe.md)
+        bots.filter { $0.unread > 0 && !$0.isMuted }.count + groups.filter { $0.unread > 0 && !$0.isMuted }.count
+            + sharedBots.filter { $0.unread > 0 && !$0.isMuted }.count
     }
 
     private func observeBadge() {
@@ -361,6 +400,26 @@ final class AppStore {
 
     // MARK: - Verbindung
 
+    /// Startete iOS die App vor dem ersten Entsperren nach einem Neustart im Hintergrund (Ort, Push für den
+    /// Gerätekanal), waren Schlüsselbund und gesicherte Einstellungen noch nicht lesbar: Die App hielt sich für
+    /// abgemeldet, ohne es zu sein. Beim ersten Öffnen danach die gespeicherte Anmeldung nachlesen und verbinden.
+    /// Schreibt und löscht nichts; wer sich wirklich abgemeldet oder getrennt hat, hat keine gespeicherten Daten mehr.
+    private func recoverLoginAfterFirstUnlock() {
+        guard !isMock, phase == .unconfigured, !hadConnection else { return }
+        let accountBack = account.reloadAfterFirstUnlock()
+        if !settings.isConfigured {
+            let stored = ConnectionSettings.load()
+            guard stored.isConfigured else {
+                if accountBack { Task { await refreshSharedWithMe() } }
+                return
+            }
+            settings = stored
+        } else if !accountBack {
+            return
+        }
+        Task { await start() }
+    }
+
     func start() async {
         await account.checkAppleCredentialState()
         if account.isSignedIn { Task { await account.loadServers() } }
@@ -390,7 +449,7 @@ final class AppStore {
     func connect(to server: CloudServer) async {
         // Demo: alle Beispiel-Server zeigen die Demo-Daten
         guard let url = account.isMock ? ConnectionSettings.mockURL : server.connectURL else {
-            errorMessage = "Für „\(server.name)“ ist noch keine Adresse bekannt. Ist der Server gestartet?"
+            errorMessage = String(localized: "Für „\(server.name)“ ist noch keine Adresse bekannt. Ist der Server gestartet?")
             return
         }
         await connect(with: ConnectionSettings(serverURL: url, token: ConnectionSettings.storedToken,
@@ -411,7 +470,7 @@ final class AppStore {
     func validate(_ candidate: ConnectionSettings) async throws -> Health {
         if candidate.isMock { return Health(ok: true, version: "demo", userName: "Arman") }
         guard let base = candidate.baseURL else {
-            throw APIError(status: 0, message: "Die Server-Adresse ist ungültig.")
+            throw APIError(status: 0, message: String(localized: "Die Server-Adresse ist ungültig."))
         }
         let client = APIClient(baseURL: base, auth: serverAuth(for: candidate))
         return try await client.health()
@@ -427,6 +486,7 @@ final class AppStore {
         service?.disconnectEvents()
         service = nil
         liveVoice = nil
+        serverHealth = nil
         settings = candidate
         if persist { candidate.save() }
         phase = .connecting
@@ -440,7 +500,7 @@ final class AppStore {
         } else if let base = candidate.baseURL {
             svc = APIClient(baseURL: base, auth: serverAuth(for: candidate))
         } else {
-            phase = .offline("Die Server-Adresse ist ungültig.")
+            phase = .offline(String(localized: "Die Server-Adresse ist ungültig."))
             return
         }
         svc.onEvent = { [weak self] event in self?.apply(event) }
@@ -460,14 +520,21 @@ final class AppStore {
                                                      onTimeout: Self.timeoutError(for: candidate)) { try await svc.health() }
             guard generation == connectGeneration else { return }
             serverVersion = health.version
+            capabilities = ServerCapabilities(health)
+            serverHealth = health
             if let name = health.userName, !name.isEmpty { userName = name }
+            today.available = health.today == true
             try await Self.withDeadline(Self.initialLoadTimeout, onTimeout: APIError(
-                status: 0, message: "Der Server antwortet, lädt die Chats aber zu langsam. Bitte später erneut versuchen.")) {
+                status: 0, message: String(localized: "Der Server antwortet, lädt die Chats aber zu langsam. Bitte später erneut versuchen."))) {
                 try await self.reloadAll()
             }
             guard generation == connectGeneration else { return }
             phase = .online
             Task { await self.refreshLimitsWidget() }  // Widget „Abo-Limits“ (Server 1.31)
+            Task { await self.loadQuietHours() }  // Ruhezeiten (App 1.3), auch für lokale Mitteilungen
+            // Sprache der App als Sprache des Inhabers speichern (docs/sprache.md), damit Mitteilungen, Routinen und
+            // Antworten der Scoops in derselben Sprache kommen. Ältere Server ohne Sprachen: nichts passiert.
+            if let lang = svc as? LanguageService { Task { await lang.adoptAppLanguage() } }
         } catch {
             guard generation == connectGeneration else { return }
             #if DEBUG
@@ -532,32 +599,40 @@ final class AppStore {
     }
 
     private static func timeoutError(for candidate: ConnectionSettings) -> APIError {
-        let name = candidate.cloudServerName.map { "„\($0)“" } ?? "Der Server"
-        return APIError(status: 0, message: "\(name) antwortet nicht (\(hostLabel(candidate))). "
-                        + "Läuft der Mac und ist er mit dem Internet verbunden?")
+        let host = hostLabel(candidate)
+        if let name = candidate.cloudServerName {
+            return APIError(status: 0, message: String(localized: "„\(name)“ antwortet nicht (\(host)). Läuft der Mac und ist er mit dem Internet verbunden?"))
+        }
+        return APIError(status: 0, message: String(localized: "Der Server antwortet nicht (\(host)). Läuft der Mac und ist er mit dem Internet verbunden?"))
     }
 
     /// Verständliche Meldung für den Verbindungsbanner. Bei Konto-Servern mit dem Stand aus „Deine Server“.
     private func offlineMessage(for error: Error, candidate: ConnectionSettings) async -> String {
-        let name = candidate.cloudServerName.map { "„\($0)“" } ?? "Der Server"
+        // Mit Namen „„Mac Studio“ …“, sonst „Der Server …“ (je ein ganzer Satz)
+        let name = candidate.cloudServerName
         if let api = error as? APIError, api.status == 401 {
-            return candidate.usesAccount
-                ? "\(name) lehnt die Anmeldung ab. Ist er noch mit deinem Konto gekoppelt? Sonst: Anderen Server wählen."
-                : "Der Server lehnt den Zugangsschlüssel ab. Bitte neu koppeln."
+            guard candidate.usesAccount else { return String(localized: "Der Server lehnt den Zugangsschlüssel ab. Bitte neu koppeln.") }
+            if let name {
+                return String(localized: "„\(name)“ lehnt die Anmeldung ab. Ist er noch mit deinem Konto gekoppelt? Sonst: Anderen Server wählen.")
+            }
+            return String(localized: "Der Server lehnt die Anmeldung ab. Ist er noch mit deinem Konto gekoppelt? Sonst: Anderen Server wählen.")
         }
         if let cloud = error as? CloudError, cloud.isUnauthorized {
-            return "Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an."
+            return String(localized: "Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.")
         }
         if candidate.usesAccount, let id = candidate.cloudServerID,
            let server = account.server(id: id), !server.online {
-            return "\(name) ist offline. Läuft der Mac und ist er mit dem Internet verbunden?"
+            if let name { return String(localized: "„\(name)“ ist offline. Läuft der Mac und ist er mit dem Internet verbunden?") }
+            return String(localized: "Der Server ist offline. Läuft der Mac und ist er mit dem Internet verbunden?")
         }
         if let url = error as? URLError {
             switch url.code {
             case .notConnectedToInternet, .dataNotAllowed:
-                return "Keine Internetverbindung."
+                return String(localized: "Keine Internetverbindung.")
             case .cannotFindHost, .dnsLookupFailed:
-                return "\(name) ist unter \(Self.hostLabel(candidate)) nicht zu finden."
+                let host = Self.hostLabel(candidate)
+                if let name { return String(localized: "„\(name)“ ist unter \(host) nicht zu finden.") }
+                return String(localized: "Der Server ist unter \(host) nicht zu finden.")
             case .cannotConnectToHost, .timedOut, .networkConnectionLost, .secureConnectionFailed:
                 return Self.timeoutError(for: candidate).message
             default: break
@@ -590,8 +665,9 @@ final class AppStore {
         return false
     }
 
-    nonisolated static let localOnlyMessage = "Server nur im Heim-WLAN erreichbar – öffentliche Freigabe in der Server-App einrichten "
-        + "(AIS Scoops Server → Erreichbarkeit → Tailscale)."
+    nonisolated static var localOnlyMessage: String {
+        String(localized: "Server nur im Heim-WLAN erreichbar – öffentliche Freigabe in der Server-App einrichten (AIS Scoops Server → Erreichbarkeit → Tailscale).")
+    }
 
     /// Bei einer Heim-Netz-Adresse höchstens 10 s warten statt endlos zu laden: Antwortet dort nichts, klar sagen,
     /// dass der Server nur im WLAN erreichbar ist. Jede HTTP-Antwort (auch 401) gilt als erreichbar.
@@ -634,7 +710,7 @@ final class AppStore {
                 _ = try await validate(s)
                 await connect(with: s, persist: true)
             } catch {
-                errorMessage = "Kopplung fehlgeschlagen: \(error.localizedDescription)"
+                errorMessage = String(localized: "Kopplung fehlgeschlagen: \(error.localizedDescription)")
             }
         }
     }
@@ -642,6 +718,8 @@ final class AppStore {
     private func resetData() {
         taskBoard.reset()
         showTaskBoard = false
+        today.reset()
+        showToday = false
         // Geteilte Chats (andere Server) bleiben erhalten
         let keep = Set(sharedBots.map(\.id))
         bots = []; groups = []; files = files.filter { keep.contains($0.key) }; vault = []; sidebarSections = []
@@ -651,6 +729,7 @@ final class AppStore {
         skills = skills.filter { keep.contains($0.key) }; initiative = nil; shareLists = [:]
         botUsage = botUsage.filter { keep.contains($0.key) }; botUsageUnavailable = []
         typing = typing.filter { keep.contains($0.key) }; usage = nil; nodes = []
+        detachedChats = detachedChats.filter { keep.contains($0) }; capabilities = ServerCapabilities()
         if !isGuestChat(selectedChatID) { computer = .unknown }
         // Entwürfe bleiben: `connect` (auch „Neu versuchen“) ruft das bei jedem Aufbau auf. Verworfen werden sie
         // nur bei einem Serverwechsel (`restoreComposerDrafts`) oder beim Trennen.
@@ -710,6 +789,7 @@ final class AppStore {
         if let sel = selectedChatID {
             if ChatGroup.isGroupID(sel) { await loadFiles(chatID: sel) } else { await loadProfile(botID: sel) }
         }
+        refreshToday()
     }
 
     /// Modellkatalog des Servers (Server 1.34, docs/modelle.md): Auswahl, Namen und Hinweise ohne App-Update.
@@ -751,6 +831,7 @@ final class AppStore {
     // MARK: - Ereignisse
 
     func apply(_ event: ServerEvent) {
+        applyToday(event)
         switch event {
         case .messageCreated(let m):
             upsert(m)
@@ -769,6 +850,8 @@ final class AppStore {
             if let idx = groups.firstIndex(where: { $0.id == m.chatId }), groups[idx].lastMessage?.id == m.id {
                 groups[idx].lastMessage = m
             }
+        case .messageDeleted(let id, let chatID):
+            removeMessageLocally(id, chatID: chatID)
         case .botCreated(let b), .botUpdated(let b):
             if !b.busy { typing[b.id] = nil }
             if selectedChatID == b.id, bot(b.id)?.computerNode != b.computerNode { computerNodeID = b.computerNode }
@@ -847,7 +930,9 @@ final class AppStore {
             taskBoard.remove(id: id)
         case .deviceCommand(let cmd):
             AppleDeviceAgent.shared.handle(cmd)
-        case .pong, .unknown:
+        case .unknown(let type):
+            applyOther(type)  // z. B. `quiet_hours.updated` (AppStore+Ruhe.swift)
+        case .pong:
             break
         }
     }
@@ -860,6 +945,8 @@ final class AppStore {
 
     func upsert(_ incoming: Message) {
         let m = localized(incoming)
+        // Freigabe-Karten und Statuszeilen auch für die Seite „Heute“ (Chat muss dafür nicht geladen sein)
+        if !isGuestChat(m.chatId) { today.messageChanged(m) }
         guard var list = messages[m.chatId] else { return } // Chat noch nicht geladen
         // Server-Version einer optimistisch angezeigten Nachricht ersetzt die lokale Blase
         if m.role == .user, let i = list.firstIndex(where: { $0.localState == .sending && $0.text == m.text }) {
@@ -867,6 +954,8 @@ final class AppStore {
         }
         if let idx = list.lastIndex(where: { $0.id == m.id }) {
             list[idx] = m
+        } else if detachedChats.contains(m.chatId) {
+            return  // Ausschnitt eines älteren Verlaufs: Neues erscheint erst zurück am Ende (`returnToLatest`)
         } else {
             list.append(m)
             list.sort { $0.createdAt < $1.createdAt }
@@ -1116,7 +1205,7 @@ final class AppStore {
     /// Ein Bereich der Seitenleiste mit seinen (nicht angepinnten) Chats. `name == nil` = „Ohne Bereich“.
     struct SectionGroup: Identifiable {
         var name: String?
-        var title: String { name ?? "Ohne Bereich" }
+        var title: String { name ?? String(localized: "Ohne Bereich") }
         var entries: [ChatEntry]
         var collapsed: Bool
         var id: String { name ?? "\u{0}ohne" }
@@ -1281,7 +1370,8 @@ final class AppStore {
     // MARK: - Chat
 
     func loadLatestMessages(chatID: String) async {
-        guard let service = service(for: chatID) else { return }
+        // Ausschnitt eines älteren Verlaufs bleibt stehen (kein Mischen mit den jüngsten Nachrichten)
+        guard let service = service(for: chatID), !detachedChats.contains(chatID) else { return }
         do {
             let page = try await service.messages(chatID: chatID, before: nil, limit: Self.pageSize).map(localized)
             if let existing = messages[chatID], !existing.isEmpty, let firstNew = page.first {
@@ -1318,12 +1408,21 @@ final class AppStore {
         }
     }
 
+    /// Verlauf eines Chats ersetzen bzw. erweitern (Sprung zu einer Fundstelle, zurück ans Ende;
+    /// Search/AppStore+Suche.swift). `hasOlder`: Es gibt ältere Nachrichten zum Nachladen.
+    func setTranscript(chatID: String, _ list: [Message], hasOlder: Bool) {
+        messages[chatID] = list.map(localized)
+        hasMoreHistory[chatID] = hasOlder
+    }
+
     /// Sendet optimistisch: Die Blase erscheint sofort („wird gesendet“) und wird durch die Server-Nachricht ersetzt.
     @discardableResult
     func send(_ text: String, to chatID: String, voice: Bool = false, fileIDs: [String] = [],
               replyTo: ReplyRef? = nil, taskOptions: TaskOptions? = nil) async -> Message? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard service(for: chatID) != nil, !trimmed.isEmpty || !fileIDs.isEmpty else { return nil }
+        // Ausschnitt eines älteren Verlaufs: erst zurück ans Ende, die neue Nachricht gehört dorthin
+        if detachedChats.contains(chatID) { await returnToLatest(chatID) }
         // Eigene Nachricht im geteilten Chat: Absender gleich mitgeben (rechts, ohne Namen)
         let ownUserID = isGuestChat(chatID) || bot(chatID)?.isSharedByMe == true ? account.user?.id : nil
         var meta = MessageMeta(fileIds: fileIDs.isEmpty ? nil : fileIDs)
@@ -1425,7 +1524,7 @@ final class AppStore {
     /// v1.20: freigeben und künftig automatisch erlauben („Immer erlauben“). Gibt bei Fehler den Text zurück.
     /// Bei der Mail-Karte gehen die geänderten Felder mit; die Dauerfreigabe gilt für die tatsächlichen Empfänger.
     func decideAlways(_ message: Message, mailEdits: MailEdits? = nil) async -> String? {
-        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return "Keine Verbindung zum Server." }
+        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return String(localized: "Keine Verbindung zum Server.") }
         var optimistic = message
         optimistic.meta.state = "approved"
         optimistic.meta.always = true
@@ -1469,7 +1568,7 @@ final class AppStore {
 
     /// Mail senden (mit nur geänderten Feldern) bzw. verwerfen. Gibt bei Fehler den Text zurück.
     func decideMail(_ message: Message, approve: Bool, edits: MailEdits?) async -> String? {
-        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return "Keine Verbindung zum Server." }
+        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return String(localized: "Keine Verbindung zum Server.") }
         // Sofort „Wird gesendet …“ bzw. „Verworfen“ zeigen
         var optimistic = message
         optimistic.meta.mail?.status = approve ? "sending" : "discarded"
@@ -1487,7 +1586,7 @@ final class AppStore {
     /// v1.21: Verbesserung für einen anderen Scoop (Aufsicht) freigeben – optional mit bearbeitetem Text – bzw. ablehnen.
     /// Gibt bei Fehler den Text zurück.
     func decideScoopUpdate(_ message: Message, approve: Bool, after: String?) async -> String? {
-        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return "Keine Verbindung zum Server." }
+        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return String(localized: "Keine Verbindung zum Server.") }
         var optimistic = message
         optimistic.meta.state = approve ? "approved" : "declined"
         optimistic.meta.scoopUpdate?.status = approve ? "applied" : "declined"
@@ -1504,7 +1603,7 @@ final class AppStore {
     /// Tresor-Formular (v1.10) speichern bzw. ablehnen. Gibt bei Fehler den Text des Servers zurück.
     /// Das Passwort wird nur für diese eine Anfrage übergeben und nirgends gespeichert oder protokolliert.
     func decideVault(_ message: Message, approve: Bool, edits: VaultEdits?) async -> String? {
-        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return "Keine Verbindung zum Server." }
+        guard let service = service(for: message.chatId), let approvalID = message.meta.approvalId else { return String(localized: "Keine Verbindung zum Server.") }
         do {
             upsert(try await service.decideVault(approvalID: approvalID, approve: approve, edits: approve ? edits : nil))
             return nil
@@ -1627,7 +1726,7 @@ final class AppStore {
 
     func uploadFile(chatID: String, name: String, mime: String, data: Data,
                     progress: @escaping @Sendable (Double) -> Void) async throws -> LibraryFile {
-        guard let service = service(for: chatID) else { throw APIError(status: 0, message: "Keine Verbindung.") }
+        guard let service = service(for: chatID) else { throw APIError(status: 0, message: String(localized: "Keine Verbindung.")) }
         let f = try await service.uploadFile(chatID: chatID, name: name, mime: mime, data: data, progress: progress)
         files[chatID, default: []].removeAll { $0.id == f.id }
         files[chatID, default: []].insert(f, at: 0)
@@ -1665,7 +1764,7 @@ final class AppStore {
     private(set) var loadingConnections = false
 
     func loadConnections(fresh: Bool = false) async {
-        guard let service else { connectionsError = "Keine Verbindung zum Server."; return }
+        guard let service else { connectionsError = String(localized: "Keine Verbindung zum Server."); return }
         loadingConnections = true
         defer { loadingConnections = false }
         do {
@@ -1680,18 +1779,18 @@ final class AppStore {
     func message(_ error: Error) -> String { (error as? APIError)?.message ?? error.localizedDescription }
 
     func linkConnection(app: String, alias: String?) async -> Result<ConnectionLink, ConnectionError> {
-        guard let service else { return .failure(ConnectionError("Keine Verbindung zum Server.")) }
+        guard let service else { return .failure(ConnectionError(String(localized: "Keine Verbindung zum Server."))) }
         do { return .success(try await service.linkConnection(app: app, alias: alias)) } catch { return .failure(ConnectionError(message(error))) }
     }
 
     /// Rücksprung der Browser-Anmeldung an den Server (Notion direkt): Server tauscht den Code gegen Tokens.
     func finishOAuth(_ callbackURL: URL) async -> Result<ConnectedAccount, ConnectionError> {
-        guard let service else { return .failure(ConnectionError("Keine Verbindung zum Server.")) }
+        guard let service else { return .failure(ConnectionError(String(localized: "Keine Verbindung zum Server."))) }
         do { return .success(try await service.finishOAuth(callbackURL: callbackURL.absoluteString)) } catch { return .failure(ConnectionError(message(error))) }
     }
 
     func reconnectAccount(_ id: String) async -> Result<ConnectionLink, ConnectionError> {
-        guard let service else { return .failure(ConnectionError("Keine Verbindung zum Server.")) }
+        guard let service else { return .failure(ConnectionError(String(localized: "Keine Verbindung zum Server."))) }
         do { return .success(try await service.reconnectAccount(id: id)) } catch { return .failure(ConnectionError(message(error))) }
     }
 
@@ -1700,7 +1799,7 @@ final class AppStore {
     }
 
     func renameConnectedAccount(_ id: String, alias: String) async -> String? {
-        guard let service else { return "Keine Verbindung zum Server." }
+        guard let service else { return String(localized: "Keine Verbindung zum Server.") }
         do {
             _ = try await service.renameConnectedAccount(id: id, alias: alias)
             await loadConnections()
@@ -1709,7 +1808,7 @@ final class AppStore {
     }
 
     func deleteConnectedAccount(_ id: String) async -> String? {
-        guard let service else { return "Keine Verbindung zum Server." }
+        guard let service else { return String(localized: "Keine Verbindung zum Server.") }
         do {
             try await service.deleteConnectedAccount(id: id)
             await loadConnections()
@@ -1858,7 +1957,7 @@ final class AppStore {
     func liveVoicePreview(voice: String) async -> Result<Data, Error> {
         // Profil eines geteilten Scoops: Stimmprobe vom Server des Admins
         let target = isGuestChat(selectedChatID) ? scopedService(for: selectedChatID) : service
-        guard let service = target else { return .failure(APIError(status: 0, message: "Keine Verbindung.")) }
+        guard let service = target else { return .failure(APIError(status: 0, message: String(localized: "Keine Verbindung."))) }
         do { return .success(try await service.liveVoicePreview(voice: voice)) } catch { return .failure(error) }
     }
 
@@ -1869,7 +1968,7 @@ final class AppStore {
         else { return nil }
         defer { try? FileManager.default.removeItem(at: file) }
         do {
-            let text = try await service.transcribe(audio: data, name: "diktat.m4a", language: "de",
+            let text = try await service.transcribe(audio: data, name: "diktat.m4a", language: AppLanguage.code,
                                                     prompt: transcriptionPrompt, timeout: timeout)
             let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
             return t.isEmpty ? nil : t
@@ -1882,14 +1981,14 @@ final class AppStore {
 
     /// Übernimmt den Bot-Rechner. Gibt eine Fehlermeldung zurück (z. B. 409, wenn ein Scoop ihn gerade braucht).
     func takeOverComputer() async -> String? {
-        guard let service = computerService else { return "Keine Verbindung." }
+        guard let service = computerService else { return String(localized: "Keine Verbindung.") }
         do {
             computer = try await service.takeover(node: computerNodeID)
             return nil
         } catch let e as APIError {
             return e.message
         } catch {
-            return "Keine Verbindung zum Rechner – nochmal versuchen."
+            return String(localized: "Keine Verbindung zum Rechner – nochmal versuchen.")
         }
     }
 
@@ -2157,7 +2256,7 @@ final class AppStore {
 
     /// Name eines Rechners für Anzeigen (Bot-Rechner auch ohne geladene Liste)
     func nodeName(_ id: String) -> String {
-        node(id)?.name ?? (id == ComputerNode.builtinID ? "Bot-Rechner" : "Rechner")
+        node(id)?.name ?? (id == ComputerNode.builtinID ? String(localized: "Bot-Rechner") : String(localized: "Rechner"))
     }
 
     /// Rechner des ausgewählten Scoops anzeigen (Gruppen und ältere Server: Bot-Rechner)

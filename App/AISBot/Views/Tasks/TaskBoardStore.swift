@@ -15,6 +15,10 @@ final class TaskBoardStore {
     private(set) var unavailable: String?
     /// Filter: nur dieser Scoop (`nil` = alle)
     var filterBotID: String?
+    /// Suche im Board: Titel, Beschreibung und Scoop (zusammen mit dem Scoop-Filter, in allen Ansichten)
+    var searchText = ""
+    /// Suchfeld des Boards fokussieren (⌘F, solange das Board offen ist)
+    var searchFocusRequest = 0
     /// Details, die gerade offen sind (mit Verlauf und Dateien)
     private(set) var details: [String: BotTask] = [:]
     /// Aktion läuft (Knöpfe sperren)
@@ -23,6 +27,8 @@ final class TaskBoardStore {
     /// Setzt der AppStore (eigene Server-Verbindung, Fehleranzeige)
     @ObservationIgnored var service: () -> TaskBoardService? = { nil }
     @ObservationIgnored var onError: (Error) -> Void = { _ in }
+    /// Namen zum Durchsuchen (Scoop mit Rolle, bei Gruppen der Chat); setzt der AppStore
+    @ObservationIgnored var searchNames: (BotTask) -> [String] = { _ in [] }
     @ObservationIgnored private var detailReload: [String: Task<Void, Never>] = [:]
 
     /// Verbindung gewechselt: alles vergessen
@@ -32,12 +38,30 @@ final class TaskBoardStore {
         loaded = false
         unavailable = nil
         filterBotID = nil
+        searchText = ""
     }
 
     // MARK: Abfragen
 
+    /// Suchbegriff ohne Leerraum außen (leer = keine Suche)
+    var searchQuery: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
+    var isSearching: Bool { !searchQuery.isEmpty }
+
+    /// Jedes Wort der Suche muss in Titel, Beschreibung, Routine oder Scoop vorkommen (Groß-/Kleinschreibung und
+    /// Umlaute egal, wie in der Befehlspalette).
+    private func matcher() -> (BotTask) -> Bool {
+        let tokens = Fuzzy.fold(searchQuery).split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !tokens.isEmpty else { return { _ in true } }
+        let names = searchNames
+        return { task in
+            let hay = Fuzzy.fold(([task.title, task.prompt ?? "", task.routineTitle ?? ""] + names(task)).joined(separator: "\n"))
+            return tokens.allSatisfy { hay.contains($0) }
+        }
+    }
+
     func tasks(in column: TaskColumn) -> [BotTask] {
-        let list = tasks.filter { $0.boardColumn == column && (filterBotID == nil || $0.botId == filterBotID) }
+        let matches = matcher()
+        let list = tasks.filter { $0.boardColumn == column && (filterBotID == nil || $0.botId == filterBotID) && matches($0) }
         switch column {
         case .open:
             // neueste oben
@@ -82,7 +106,7 @@ final class TaskBoardStore {
 
     func load() async {
         guard let service = service() else {
-            unavailable = "Das Aufgaben-Board gibt es nur auf deinem eigenen Server."
+            unavailable = String(localized: "Das Aufgaben-Board gibt es nur auf deinem eigenen Server.")
             return
         }
         loading = true
@@ -92,9 +116,9 @@ final class TaskBoardStore {
             loaded = true
             unavailable = nil
         } catch let error as APIError where error.status == 404 || error.status == 405 {
-            unavailable = "Dein Server kennt das Aufgaben-Board noch nicht. Bitte auf Version 1.22 aktualisieren."
+            unavailable = String(localized: "Dein Server kennt das Aufgaben-Board noch nicht. Bitte auf Version 1.22 aktualisieren.")
         } catch let error as APIError where error.status == 403 {
-            unavailable = "Aufgaben sieht nur der Admin des Servers."
+            unavailable = String(localized: "Aufgaben sieht nur der Admin des Servers.")
         } catch {
             if !loaded { onError(error) }
         }

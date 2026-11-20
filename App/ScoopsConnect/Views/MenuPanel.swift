@@ -130,8 +130,7 @@ struct MenuPanel: View {
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     StatusDot(color: model.statusColor)
-                    Text(server.isServer ? "Rechner: \(server.thisMacRegistered ? (server.test ? "Test" : model.statusTitle) : "nicht angeschlossen")"
-                                         : model.statusTitle)
+                    Text(headerStatus)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if model.isPaired {
@@ -176,12 +175,19 @@ struct MenuPanel: View {
         .padding(.vertical, 5)
     }
 
+    /// Zweite Zeile im Kopf: in der Server-Rolle der Zustand von „Dieser Mac“ als Rechner
+    private var headerStatus: String {
+        guard server.isServer else { return model.statusTitle }
+        guard server.thisMacRegistered else { return String(localized: "Rechner: nicht angeschlossen") }
+        return server.test ? String(localized: "Rechner: Test") : String(localized: "Rechner: \(model.statusTitle)")
+    }
+
     private var vmStatus: String {
-        let name = model.vmName.isEmpty ? "Keine VM gewählt" : model.vmName
+        let name = model.vmName.isEmpty ? String(localized: "Keine VM gewählt") : model.vmName
         switch model.lume.phase {
-        case .ready: return "\(name): bereit"
-        case .working: return "\(name): startet …"
-        case .failed: return "\(name): Fehler"
+        case .ready: return String(localized: "\(name): bereit", comment: "Zustand der VM")
+        case .working: return String(localized: "\(name): startet …", comment: "Zustand der VM")
+        case .failed: return String(localized: "\(name): Fehler", comment: "Zustand der VM")
         case .idle: return name
         }
     }
@@ -189,7 +195,7 @@ struct MenuPanel: View {
 
 /// Menüähnliche Zeile mit Hover-Hervorhebung.
 private struct MenuRow: View {
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     var destructive = false
     let action: () -> Void

@@ -16,13 +16,14 @@ from datetime import datetime, timedelta
 
 from .config import price_for
 from .db import TZ, now
+from .i18n import N_, translate, tx
 
 RANGES = {"24h": 1, "7d": 7, "30d": 30, "90d": 90}
 PROVIDERS = ("claude", "openai")
 PROVIDER_LABEL = {"claude": "Claude", "openai": "OpenAI"}
-SOURCE_LABEL = {"scoops": "AIS Scoops", "other": "Andere Apps auf diesem Mac"}
+SOURCE_LABEL = {"scoops": "AIS Scoops", "other": N_("Andere Apps auf diesem Mac")}
 APP_LABEL = {
-    "scoops": "AIS Scoops", "cli": "Claude Code (Terminal)", "sdk-cli": "Claude Code (Skript)",
+    "scoops": "AIS Scoops", "cli": "Claude Code (Terminal)", "sdk-cli": N_("Claude Code (Skript)"),
     "t3-code": "T3 Code", "sdk-ts": "Agent SDK (TypeScript)", "sdk-py": "Agent SDK (Python)",
     "claude-desktop": "Claude Desktop", "claude-vscode": "VS Code", "claude-jetbrains": "JetBrains",
     "Codex Desktop": "Codex Desktop", "T3 Code": "T3 Code", "t3code_desktop": "T3 Code", "codex_exec": "Codex (exec)",
@@ -38,7 +39,7 @@ def provider_of(model: str) -> str:
 
 
 def app_label(app: str) -> str:
-    return APP_LABEL.get(app) or APP_LABEL.get((app or "").lower()) or (app or "Unbekannt")
+    return APP_LABEL.get(app) or APP_LABEL.get((app or "").lower()) or (app or N_("Unbekannt"))
 
 
 def model_label(model: str) -> str:
@@ -84,8 +85,8 @@ def _window(rng: str) -> tuple[datetime, str, list[str]]:
 
 def _bucket_label(key: str, bucket: str) -> str:
     if bucket == "hour":
-        return f"{int(key[11:13])} Uhr"
-    return f"{int(key[8:10])}.{int(key[5:7])}."
+        return tx("{hour} Uhr", hour=int(key[11:13]))
+    return tx("{day}.{month}.", day=int(key[8:10]), month=int(key[5:7]))
 
 
 class _Acc:
@@ -270,25 +271,26 @@ def details(db, rng: str = "30d", source: str = "all", logs: dict | None = None,
     if account and source != "scoops":
         days = [d for d in (account.get("days") or []) if d.get("day", "") >= start.strftime("%Y-%m-%d")]
         acct = {"openai": {"tokens": sum(int(d.get("tokens") or 0) for d in days), "days": days,
-                           "at": account.get("at"), "label": "Laut OpenAI (alle Geräte)"}} if days else None
+                           "at": account.get("at"), "label": tx("Laut OpenAI (alle Geräte)")}} if days else None
     return {
         "range": rng, "bucket": bucket, "source": source, "start": start.isoformat(timespec="seconds"),
         "end": now().isoformat(timespec="seconds"), "generated_at": now().isoformat(timespec="seconds"),
         "totals": totals,
         "by_type": {t: round(tot.types[t], 4) for t in TYPES},
         "providers": [{"id": p, "label": PROVIDER_LABEL[p], **by_prov[p].out(tc, tt)} for p in PROVIDERS],
-        "sources": [{"id": s, "label": SOURCE_LABEL[s], **by_src[s].out(tc, tt)} for s in ("scoops", "other")
+        "sources": [{"id": s, "label": translate(SOURCE_LABEL[s]), **by_src[s].out(tc, tt)} for s in ("scoops", "other")
                     if source in ("all", s)],
-        "apps": acc_list(by_app.items(), lambda k: {"id": f"{k[0]}:{k[1]}", "label": k[1], "provider": k[0]}),
+        "apps": acc_list(by_app.items(), lambda k: {"id": f"{k[0]}:{k[1]}", "label": translate(k[1]), "provider": k[0]}),
         "models": acc_list(by_model.items(), lambda m: {"id": m, "label": model_label(m), "provider": provider_of(m)}),
         "days": days_rows,
-        "scoops": acc_list(by_bot.items(), lambda b: {"id": b, "label": names.get(b) or "Gelöschter Scoop"}),
+        "scoops": acc_list(by_bot.items(), lambda b: {"id": b, "label": names.get(b) or tx("Gelöschter Scoop")}),
         "series": series,
         "account": acct,
         "logs": logs,
         "notes": [
-            "Abo-Verbrauch ist zum API-Listenpreis bewertet (Schätzung). Die Abo-Gebühr selbst fällt unabhängig davon an.",
-            "Kosten und Tokens umfassen nur Programme auf diesem Mac (Claude Code, Codex, T3 Code, Scoops …). "
-            "Nutzung auf anderen Geräten oder in claude.ai/ChatGPT im Browser fehlt hier, steckt aber in den Limits.",
+            tx("Abo-Verbrauch ist zum API-Listenpreis bewertet (Schätzung). Die Abo-Gebühr selbst fällt unabhängig "
+               "davon an."),
+            tx("Kosten und Tokens umfassen nur Programme auf diesem Mac (Claude Code, Codex, T3 Code, Scoops …). "
+               "Nutzung auf anderen Geräten oder in claude.ai/ChatGPT im Browser fehlt hier, steckt aber in den Limits."),
         ],
     }

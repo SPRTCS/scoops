@@ -82,9 +82,12 @@ class FakeNode:
         try:
             async with connect(WS, additional_headers={"Authorization": f"Bearer {self.token}"}) as ws:
                 self.ws = ws
-                await ws.send(json.dumps({"type": "hello", "node_id": "?", "name": "Fake-Mac", "mode": "direct",
-                                          "os": "macOS 27.0", "app_version": "1.0 (1)",
-                                          "screen": {"width": self.screen[0], "height": self.screen[1]}, "paused": False}))
+                try:
+                    await ws.send(json.dumps({"type": "hello", "node_id": "?", "name": "Fake-Mac", "mode": "direct",
+                                              "os": "macOS 27.0", "app_version": "1.0 (1)",
+                                              "screen": {"width": self.screen[0], "height": self.screen[1]}, "paused": False}))
+                except Exception:  # noqa: BLE001 – Server hat schon „bye“ geschickt und geschlossen (unbekanntes Token,
+                    pass           # unter Last schneller als das hello): die Nachricht steht noch zum Lesen bereit
                 self.connected.set()
                 async for raw in ws:
                     m = json.loads(raw)

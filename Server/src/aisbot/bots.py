@@ -26,7 +26,9 @@ from .db import DB, TZ, new_id, now, now_iso
 from . import lucy, t3, vault
 from .apple import prompt_hint as apple_hint
 from .engine import ComputerHub, Engine, ExtraTool
-from .prompts import bot_system, now_line
+from .prompts import bot_system, language_note, now_line
+from . import i18n
+from .i18n import tx, txn
 
 from .profile import feature, active_features  # noqa: E402
 from .profile import user_name as user_name_from_config  # noqa: E402
@@ -35,6 +37,7 @@ from . import sharing  # noqa: E402 – geteilte Scoops (docs/sharing.md)
 from . import oversight  # noqa: E402 – Aufsicht über die anderen Scoops (docs/aufsicht.md)
 from . import workspace  # noqa: E402 – Arbeitsordner der Scoops (docs/arbeitsordner.md)
 from . import demo  # noqa: E402 – Demo-Modus und Ausgabenlimit (docs/demo-server.md)
+from . import chat_edit  # noqa: E402 – eigene Nachricht bearbeiten (Wirkung eines Laufs merken)
 
 
 def _failure_text(e: Exception) -> str:
@@ -44,12 +47,12 @@ def _failure_text(e: Exception) -> str:
     from .abos import SubscriptionUnavailable
     if isinstance(e, SubscriptionUnavailable):
         who = "Claude" if e.provider == "claude" else "ChatGPT"
-        return (f"Über das {who}-Abo geht es gerade nicht: {e.reason} In der Server-App unter „KI-Abos“ anmelden oder dort "
-                "„Abo, bei Limit API“ bzw. „API-Schlüssel“ wählen.")
+        return tx("Über das {who}-Abo geht es gerade nicht: {reason} In der Server-App unter „KI-Abos“ anmelden oder dort "
+                  "„Abo, bei Limit API“ bzw. „API-Schlüssel“ wählen.", who=who, reason=e.reason)
     if isinstance(e, (httpx.TransportError, anthropic.APIConnectionError)):
-        return ("Die Verbindung zum KI-Anbieter ist gerade abgerissen, auch nach mehreren Versuchen. "
-                "Schick mir die Nachricht bitte gleich noch einmal.")
-    return f"Da ist bei mir etwas schiefgelaufen: {e}"
+        return tx("Die Verbindung zum KI-Anbieter ist gerade abgerissen, auch nach mehreren Versuchen. "
+                  "Schick mir die Nachricht bitte gleich noch einmal.")
+    return tx("Da ist bei mir etwas schiefgelaufen: {error}", error=e)
 HISTORY_LIMIT = 40
 REPLY_EXCERPT = 200  # Zeichen im Zitat einer Antwort (meta.reply_to.text)
 RUN_BUDGET = 1.50  # US-Dollar pro Lauf
@@ -215,6 +218,7 @@ class BotService:
         self.runs: dict[str, RunState] = {}
         self.busy_bots: set[str] = set()
         self.shares: sharing.ShareCache | None = None  # setzt server.py (geteilte Scoops)
+        self.ruhe = None  # setzt server.py (Stummschalten und Ruhezeiten, ruhe.py)
         self.lock = threading.Lock()
         from .db import DATA_DIR
         self.resumes = ResumeStore(DATA_DIR)
@@ -243,7 +247,8 @@ class BotService:
             r = self.db.file_row(fid)
             if r and r["chat_id"] == chat_id:
                 icon = {"bild": "photo", "link": "link"}.get(r["kind"], "doc.text")
-                self._add(chat_id, "event", f"Ergebnis: {r['name']}",
+                self._add(chat_id, "event", tx("Ergebnis: {name}", name=r["name"]),
+
                           {"icon": icon, "file_id": fid, **({"author_id": author_id} if author_id else {})})
 
     def hub_for(self, bot_id: str):
@@ -307,6 +312,8 @@ class BotService:
         members = [s.public() for s in self.shares.for_bot(bot_id)] if self.shares else []
         d["shared"] = {"count": len(members), "members": members}
         d["guest_tools"], d["guest_budget"] = st["guest_tools"], st["guest_budget"]
+        if self.ruhe:  # Stummschaltung des Inhabers (Gäste: eigene, siehe server.guest_bot_view)
+            d["mute"] = self.ruhe.mute_json(None, bot_id)
         # Aufsicht (1.21): Haupt-Scoop immer, sonst Schalter; in geteilten Chats aus (Datenschutz)
         d["reviewer"] = bool(d.get("primary") or d.get("can_review")) and not members
         # Tatsächlicher Rechner (Standard-Rechner bzw. Ersatz statt „vm“ ohne Bot-Rechner oder entferntem Rechner)
@@ -369,6 +376,8 @@ class BotService:
         d["busy"] = st is not None
         d["busy_ids"] = [st.current] if st and st.current else []
         d["waiting"] = self.waiting_on_user(gid)
+        if self.ruhe:
+            d["mute"] = self.ruhe.mute_json(None, gid)
         return d
 
     WAITING_MAX_AGE = timedelta(hours=48)
@@ -418,16 +427,22 @@ class BotService:
             title = who
             if is_group(chat_id):
                 g = self.db.group_row(chat_id)
-                title = f"{title} in {g['name']}" if g else title
-            body = text if role == "bot" else f"Bittet um Freigabe: {(meta or {}).get('title', '')}"
+                title = tx("{who} in {group}", who=title, group=g["name"]) if g else title
+            body = text if role == "bot" else tx("Bittet um Freigabe: {title}", title=(meta or {}).get("title", ""))
+
             data = {"bot_id": chat_id, "chat_id": chat_id, "message_id": m["id"], "author_id": author,
                     "author_name": who,
                     "group_name": (self.db.group_row(chat_id) or {"name": None})["name"] if is_group(chat_id) else None}
             category = None
+            # Art der Mitteilung für Stummschaltung und Ruhezeit (ruhe.py): Freigaben und Erinnerungen kommen durch
+            kind = "reminder" if (meta or {}).get("reminder") else "message"
+            if kind == "reminder":
+                data["reminder"] = True
             if role == "approval":
+                kind = "approval"
                 category = approval_push_category(meta or {})
                 data.update(approval_id=(meta or {}).get("approval_id"), approval_kind=(meta or {}).get("kind"))
-            self.pusher.notify(title, _plain(body), data, category=category)
+            self.pusher.notify(title, _plain(body), data, category=category, kind=kind)
         return m
 
     def _push_participants(self, chat_id: str, role: str, text: str, meta: dict, m: dict, guest_msg: bool) -> None:
@@ -467,7 +482,7 @@ class BotService:
             self.db.update_bot(bid, {"computer_node": default_node})
         workspace.ensure_all([self.db.bot_row(bid)], load_config())  # Ordner <arbeitsordner>/<Name>/
         self.publish("bot.created", self.bot_json(bid))
-        self._add(bid, "event", f"{fields['name']} ist da", {
+        self._add(bid, "event", tx("{name} ist da", name=fields["name"]), {
             "icon": "sparkles",
             "prompt": "Du wurdest gerade erstellt. Stell dich in deinem Charakter in ein bis zwei kurzen Sätzen vor "
                       "und frag, wobei du helfen sollst. Noch keine Werkzeuge benutzen.",
@@ -495,7 +510,7 @@ class BotService:
         g = self.group_json(gid)
         self.publish("group.created", g)
         names = ", ".join(self.db.bot_row(b)["name"] for b in member_ids if self.db.bot_row(b))
-        self._add(gid, "event", f"Gruppe „{name}“ mit {names}", {"icon": "person.3"})
+        self._add(gid, "event", tx("Gruppe „{name}“ mit {names}", name=name, names=names), {"icon": "person.3"})
         return g
 
     def delete_group(self, gid: str) -> None:
@@ -533,12 +548,18 @@ class BotService:
             ref = {"author_id": author, "author_name": row["name"] if row else "Scoop"}
         text = _excerpt(m["text"])
         if not text and meta.get("file_ids"):
-            text = "Anhang"
+            text = tx("Anhang")
         return {"id": m["id"], "role": m["role"], **ref, "text": text}
 
     def post_user_message(self, chat_id: str, text: str, voice: bool = False, file_ids: list[str] | None = None,
                           guest: sharing.Share | None = None, reply_to: str | None = None,
                           task_options: dict | None = None) -> dict:
+        # Gespeicherte Texte (Zitat, Ereignisse) in der Sprache des Inhabers, auch wenn ein Gast schreibt
+        with i18n.for_owner():
+            return self._post_user_message(chat_id, text, voice, file_ids, guest, reply_to, task_options)
+
+    def _post_user_message(self, chat_id: str, text: str, voice: bool, file_ids: list[str] | None,
+                           guest: sharing.Share | None, reply_to: str | None, task_options: dict | None) -> dict:
         meta: dict = self.author_meta(guest)
         is_task = not guest and bool(self.tasks) and bool(re.match(r"^/aufgabe\b", text.strip(), re.I)) and len(text.strip()) > 9
         if is_task and task_options:
@@ -572,7 +593,8 @@ class BotService:
                                      scheduled_at=opts.get("scheduled_at"), backlog=bool(opts.get("backlog")),
                                      access=opts.get("access") if isinstance(opts.get("access"), dict) else None)
                 except Exception as e:  # noqa: BLE001
-                    self._add(chat_id, "event", f"Aufgabe nicht gestartet: {e}", {"icon": "exclamationmark.triangle"})
+                    self._add(chat_id, "event", tx("Aufgabe nicht gestartet: {error}", error=e),
+                              {"icon": "exclamationmark.triangle"})
                 return m
         if guest:
             self.db.guest_mark_read(guest.user_id, chat_id)
@@ -604,7 +626,8 @@ class BotService:
             forms = {name, name.split()[0]}
             return any(re.search(r"(?<![\w@])@" + re.escape(f) + r"(?![\w])", text, re.I) for f in forms if f)
 
-        if (r and said(r["name"])) or re.search(r"(?<![\w@])@alle(?![\w])", text, re.I):
+        if (r and said(r["name"])) or re.search(r"(?<![\w@])@(alle|all|everyone)(?![\w])", text, re.I):
+
             return []
         people = [self.user_name] + [s.name for s in shares if s.name]
         me = guest.name if guest else self.user_name
@@ -865,9 +888,11 @@ class BotService:
         if guest:
             left = gset["guest_budget"] - self.db.guest_spent_today(guest["user_id"])
             if left < 0.01:
-                self._add(chat_id, "bot", f"Tageslimit erreicht: Für heute ist dein Budget von {gset['guest_budget']:.2f} $ "
-                          f"aufgebraucht. Morgen geht es weiter – oder frag {self.user_name}, ob das Limit erhöht werden kann.",
-                          {"guest_limit": True, "for_user_id": guest["user_id"], "silent": True})
+                with i18n.for_user(guest["user_id"]):  # nur für diesen Gast bestimmt
+                    limit_msg = tx("Tageslimit erreicht: Für heute ist dein Budget von {budget:.2f} $ aufgebraucht. "
+                                   "Morgen geht es weiter – oder frag {owner}, ob das Limit erhöht werden kann.",
+                                   budget=gset["guest_budget"], owner=self.user_name)
+                self._add(chat_id, "bot", limit_msg, {"guest_limit": True, "for_user_id": guest["user_id"], "silent": True})
                 return
             run_budget = min(RUN_BUDGET, left)
         # Ausgabenlimit des Servers (spend_limits in config.json): erschöpft → kein Lauf, sonst höchstens der Rest
@@ -938,11 +963,21 @@ class BotService:
         share_note = self._share_note(chat_id, guest, gtools) if not group else None
         if share_note:
             system.append({"type": "text", "text": share_note})
+        # Sprache der Antworten (docs/sprache.md): die des Gasts bei Gast-Läufen, sonst die des Inhabers
+        lang_note = language_note(i18n.lang_of(guest["user_id"]) if guest else i18n.owner_lang(),
+                                  guest["name"] if guest else self.user_name)
+        if lang_note:
+            system.append({"type": "text", "text": lang_note})
         task_note = self.tasks.prompt_note(chat_id, actor_id) if self.tasks and not guest and not demo_mode else None
         if demo_mode:
             system.append({"type": "text", "text": demo.prompt_note()})
         if task_note:
             system.append({"type": "text", "text": task_note})
+        if not guest and not demo_mode:  # Bilder ohne ChatGPT-Abo: ein Satz, was zu tun ist (docs/bilder.md)
+            from . import bilder
+            img_note = bilder.prompt_note(self.user_name)
+            if img_note:
+                system.append({"type": "text", "text": img_note})
         history = self._history(chat_id, actor_id)
         from .engine_openai import is_openai
         kind = "openai" if is_openai(bot["model"]) else "claude"
@@ -984,6 +1019,7 @@ class BotService:
                 allow_computer=(not guest or gtools["computer"]) and not demo_mode,
                 allow_web=not guest or gtools["web"],
             )
+            fx = chat_edit.track_effects(common)  # hat der Lauf etwas bewirkt? (Nachricht bearbeiten, chat_edit.py)
             out = None
             if abo_run:
                 from .abos import SubscriptionUnavailable, fallback_allowed
@@ -1010,7 +1046,8 @@ class BotService:
                 if out.stop_reason in ("stopped", "budget", "max_steps") and out.transcript:
                     self._save_resume(chat_id, actor_id, kind, out.model_end, guest_uid, out.transcript, out.stop_reason)
                     if out.stop_reason != "stopped":
-                        out.final_text += " Sag „mach weiter“, dann setze ich genau dort fort."
+                        out.final_text += tx(" Sag „mach weiter“, dann setze ich genau dort fort.")
+
                 else:
                     self.resumes.clear(chat_id, actor_id)
             for model, u in out.usage.by_model.items():
@@ -1018,8 +1055,9 @@ class BotService:
             meta.update(state={"stopped": "stopped"}.get(out.stop_reason, "done"), model=out.model_end,
                         cost_usd=round(out.usage.dollars, 4), finished_at=now_iso(),
                         uses_computer=meta["uses_computer"] or out.used_computer, stop_reason=out.stop_reason)
+            meta["effects"] = fx.result(out, meta["uses_computer"])
             if out.stop_reason == "stopped":
-                self._add(chat_id, "event", "Angehalten", {"icon": "stop.circle"})
+                self._add(chat_id, "event", tx("Angehalten"), {"icon": "stop.circle"})
             elif quiet and (not out.final_text or "[NICHTS]" in out.final_text):
                 pass  # Initiative ohne relevanten Anlass: still bleiben
             elif out.final_text and out.final_text.replace("[NICHTS]", "").strip():
@@ -1030,7 +1068,8 @@ class BotService:
                 # Lauf-Infos für die Aufsicht (chat_lesen): Modell, Dauer, Kosten auch bei Antworten ohne Statuszeile
                 m_meta["run_info"] = {"run_id": run_id, "model": out.model_end or bot["model"],
                                       "cost_usd": round(out.usage.dollars, 4), "steps": len(out.lines),
-                                      "seconds": round(time.time() - t_start, 1), "stop_reason": out.stop_reason}
+                                      "seconds": round(time.time() - t_start, 1), "stop_reason": out.stop_reason,
+                                      "effects": meta["effects"]}
                 if guest:
                     m_meta["guest_run"] = True
                 if getattr(out, "billing", "api") == "abo":
@@ -1090,6 +1129,8 @@ class BotService:
                 print("Abo-Rechnerzugriff:", e, flush=True)
         else:
             kw["codex_cu"] = self.codex_cu_plan(chat_id, actor_id, hub)
+            from . import bilder  # eingebautes Bildwerkzeug von Codex im Chat-Thread (docs/bilder.md)
+            kw["images"] = bilder.ChatImages(self, chat_id, actor_id) if bilder.available()[0] else None
         return {"engine": self.claude_abo if provider == "claude" else self.codex_abo, "kw": kw, "seq": seq}
 
     # -- Computer Use von Codex (codex_cu.py, ab 1.36) ----------------------------------------------------------
@@ -1111,11 +1152,12 @@ class BotService:
         """App-Freigabe von Codex Computer Use („Allow ChatGPT to use Safari?“) als Freigabe-Karte. Wartet auf die
         Entscheidung (höchstens codex_cu.APP_WAIT, abbrechbar). „Immer erlauben“ gilt pro Scoop und App."""
         from .codex_cu import APP_WAIT, app_label
-        label = app_label(app) if app else "eine App"
-        title = f"Computer Use: {label} bedienen"
-        details = (f"Computer Use von Codex möchte „{label}“ auf dem Server-Mac bedienen: Bildschirm und Inhalte der App "
-                   "sehen, klicken und tippen. Gilt für diesen Lauf; mit „Immer erlauben“ künftig für diesen Scoop."
-                   + (f"\n\nAnfrage von Computer Use: {message}" if message else ""))
+        label = app_label(app) if app else tx("eine App")
+        title = tx("Computer Use: {app} bedienen", app=label)
+        details = (tx("Computer Use von Codex möchte „{app}“ auf dem Server-Mac bedienen: Bildschirm und Inhalte der App "
+                      "sehen, klicken und tippen. Gilt für diesen Lauf; mit „Immer erlauben“ künftig für diesen Scoop.",
+                      app=label)
+                   + (tx("\n\nAnfrage von Computer Use: {message}", message=message) if message else ""))
         token = new_id("cu")
         waiter = {"event": threading.Event(), "ok": False}
         self._cu_waiters[token] = waiter
@@ -1124,7 +1166,7 @@ class BotService:
             out = self._ask_card(chat_id, actor_id, None, title, details,
                                  {"kind": "codex_cu", "app": app, "wait": token, **({"task_id": task_id} if task_id else {})},
                                  {"kind": "codex_cu", "icon": "cursorarrow.click.2"},
-                                 (key, f"Computer Use: {label} bedienen"), lambda hit: "ok")
+                                 (key, title), lambda hit: "ok")
             if out is not None:
                 return True  # Dauerfreigabe („Immer erlauben“)
             deadline = time.time() + APP_WAIT
@@ -1160,8 +1202,9 @@ class BotService:
         """Abo am Limit/nicht nutzbar, „Abo, bei Limit API“: kurzer Hinweis (Statuszeile, einmal je Limit ein Ereignis)."""
         from . import abos
         who = "Claude" if provider == "claude" else "ChatGPT"
-        txt = (f"{who}-Abo am Limit – weiter über den API-Schlüssel" if e.limit
-               else f"{who}-Abo nicht verfügbar – weiter über den API-Schlüssel")
+        txt = (tx("{who}-Abo am Limit – weiter über den API-Schlüssel", who=who) if e.limit
+               else tx("{who}-Abo nicht verfügbar – weiter über den API-Schlüssel", who=who))
+
         print(f"Abo-Fallback {provider}: {e.reason[:200]}", flush=True)
         if not e.limit:
             abos.note_limit(provider, e.reason, time.time() + 300)  # kurz nicht erneut probieren
@@ -1293,7 +1336,7 @@ class BotService:
         text = _plain(out.final_text).split(". ")[0]
         text = text[:180] + ("…" if len(text) > 180 else "")
         if group:
-            text = f"(Gruppe {group['name']}) {text}"
+            text = tx("(Gruppe {group}) {text}", group=group["name"], text=text)
         self.db.add_memory(actor_id, "tagebuch", text)
 
     # -- Freigaben ---------------------------------------------------------
@@ -1344,13 +1387,13 @@ class BotService:
             title = f"{label}: {tool.get('title') or real}"[:120]
             desc = (tool.get("description") or "").strip().split("\n")[0][:300]
             arg_text = json.dumps(args, ensure_ascii=False, indent=1)
-            details = ((desc + "\n\n") if desc else "") + "Argumente:\n" + (arg_text[:3000] + ("…" if len(arg_text) > 3000 else ""))
+            details = ((desc + "\n\n") if desc else "") + tx("Argumente:") + "\n" + (arg_text[:3000] + ("…" if len(arg_text) > 3000 else ""))
             ann = tool.get("annotations") or {}
             if ann.get("destructiveHint") is True:
-                details = "Achtung: Das Werkzeug meldet sich selbst als unumkehrbar.\n\n" + details
+                details = tx("Achtung: Das Werkzeug meldet sich selbst als unumkehrbar.") + "\n\n" + details
             action = {"kind": "mcp", "tool": name, "args": args, "label": label, "tool_name": real}
             always = None if (never_always(real, desc) or always_blocked(title, desc[:200])) else \
-                (f"mcp:{name}"[:200], f"{label}: {real} ausführen")
+                (f"mcp:{name}"[:200], tx("{label}: {tool} ausführen", label=label, tool=real))
 
             def run_now(hit: dict):
                 try:
@@ -1392,7 +1435,7 @@ class BotService:
         srv = self.mcp_hub.servers.get(sid)
         if srv is None:
             st = next((x for x in self.custom_mcp.status(self.mcp_hub) if x["id"] == sid), {})
-            return {"ok": False, "tools": 0, "error": st.get("error") or "Nicht geladen", "status": st.get("status")}
+            return {"ok": False, "tools": 0, "error": st.get("error") or tx("Nicht geladen"), "status": st.get("status")}
         srv._tools_at = 0.0
         try:
             tools = srv.tools()
@@ -1432,13 +1475,14 @@ class BotService:
             group_meta = {"author_id": actor_id} if is_group(chat_id) else {}
             if test["ok"]:
                 reads = ", ".join(test.get("read_tools") or [])
-                self._add(chat_id, "event", f"Bei {name} angemeldet · {test['tools']} Werkzeuge",
+                self._add(chat_id, "event", txn("Bei {name} angemeldet · {n} Werkzeug", "Bei {name} angemeldet · {n} Werkzeuge",
+                                                test["tools"], name=name),
                           {"icon": "checkmark.seal", "mcp_server_id": sid, **group_meta,
                            "prompt": f"{self.user_name} hat sich bei {name} angemeldet. Der MCP-Server liefert {test['tools']} "
                                      f"Werkzeuge (`{sid}__…`). " + (f"Lesende z. B.: {reads}. Probier ein lesendes Werkzeug "
                                      "kurz aus und " if reads else "") + "Sag kurz, was jetzt geht."})
             else:
-                self._add(chat_id, "event", f"{name}: angemeldet, aber keine Werkzeuge", {
+                self._add(chat_id, "event", tx("{name}: angemeldet, aber keine Werkzeuge", name=name), {
                     "icon": "exclamationmark.triangle", **group_meta,
                     "prompt": f"Die Anmeldung bei {name} hat geklappt, aber der Server liefert keine Werkzeuge: "
                               f"{test.get('error')}. Sag es {self.user_name} kurz."})
@@ -1449,7 +1493,8 @@ class BotService:
     def _mcp_login_card(self, chat_id: str, actor_id: str, sid: str) -> None:
         name = self.custom_mcp.get(sid).get("name") or sid
         self._mcp_login_origin[sid] = {"chat_id": chat_id, "actor_id": actor_id, "t": time.time()}
-        self._add(chat_id, "event", f"Bei {name} anmelden: in „Apps verbinden“ › Eigene MCP-Server",
+        self._add(chat_id, "event", tx("Bei {name} anmelden: in „Apps verbinden“ › Eigene MCP-Server", name=name),
+
                   {"icon": "person.badge.key", "kind": "mcp_login", "mcp_server_id": sid, "mcp_server_name": name,
                    **({"author_id": actor_id} if is_group(chat_id) else {})})
 
@@ -1470,15 +1515,17 @@ class BotService:
                 srv = out["server"]
                 if srv.get("auth") == "oauth":
                     self._mcp_login_card(chat_id, actor_id, srv["id"])
-                    self._add(chat_id, "event", f"MCP-Server hinzugefügt: {srv['name']}", {
+                    self._add(chat_id, "event", tx("MCP-Server hinzugefügt: {name}", name=srv["name"]), {
                         "icon": "server.rack", **group_meta,
                         "prompt": f"{srv['name']} ist eingetragen und braucht eine Anmeldung. {self.user_name} sieht die Karte "
                                   "„Anmelden“. Sag in einem Satz, dass er darauf tippen soll; danach bekommst du Bescheid."})
                 else:
                     t = out.get("test") or {}
                     secret_note = " Das Token liegt im Schlüsselbund des Servers (du siehst es nie)." if "token" in secrets_in else ""
-                    self._add(chat_id, "event", f"MCP-Server verbunden: {srv['name']} · {t.get('tools', 0)} Werkzeuge"
-                              if t.get("ok") else f"MCP-Server hinzugefügt: {srv['name']} (Fehler)", {
+                    self._add(chat_id, "event", txn("MCP-Server verbunden: {name} · {n} Werkzeug",
+                                                    "MCP-Server verbunden: {name} · {n} Werkzeuge", t.get("tools", 0),
+                                                    name=srv["name"])
+                              if t.get("ok") else tx("MCP-Server hinzugefügt: {name} (Fehler)", name=srv["name"]), {
                         "icon": "server.rack" if t.get("ok") else "exclamationmark.triangle", "mcp_server_id": srv["id"],
                         **group_meta,
                         "prompt": (f"{srv['name']} ist verbunden (`{srv['id']}__…`, {t.get('tools', 0)} Werkzeuge).{secret_note} "
@@ -1489,18 +1536,18 @@ class BotService:
                 sid = action["server_id"]
                 self.custom_mcp.set_token(sid, secrets_in.get("token", ""), action.get("header"))
                 t = self.mcp_test(sid)
-                self._add(chat_id, "event", f"Token gespeichert: {action.get('name') or sid}", {
+                self._add(chat_id, "event", tx("Token gespeichert: {name}", name=action.get("name") or sid), {
                     "icon": "key.fill", **group_meta,
                     "prompt": "Token gespeichert (im Schlüsselbund, du siehst es nie). " + (
                         f"Verbindung ok, {t['tools']} Werkzeuge." if t["ok"] else f"Verbindung klappt noch nicht: {t['error']}")
                               + " Sag es kurz."})
             elif kind == "mcp_remove":
                 self.mcp_remove(action["server_id"])
-                self._add(chat_id, "event", f"MCP-Server entfernt: {action.get('name') or action['server_id']}", {
+                self._add(chat_id, "event", tx("MCP-Server entfernt: {name}", name=action.get("name") or action["server_id"]), {
                     "icon": "trash", **group_meta,
                     "prompt": "Der MCP-Server ist entfernt (Zugangsdaten gelöscht). Sag es kurz."})
         except Exception as e:  # noqa: BLE001
-            self._add(chat_id, "event", "MCP-Server: fehlgeschlagen", {
+            self._add(chat_id, "event", tx("MCP-Server: fehlgeschlagen"), {
                 "icon": "exclamationmark.triangle", **group_meta,
                 "prompt": f"Das hat nicht geklappt: {str(e)[:400]}. Sag es {self.user_name} kurz und frag nur nach, was fehlt."})
         self.enqueue(chat_id, actor_id, opts=gopts)
@@ -1546,9 +1593,10 @@ class BotService:
                     return "Fehler: Namen der Umgebungsvariablen nur aus Buchstaben, Ziffern und _ (Werte trägt " \
                            f"{self.user_name} in der Karte ein)."
                 body = {"kind": "stdio", "name": name, "command": parts[:1], "args": parts[1:], "env_keys": env_keys}
-                title = f"Lokalen MCP-Server verbinden: {name or parts[0]}"
-                details = (f"Befehl: {shlex.join(parts)}\nLäuft auf dem Server-Mac mit den Rechten des Servers."
-                           + (f"\nUmgebungsvariablen: {', '.join(env_keys)}" if env_keys else ""))
+                title = tx("Lokalen MCP-Server verbinden: {name}", name=name or parts[0])
+                details = (tx("Befehl: {command}\nLäuft auf dem Server-Mac mit den Rechten des Servers.",
+                              command=shlex.join(parts))
+                           + (tx("\nUmgebungsvariablen: {names}", names=", ".join(env_keys)) if env_keys else ""))
                 fields = [{"key": f"env:{k}", "label": k} for k in env_keys]
                 ask(title, details, {"kind": "mcp_connect", "body": body, "secret_fields": fields},
                     {"kind": "mcp_connect", "icon": "terminal", "secret_fields": fields})
@@ -1570,13 +1618,14 @@ class BotService:
             body = {"kind": "remote", "name": name, "url": url, "auth": auth}
             if auth == "token":
                 body["header"] = header
-            fields = [{"key": "token", "label": "Token" if header == "Authorization" else f"Wert für {header}"}] \
-                if auth == "token" else []
+            fields = [{"key": "token", "label": tx("Token") if header == "Authorization"
+                       else tx("Wert für {header}", header=header)}] if auth == "token" else []
             host = url.split("/")[2]
-            title = f"MCP-Server verbinden: {name or host}"
-            details = (f"Adresse: {url}\nAnmeldung: " + {"none": "keine", "token": f"Token (Header {header})",
-                                                        "oauth": "beim Anbieter (OAuth), danach Karte „Anmelden“"}[auth]
-                       + "\nSchreibende Werkzeuge des Servers laufen immer über Freigabe-Karten.")
+            title = tx("MCP-Server verbinden: {name}", name=name or host)
+            login = {"none": tx("keine"), "token": tx("Token (Header {header})", header=header),
+                     "oauth": tx("beim Anbieter (OAuth), danach Karte „Anmelden“")}[auth]
+            details = tx("Adresse: {url}\nAnmeldung: {login}\nSchreibende Werkzeuge des Servers laufen immer über "
+                         "Freigabe-Karten.", url=url, login=login)
             ask(title, details, {"kind": "mcp_connect", "body": body, "secret_fields": fields},
                 {"kind": "mcp_connect", "icon": "server.rack", "secret_fields": fields})
             return (f"Freigabe angefragt: {title}. " + (f"{self.user_name} trägt das Token sicher in der Karte ein (du siehst "
@@ -1599,8 +1648,8 @@ class BotService:
             e = finde(i)
             if not e:
                 return "Diesen MCP-Server gibt es nicht. mcp_server_liste zeigt alle."
-            title = f"MCP-Server entfernen: {e.get('name')}"
-            ask(title, f"{e.get('url') or ' '.join(e.get('command') or [])}\nZugangsdaten werden gelöscht.",
+            title = tx("MCP-Server entfernen: {name}", name=e.get("name"))
+            ask(title, tx("{target}\nZugangsdaten werden gelöscht.", target=e.get("url") or " ".join(e.get("command") or [])),
                 {"kind": "mcp_remove", "server_id": e["id"], "name": e.get("name")}, {"kind": "mcp_remove", "icon": "trash"})
             return f"Freigabe angefragt: {title}. Beende deine Antwort mit einem kurzen Satz."
 
@@ -1609,9 +1658,10 @@ class BotService:
             if not e or e["kind"] != "remote":
                 return "Diesen Remote-MCP-Server gibt es nicht. mcp_server_liste zeigt alle."
             header = e.get("header") or "Authorization"
-            fields = [{"key": "token", "label": "Token" if header == "Authorization" else f"Wert für {header}"}]
-            title = f"Token für {e.get('name')} eintragen"
-            ask(title, f"Adresse: {e['url']}\nDas Token geht direkt in den Schlüsselbund des Servers.",
+            fields = [{"key": "token", "label": tx("Token") if header == "Authorization"
+                       else tx("Wert für {header}", header=header)}]
+            title = tx("Token für {name} eintragen", name=e.get("name"))
+            ask(title, tx("Adresse: {url}\nDas Token geht direkt in den Schlüsselbund des Servers.", url=e["url"]),
                 {"kind": "mcp_secret", "server_id": e["id"], "name": e.get("name"), "header": header, "secret_fields": fields},
                 {"kind": "mcp_secret", "icon": "key.fill", "secret_fields": fields})
             return f"Karte gezeigt: {title}. {self.user_name} trägt es dort sicher ein. Beende deine Antwort mit einem kurzen Satz."
@@ -1627,7 +1677,7 @@ class BotService:
         return [
             tool("mcp_server_pruefen", "Prüft einen Remote-MCP-Server: erreichbar? Anmeldung keine, Token oder OAuth? "
                  "Name-Vorschlag. Vor mcp_server_verbinden nutzen. Die Adresse bekannter Dienste darfst du selbst "
-                 "recherchieren.", {"url": {**s, "description": url_desc}}, ["url"], pruefen, "Prüft einen MCP-Server"),
+                 "recherchieren.", {"url": {**s, "description": url_desc}}, ["url"], pruefen, tx("Prüft einen MCP-Server")),
             tool("mcp_server_verbinden", "Verbindet einen eigenen MCP-Server (Freigabe-Karte, " + self.user_name
                  + " bestätigt). Remote: url, name, anmeldung (auto|keine|token|oauth), bei token optional header (Standard "
                  "Authorization). Tokens/API-Schlüssel NIE im Chat erfragen oder übergeben: Bei anmeldung=token trägt "
@@ -1635,16 +1685,16 @@ class BotService:
                  "Lokal (stdio, nur auf Wunsch): befehl (Programm), argumente, umgebungsvariablen (nur Namen, "
                  "kommagetrennt; Werte in der Karte).",
                  {"name": s, "url": {**s, "description": url_desc}, "anmeldung": s, "header": s, "befehl": s, "argumente": s,
-                  "umgebungsvariablen": s}, ["name"], verbinden, "Bereitet eine MCP-Verbindung vor"),
+                  "umgebungsvariablen": s}, ["name"], verbinden, tx("Bereitet eine MCP-Verbindung vor")),
             tool("mcp_server_liste", "Zeigt die eigenen MCP-Server mit Status (ok, Fehler, Anmeldung nötig) und "
-                 "Werkzeuganzahl.", {}, [], liste, "Schaut nach den MCP-Servern"),
+                 "Werkzeuganzahl.", {}, [], liste, tx("Schaut nach den MCP-Servern")),
             tool("mcp_server_token_setzen", "Zeigt eine sichere Karte, in der " + self.user_name + " ein neues Token für "
                  "einen vorhandenen Remote-MCP-Server einträgt (z. B. abgelaufen oder falsch). server = Name oder id.",
-                 {"server": s}, ["server"], token_setzen, "Fragt sicher nach einem Token"),
+                 {"server": s}, ["server"], token_setzen, tx("Fragt sicher nach einem Token")),
             tool("mcp_server_anmelden", "Zeigt die Karte „Bei … anmelden“ für einen MCP-Server mit OAuth (neu anmelden). "
-                 "server = Name oder id.", {"server": s}, ["server"], anmelden, "Zeigt die Anmeldung"),
+                 "server = Name oder id.", {"server": s}, ["server"], anmelden, tx("Zeigt die Anmeldung")),
             tool("mcp_server_entfernen", "Entfernt einen eigenen MCP-Server (Freigabe-Karte). server = Name oder id.",
-                 {"server": s}, ["server"], entfernen, "Entfernt einen MCP-Server"),
+                 {"server": s}, ["server"], entfernen, tx("Entfernt einen MCP-Server")),
         ]
 
     def _run_mcp(self, chat_id: str, actor_id: str, title: str, action: dict, gopts: dict | None) -> None:
@@ -1653,11 +1703,12 @@ class BotService:
         try:
             out = self.mcp_hub.call(action["tool"], action.get("args") or {})
             text = out if isinstance(out, str) else "\n".join(b.get("text", "") for b in out if b.get("type") == "text")
-            self._add(chat_id, "event", f"Ausgeführt: {title}", {"icon": "server.rack", **group_meta,
+            self._add(chat_id, "event", tx("Ausgeführt: {title}", title=title), {"icon": "server.rack", **group_meta,
                       "prompt": f"„{title}“ wurde nach {self.user_gen} Freigabe ausgeführt. Ergebnis:\n{text[:6000]}\n\n"
                                 "Sag es kurz und mach mit deiner Aufgabe weiter."})
         except Exception as e:  # noqa: BLE001
-            self._add(chat_id, "event", f"Fehlgeschlagen: {title}", {"icon": "exclamationmark.triangle", **group_meta,
+            self._add(chat_id, "event", tx("Fehlgeschlagen: {title}", title=title), {"icon": "exclamationmark.triangle", **group_meta,
+
                       "prompt": f"„{title}“ ist nach der Freigabe fehlgeschlagen: {str(e)[:600]}. Sag es {self.user_name} kurz."})
         self.enqueue(chat_id, actor_id, opts=gopts)
 
@@ -1667,7 +1718,7 @@ class BotService:
         with self.lock:
             a = self.db.one("SELECT * FROM approvals WHERE id=?", (approval_id,))
             if not a:
-                raise KeyError("Freigabe nicht gefunden")
+                raise KeyError(tx("Freigabe nicht gefunden"))
             if a["state"] != "pending":
                 # Schon entschieden: nie ein zweites Mal ausführen (z. B. doppelter Tipp, erneutes Senden).
                 return self.db.msg_dict(self.db.one("SELECT * FROM messages WHERE id=?", (a["message_id"],)))
@@ -1675,16 +1726,16 @@ class BotService:
             if decision == "approve_always":
                 standing = self._always_for(a, pre, edits)
                 if not standing:
-                    raise ValueError("Diese Freigabe kann nicht dauerhaft erlaubt werden.")
+                    raise ValueError(tx("Diese Freigabe kann nicht dauerhaft erlaubt werden."))
                 decision = "approve"
             if pre and pre.get("kind") == "vault" and decision == "approve" and not (edits or {}).get("password"):
-                raise ValueError("Bitte Benutzer und Passwort im Formular eintragen (ab Build 12 der App).")
+                raise ValueError(tx("Bitte Benutzer und Passwort im Formular eintragen (ab Build 12 der App)."))
             if pre and pre.get("kind") in ("mcp_connect", "mcp_secret") and decision == "approve":
                 given = secrets_of(edits)
                 missing = [f["label"] for f in pre.get("secret_fields") or [] if not str(given.get(f["key"]) or "").strip()]
                 if missing:
-                    raise ValueError(f"Bitte in der Karte eintragen: {', '.join(missing)} (App aktualisieren, falls kein "
-                                     "Eingabefeld zu sehen ist).")
+                    raise ValueError(tx("Bitte in der Karte eintragen: {fields} (App aktualisieren, falls kein "
+                                        "Eingabefeld zu sehen ist).", fields=", ".join(missing)))
             self.db.q("UPDATE approvals SET state=? WHERE id=?",
                       ("approved" if decision == "approve" else "declined", approval_id))
         chat_id = a["chat_id"] or a["bot_id"]
@@ -1699,7 +1750,7 @@ class BotService:
         if standing:
             sa = self.add_standing(a["bot_id"], *standing)
             meta.update(always=True, always_label=sa["label"])
-            self._add(chat_id, "event", f"Immer erlaubt: {sa['label']}",
+            self._add(chat_id, "event", tx("Immer erlaubt: {label}", label=sa["label"]),
                       {"icon": "checkmark.seal", "standing_id": sa["id"],
                        **({"author_id": a["bot_id"]} if is_group(chat_id) else {}),
                        "prompt": f"{self.user_name} hat „{sa['label']}“ dauerhaft erlaubt. Künftig wird das automatisch "
@@ -1712,7 +1763,9 @@ class BotService:
             meta["details"] = _mail_details(meta["mail"])
         updated = self.db.update_message(a["message_id"], meta=meta)
         self.publish("message.updated", updated)
-        word = "Freigegeben" if state == "approved" else "Abgelehnt"
+        decided = (tx("Freigegeben: {title}", title=a["title"]) if state == "approved"
+                   else tx("Abgelehnt: {title}", title=a["title"]))
+        declined = tx("Abgelehnt: {title}", title=a["title"])
         prompt = f"{self.user_name} hat „{a['title']}“ {'freigegeben. Führe es jetzt aus' if state == 'approved' else 'abgelehnt. Führe es nicht aus'}."
         if note:
             prompt += f" Seine Anmerkung: {note}"
@@ -1723,7 +1776,7 @@ class BotService:
                 w["ok"] = state == "approved"
                 w["event"].set()
             else:
-                self._add(chat_id, "event", f"Nicht mehr nötig: {a['title']} (der Lauf ist schon vorbei)",
+                self._add(chat_id, "event", tx("Nicht mehr nötig: {title} (der Lauf ist schon vorbei)", title=a["title"]),
                           {"icon": "clock", "silent": True})
             return updated
         if action and action.get("kind") == "vault":
@@ -1733,7 +1786,7 @@ class BotService:
                                  "username": (edits or {}).get("username") or action.get("username", "")}
                 updated = self.db.update_message(a["message_id"], meta=meta)
                 self.publish("message.updated", updated)
-                self._add(chat_id, "event", f"Login gespeichert: {action['title']}",
+                self._add(chat_id, "event", tx("Login gespeichert: {title}", title=action["title"]),
                           {"icon": "key.fill", "prompt": f"{self.user_name} hat den Login für {action['domain']} im Tresor gespeichert "
                                                          f"(Eintrag {vid}). Mach jetzt mit deiner Aufgabe weiter (login_ausfuellen)."})
                 self.enqueue(chat_id, a["bot_id"], opts=gopts)
@@ -1741,7 +1794,7 @@ class BotService:
                 meta["vault"] = {**{k: v for k, v in action.items() if k != "kind"}, "status": "declined"}
                 updated = self.db.update_message(a["message_id"], meta=meta)
                 self.publish("message.updated", updated)
-                self._add(chat_id, "event", f"Nicht gespeichert: {action['title']}",
+                self._add(chat_id, "event", tx("Nicht gespeichert: {title}", title=action["title"]),
                           {"icon": "xmark.circle", "prompt": f"{self.user_name} will den Login für {action['domain']} nicht im Tresor speichern."
                            + (f" Seine Anmerkung: {note}" if note else "")})
             return updated
@@ -1749,16 +1802,16 @@ class BotService:
             if state == "approved":
                 threading.Thread(target=self._send_mail, args=(chat_id, a["message_id"], meta["mail"]), daemon=True).start()
             else:
-                self._add(chat_id, "event", f"Mail verworfen: {action.get('subject') or a['title']}",
+                self._add(chat_id, "event", tx("Mail verworfen: {subject}", subject=action.get("subject") or a["title"]),
                           {"icon": "xmark.circle", "prompt": f"{self.user_name} hat die Mail „{action.get('subject')}“ verworfen. Nicht senden."
                            + (f" Seine Anmerkung: {note}" if note else "")})
             return updated
         if action and action.get("kind") in ("t3", "t3_send"):
             if state == "approved":
-                self._add(chat_id, "event", f"Freigegeben: {a['title']}", {"icon": "hammer"})
+                self._add(chat_id, "event", decided, {"icon": "hammer"})
                 threading.Thread(target=self._run_t3, args=(chat_id, a["bot_id"], action), daemon=True).start()
             else:
-                self._add(chat_id, "event", f"Abgelehnt: {a['title']}",
+                self._add(chat_id, "event", declined,
                           {"icon": "xmark.circle", "prompt": f"{self.user_name} hat „{a['title']}“ abgelehnt. Nicht an T3 geben."
                            + (f" Seine Anmerkung: {note}" if note else "")})
                 self.enqueue(chat_id, a["bot_id"], opts=gopts)
@@ -1767,18 +1820,18 @@ class BotService:
             if state == "approved":
                 threading.Thread(target=self._run_apple, args=(chat_id, a["bot_id"], action, gopts), daemon=True).start()
             else:
-                self._add(chat_id, "event", f"Abgelehnt: {a['title']}",
+                self._add(chat_id, "event", declined,
                           {"icon": "xmark.circle", "prompt": f"{self.user_name} hat „{a['title']}“ abgelehnt. Nicht löschen."
                            + (f" Seine Anmerkung: {note}" if note else "")})
                 self.enqueue(chat_id, a["bot_id"], opts=gopts)
             return updated
         if action and action.get("kind") == "call":
             if state == "approved":
-                self._add(chat_id, "event", f"Freigegeben: {a['title']}", {"icon": "phone.arrow.up.right"})
+                self._add(chat_id, "event", decided, {"icon": "phone.arrow.up.right"})
                 threading.Thread(target=self._run_call, args=(chat_id, a["bot_id"], {**action, "_opts": gopts}),
                                  daemon=True).start()
             else:
-                self._add(chat_id, "event", f"Abgelehnt: {a['title']}",
+                self._add(chat_id, "event", declined,
                           {"icon": "xmark.circle", "prompt": f"{self.user_name} hat den Anruf „{a['title']}“ abgelehnt. Nicht anrufen."
                            + (f" Seine Anmerkung: {note}" if note else "")})
                 self.enqueue(chat_id, a["bot_id"], opts=gopts)
@@ -1790,7 +1843,7 @@ class BotService:
                 threading.Thread(target=self._run_rechner, args=(chat_id, a["bot_id"], a["title"], action, note, gopts),
                                  daemon=True).start()
             else:
-                self._add(chat_id, "event", f"Abgelehnt: {a['title']}",
+                self._add(chat_id, "event", declined,
                           {"icon": "xmark.circle", "prompt": f"{self.user_name} hat „{a['title']}“ abgelehnt. Nicht ausführen, "
                            "auch nicht auf anderem Weg." + (f" Seine Anmerkung: {note}" if note else ""),
                            **({"author_id": a["bot_id"]} if is_group(chat_id) else {})})
@@ -1802,7 +1855,7 @@ class BotService:
                 threading.Thread(target=self._run_mcp_admin, args=(chat_id, a["bot_id"], action, secrets_in, gopts),
                                  daemon=True).start()
             else:
-                self._add(chat_id, "event", f"Abgelehnt: {a['title']}",
+                self._add(chat_id, "event", declined,
                           {"icon": "xmark.circle", "prompt": f"{self.user_name} hat „{a['title']}“ abgelehnt. Nicht ausführen."
                            + (f" Seine Anmerkung: {note}" if note else ""),
                            **({"author_id": a["bot_id"]} if is_group(chat_id) else {})})
@@ -1813,7 +1866,7 @@ class BotService:
                 threading.Thread(target=self._run_mcp, args=(chat_id, a["bot_id"], a["title"], action, gopts),
                                  daemon=True).start()
             else:
-                self._add(chat_id, "event", f"Abgelehnt: {a['title']}",
+                self._add(chat_id, "event", declined,
                           {"icon": "xmark.circle", "prompt": f"{self.user_name} hat „{a['title']}“ abgelehnt. Nicht ausführen, "
                            "auch nicht auf anderem Weg." + (f" Seine Anmerkung: {note}" if note else ""),
                            **({"author_id": a["bot_id"]} if is_group(chat_id) else {})})
@@ -1825,11 +1878,11 @@ class BotService:
         task_id = a["task_id"] if "task_id" in a.keys() else None
         if task_id and self.tasks:
             # Freigabe aus einer Hintergrund-Aufgabe: die Aufgabe setzt mit der Entscheidung fort, kein Chat-Lauf
-            self._add(chat_id, "event", f"{word}: {a['title']}",
+            self._add(chat_id, "event", decided,
                       {"icon": "checkmark.circle" if state == "approved" else "xmark.circle", "task_id": task_id})
             self.tasks.on_decision(task_id, state == "approved", a["title"], note)
             return updated
-        self._add(chat_id, "event", f"{word}: {a['title']}",
+        self._add(chat_id, "event", decided,
                   {"icon": "checkmark.circle" if state == "approved" else "xmark.circle", "prompt": prompt})
         self.enqueue(chat_id, a["bot_id"], opts=gopts)
         return updated
@@ -1844,7 +1897,7 @@ class BotService:
             upd["status"] = "declined"
             meta["scoop_update"] = upd
             self.publish("message.updated", self.db.update_message(a["message_id"], meta=meta))
-            self._add(chat_id, "event", f"Abgelehnt: {a['title']}",
+            self._add(chat_id, "event", tx("Abgelehnt: {title}", title=a["title"]),
                       {"icon": "xmark.circle", "prompt": f"{self.user_name} hat die Verbesserung „{a['title']}“ abgelehnt. "
                                                          f"Nicht umsetzen, auch nicht auf anderem Weg.{note_txt}"})
             self.enqueue(chat_id, requester)
@@ -1855,7 +1908,7 @@ class BotService:
             upd.update(status="failed", error=str(e)[:300])
             meta["scoop_update"] = upd
             self.publish("message.updated", self.db.update_message(a["message_id"], meta=meta))
-            self._add(chat_id, "event", f"Nicht übernommen: {a['title']}",
+            self._add(chat_id, "event", tx("Nicht übernommen: {title}", title=a["title"]),
                       {"icon": "exclamationmark.triangle", "prompt": f"Die freigegebene Verbesserung „{a['title']}“ konnte "
                                                                       f"nicht übernommen werden: {e}. Sag es {self.user_name} kurz."})
             self.enqueue(chat_id, requester)
@@ -1866,16 +1919,18 @@ class BotService:
         meta["scoop_update"] = upd
         self.publish("message.updated", self.db.update_message(a["message_id"], meta=meta))
         r = self.db.bot_row(requester)
-        me = r["name"] if r else "Ein Scoop"
+        me = r["name"] if r else tx("Ein Scoop")
         tr = self.db.bot_row(target)
-        self._add(chat_id, "event", f"Übernommen: {line}",
+        self._add(chat_id, "event", tx("Übernommen: {change}", change=line),
                   {"icon": "wand.and.stars", "target_id": target,
                    "prompt": f"{self.user_name} hat „{a['title']}“ freigegeben, es ist bei {tr['name'] if tr else 'dem Scoop'} "
                              f"übernommen{' (von ihm bearbeitet)' if upd.get('edited') else ''}.{note_txt} Sag es kurz; braucht "
                              "der Scoop zusätzlich einen Hinweis, schreib ihm mit scoop_schreiben."})
         if tr:
             # Beim Ziel-Scoop: sichtbare Zeile; der Hinweis landet über `prompt` in seinem Verlauf (ohne Lauf)
-            self._add(target, "event", f"Verbesserung von {me}: {upd.get('label') or action.get('label')}",
+            self._add(target, "event", tx("Verbesserung von {name}: {label}", name=me,
+                                          label=upd.get("label") or action.get("label")),
+
                       {"icon": "wand.and.stars", "author_id": requester, "silent": True,
                        "prompt": f"{me} (Aufsicht über die Scoops) hat mit {self.user_gen} Freigabe etwas bei dir verbessert: "
                                  f"{info} Grund: {oversight.short(action.get('reason') or '', 400)} Das gilt ab jetzt."})
@@ -1984,15 +2039,16 @@ class BotService:
             self.publish("message.updated", self.db.update_message(message_id, meta=meta))
         who = ", ".join(mail["to"])
         if status == "sent" and demo.active():
-            self._add(chat_id, "event", f"Demo: Mail an {who} freigegeben (nicht wirklich gesendet) · demo, nothing was sent",
+            self._add(chat_id, "event", tx("Demo: Mail an {to} freigegeben (nicht wirklich gesendet) · demo, nothing was sent",
+                                           to=who),
                       {"icon": "paperplane.fill", "prompt": f"Die Mail „{mail['subject']}“ an {who} wurde freigegeben. "
                                                             "Demo-Server: Es wurde nichts wirklich verschickt."})
         elif status == "sent":
-            self._add(chat_id, "event", f"Mail gesendet an {who}",
+            self._add(chat_id, "event", tx("Mail gesendet an {to}", to=who),
                       {"icon": "paperplane.fill", "prompt": f"Die Mail „{mail['subject']}“ an {who} wurde aus dem Konto "
                                                             f"{mail['account']} gesendet."})
         else:
-            self._add(chat_id, "event", f"Mail nicht gesendet: {error}",
+            self._add(chat_id, "event", tx("Mail nicht gesendet: {error}", error=error),
                       {"icon": "exclamationmark.triangle", "prompt": f"Senden der Mail an {who} ist fehlgeschlagen: {error}"})
 
     # -- Reaktionen ---------------------------------------------------------------
@@ -2001,7 +2057,7 @@ class BotService:
         with self.lock:
             msg = self.db.one("SELECT * FROM messages WHERE id=?", (message_id,))
             if not msg:
-                raise KeyError("Nachricht nicht gefunden")
+                raise KeyError(tx("Nachricht nicht gefunden"))
             meta = json.loads(msg["meta"])
             reactions = dict(meta.get("reactions") or {})
             if emoji:
@@ -2025,7 +2081,7 @@ class BotService:
             ok = True
         except Exception as e:  # noqa: BLE001
             out, ok = f"Fehler: {e}", False
-        self._add(chat_id, "event", f"{'Ausgeführt' if ok else 'Fehlgeschlagen'}: {title}",
+        self._add(chat_id, "event", tx("Ausgeführt: {title}", title=title) if ok else tx("Fehlgeschlagen: {title}", title=title),
                   {"icon": "terminal" if action.get("op") == "shell" else "doc.text", **group_meta,
                    "prompt": f"{self.user_name} hat „{title}“ freigegeben, der Server hat es ausgeführt"
                              + (f" (Anmerkung: {note})" if note else "") + f". Ergebnis:\n{out[:8000]}\n\n"
@@ -2041,10 +2097,11 @@ class BotService:
                 t3.send(action["thread_id"], action["message"])
                 th = t3.show(action["thread_id"], 1).get("thread", {})
             tid = th.get("threadId") or action.get("thread_id")
-            self._add(chat_id, "event", f"T3 arbeitet: {th.get('title') or action.get('title') or 'Coding-Auftrag'}",
+            self._add(chat_id, "event", tx("T3 arbeitet: {title}",
+                                           title=th.get("title") or action.get("title") or tx("Coding-Auftrag")),
                       {"icon": "hammer", "url": th.get("link"), "t3_thread_id": tid, **group_meta})
         except Exception as e:  # noqa: BLE001
-            self._add(chat_id, "event", "T3-Auftrag fehlgeschlagen", {"icon": "exclamationmark.triangle", **group_meta,
+            self._add(chat_id, "event", tx("T3-Auftrag fehlgeschlagen"), {"icon": "exclamationmark.triangle", **group_meta,
                       "prompt": f"Der Auftrag an T3 Code konnte nicht starten ({e}). Sag es {self.user_name} kurz."})
             self.enqueue(chat_id, actor_id)
             return
@@ -2059,7 +2116,8 @@ class BotService:
                     msgs = [m for m in d.get("messages", []) if m.get("role") == "assistant"]
                     reply = (msgs[-1].get("text") or "")[:5000] if msgs else ""
                     state = "wartet auf eine Antwort" if t3.needs_answer(th) else f"ist fertig (Status: {th.get('status')})"
-                    self._add(chat_id, "event", f"T3 {('braucht Antwort' if t3.needs_answer(th) else 'fertig')}: {th.get('title')}", {
+                    self._add(chat_id, "event", (tx("T3 braucht Antwort: {title}", title=th.get("title"))
+                                                 if t3.needs_answer(th) else tx("T3 fertig: {title}", title=th.get("title"))), {
                         "icon": "hammer", "url": th.get("link"), "t3_thread_id": tid, **group_meta,
                         "prompt": f"Der T3-Thread „{th.get('title')}“ {state}. Letzte Antwort des Coding-Agenten:\n{reply}\n\n"
                                   f"Fasse {self.user_name} kurz zusammen, was erledigt ist, was offen ist und ob etwas von ihm gebraucht wird. "
@@ -2074,24 +2132,27 @@ class BotService:
         """Freigegebenes Löschen (Erinnerungen/Kalender) bzw. Schalten in Home ausführen und den Scoop fortsetzen."""
         group_meta = {"author_id": actor_id} if is_group(chat_id) else {}
         if action.get("service") == "home":
-            done = action.get("done") or f"Home: {action.get('label') or 'ausgeführt'}"
+            done = action.get("done") or tx("Home: {label}", label=action.get("label") or tx("ausgeführt"))
             try:
                 self.apple.run_approved(action)
                 self._add(chat_id, "event", done, {"icon": "house.fill", **group_meta,
                           "prompt": f"„{done}“ wurde nach {self.user_gen} Freigabe ausgeführt. Sag es kurz."})
             except Exception as e:  # noqa: BLE001
-                self._add(chat_id, "event", "Home: nicht ausgeführt", {"icon": "exclamationmark.triangle", **group_meta,
+                self._add(chat_id, "event", tx("Home: nicht ausgeführt"), {"icon": "exclamationmark.triangle", **group_meta,
                           "prompt": f"„{done}“ ist fehlgeschlagen: {e}. Sag es {self.user_name} kurz."})
             self.enqueue(chat_id, actor_id, opts=gopts)
             return
         what = "Erinnerung" if action.get("service") == "reminders" else "Termin"
-        label = action.get("label") or what
+        reminder = action.get("service") == "reminders"
+        label = action.get("label") or (tx("Erinnerung") if reminder else tx("Termin"))
         try:
             self.apple.run_approved(action)
-            self._add(chat_id, "event", f"{what} gelöscht: {label}", {"icon": "trash", **group_meta,
+            self._add(chat_id, "event", (tx("Erinnerung gelöscht: {label}", label=label) if reminder
+                                         else tx("Termin gelöscht: {label}", label=label)), {"icon": "trash", **group_meta,
                       "prompt": f"{what} „{label}“ wurde nach {self.user_gen} Freigabe gelöscht. Sag es kurz."})
         except Exception as e:  # noqa: BLE001
-            self._add(chat_id, "event", f"{what} nicht gelöscht", {"icon": "exclamationmark.triangle", **group_meta,
+            self._add(chat_id, "event", tx("Erinnerung nicht gelöscht") if reminder else tx("Termin nicht gelöscht"),
+                      {"icon": "exclamationmark.triangle", **group_meta,
                       "prompt": f"Löschen von „{label}“ ist fehlgeschlagen: {e}. Sag es {self.user_name} kurz."})
         self.enqueue(chat_id, actor_id, opts=gopts)
 
@@ -2107,7 +2168,9 @@ class BotService:
         prompt = (f"{self.user_name} hat den Ort „{place['name']}“ {verb}" + (f" (um {when} Uhr)" if when else "") + ". "
                   + (f"Deine Notiz dazu: {note}. Handle jetzt danach." if note else
                      "Reagiere kurz und hilfreich, falls es dazu etwas zu tun gibt; sonst eine knappe Nachricht."))
-        self._add(chat_id, "event", f"{place['name']} {verb}", {"icon": "location.fill", "geofence_id": place["id"],
+        shown = (tx("{place} betreten", place=place["name"]) if kind == "enter"
+                 else tx("{place} verlassen", place=place["name"]))
+        self._add(chat_id, "event", shown, {"icon": "location.fill", "geofence_id": place["id"],
                                                                 "geofence_event": kind, **group_meta, "prompt": prompt})
         self.enqueue(chat_id, actor_id)
 
@@ -2115,7 +2178,7 @@ class BotService:
 
     def _run_call(self, chat_id: str, actor_id: str, action: dict) -> None:
         if not BotService._call_lock.acquire(blocking=False):
-            self._add(chat_id, "event", "Es läuft schon ein Anruf, kein zweiter gestartet", {"icon": "phone.down",
+            self._add(chat_id, "event", tx("Es läuft schon ein Anruf, kein zweiter gestartet"), {"icon": "phone.down",
                       "prompt": f"Es lief bereits ein anderer Anruf, deshalb wurde nicht gewählt. Sag {self.user_name} das kurz."})
             self.enqueue(chat_id, actor_id, opts=action.get("_opts"))
             return
@@ -2131,13 +2194,13 @@ class BotService:
         try:
             st = lucy.status()
             if not st.get("ready"):
-                self._add(chat_id, "event", "Lucy ist gerade nicht erreichbar, kein Anruf",
+                self._add(chat_id, "event", tx("Lucy ist gerade nicht erreichbar, kein Anruf"),
                           {"icon": "phone.down", **group_meta,
                            "prompt": "Der Anruf konnte nicht starten: Lucys Telefondienst ist gerade nicht betriebsbereit "
                                      f"(öffentlicher Zugang nicht erreichbar). Sag {self.user_name} das kurz. Nicht erneut versuchen."})
                 self.enqueue(chat_id, actor_id, opts=action.get("_opts"))
                 return
-            self._add(chat_id, "event", f"Lucy ruft an: {masked}", {"icon": "phone.connection", **group_meta})
+            self._add(chat_id, "event", tx("Lucy ruft an: {number}", number=masked), {"icon": "phone.connection", **group_meta})
             before = {c["id"] for c in lucy.history("outgoing")}
             res = lucy.place_call(number, action["brief"])
             calls = [c for c in lucy.history("outgoing") if c["id"] not in before]
@@ -2150,7 +2213,7 @@ class BotService:
                         break
                     time.sleep(6)
             outcome = (res.get("result") or {}).get("status") or ("abgebrochen" if res["exit"] else "beendet")
-            self._add(chat_id, "event", f"Anruf beendet: {masked}", {
+            self._add(chat_id, "event", tx("Anruf beendet: {number}", number=masked), {
                 "icon": "phone.down", **group_meta,
                 "prompt": f"Lucys Anruf an {masked} ist beendet (Status: {outcome}). "
                           + (f"Protokoll-Zusammenfassung:\n{summary[:4000]}" if summary else
@@ -2159,18 +2222,20 @@ class BotService:
                             "„completed“ heißt nur, dass die Verbindung endete. Nichts erfinden."})
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
-            self._add(chat_id, "event", "Anruf fehlgeschlagen", {"icon": "exclamationmark.triangle", **group_meta,
+            self._add(chat_id, "event", tx("Anruf fehlgeschlagen"), {"icon": "exclamationmark.triangle", **group_meta,
                       "prompt": f"Der Anruf ist technisch fehlgeschlagen ({e}). Sag es {self.user_name} kurz. Keine Wiederwahl."})
         self.enqueue(chat_id, actor_id, opts=action.get("_opts"))
 
     # -- Routinen ----------------------------------------------------------
     def fire_routine(self, r: dict) -> None:
         if r["kind"] == "erinnerung":
-            self._add(r["bot_id"], "bot", f"⏰ {r['prompt'] or r['title']}")
+            # `reminder`: ausdrücklich auf diese Uhrzeit gelegt → meldet sich auch in der Ruhezeit und im stummen Chat
+            self._add(r["bot_id"], "bot", f"⏰ {r['prompt'] or r['title']}", {"reminder": True})
             self.db.q("UPDATE routines SET enabled=0, last_run=? WHERE id=?", (now_iso(), r["id"]))
         else:
             self.db.q("UPDATE routines SET last_run=?, next_run=? WHERE id=?", (now_iso(), _next_cron(r["schedule"]), r["id"]))
-            self._add(r["bot_id"], "event", f"Routine: {r['title']}",
+            self._add(r["bot_id"], "event", tx("Routine: {title}", title=r["title"]),
+
                       {"icon": "clock", "prompt": f"Deine Routine „{r['title']}“ ist fällig. Auftrag: {r['prompt']}"})
             # routine_id immer mitgeben (auch ohne eigenes Modell): Aufgaben aus dem Lauf gehören zur Routine
             self.enqueue(r["bot_id"], r["bot_id"], opts={"routine_id": r["id"], **({"model": r["model"]} if r.get("model") else {})})
@@ -2207,7 +2272,7 @@ class BotService:
             shared = bool(i.get("fuer_alle_bots")) and not guest  # Gäste nie für alle Scoops
             text = i["text"].strip()
             if guest:
-                text = f"(von {guest['name']}, Gast) {text}"
+                text = tx("(von {name}, Gast) {text}", name=guest["name"], text=text)
             m = db.add_memory(None if shared else actor_id, "fakt" if shared else "profil", text)
             return f"Gespeichert ({m['id']})."
 
@@ -2239,7 +2304,8 @@ class BotService:
                  (rid, actor_id, "routine", i["titel"], expr, i.get("zeitplan_text", ""), i["auftrag"], _next_cron(expr), now_iso(),
                   model))
             self.publish("routine.updated", db.routine_dict(db.one("SELECT * FROM routines WHERE id=?", (rid,))))
-            self._add(chat_id, "event", f"Routine angelegt: {i['titel']} · {i.get('zeitplan_text') or expr}", {"icon": "clock"})
+            self._add(chat_id, "event", tx("Routine angelegt: {title} · {schedule}", title=i["titel"],
+                                           schedule=i.get("zeitplan_text") or expr), {"icon": "clock"})
             return f"Routine angelegt ({rid}). Nächster Lauf: {_next_cron(expr)}. Sie läuft im Einzelchat." + hint
 
         def routine_model(value) -> tuple[str | None, str]:
@@ -2278,7 +2344,7 @@ class BotService:
             db.q(f"UPDATE routines SET {', '.join(sets)} WHERE id=?", (*args, r["id"]))
             row = db.one("SELECT * FROM routines WHERE id=?", (r["id"],))
             self.publish("routine.updated", db.routine_dict(row))
-            self._add(chat_id, "event", f"Routine geändert: {row['title']}", {"icon": "clock"})
+            self._add(chat_id, "event", tx("Routine geändert: {title}", title=row["title"]), {"icon": "clock"})
             return "Geändert." + hint
 
         def erinnerung_setzen(i: dict) -> str:
@@ -2289,13 +2355,16 @@ class BotService:
             if when.tzinfo is None:
                 when = when.replace(tzinfo=TZ)
             rid = new_id("rt")
-            text = f"{when.astimezone(TZ):%d.%m. %H:%M}"
+            local = when.astimezone(TZ)
+            # Zeitplan-Text der Erinnerung (App: Routinen-Liste): „19.11. 09:00“ bzw. „Nov 19, 9:00 AM“
+            text = (f"{local:%d.%m. %H:%M}" if i18n.current() == "de"
+                    else f"{i18n.month(local.month)[:3]} {local.day}, {i18n.clock(local.hour, local.minute)}")
             db.q("INSERT INTO routines(id,bot_id,kind,title,schedule,schedule_text,prompt,enabled,next_run,created_at) "
                  "VALUES(?,?,?,?,?,?,?,1,?,?)",
                  (rid, actor_id, "erinnerung", i["text"][:80], when.isoformat(), text, i["text"],
                   when.astimezone(TZ).isoformat(timespec="seconds"), now_iso()))
             self.publish("routine.updated", db.routine_dict(db.one("SELECT * FROM routines WHERE id=?", (rid,))))
-            self._add(chat_id, "event", f"Erinnerung gesetzt: {i['text'][:60]} · {text}", {"icon": "bell"})
+            self._add(chat_id, "event", tx("Erinnerung gesetzt: {text} · {when}", text=i["text"][:60], when=text), {"icon": "bell"})
             return f"Erinnerung gesetzt ({rid}) für {text}."
 
         def routine_loeschen(i: dict) -> str:
@@ -2303,7 +2372,7 @@ class BotService:
             if not r:
                 return "Nicht gefunden."
             db.q("DELETE FROM routines WHERE id=?", (i["id"],))
-            self._add(chat_id, "event", f"Routine gelöscht: {r['title']}", {"icon": "trash"})
+            self._add(chat_id, "event", tx("Routine gelöscht: {title}", title=r["title"]), {"icon": "trash"})
             return "Gelöscht."
 
         def freigabe(i: dict) -> str:
@@ -2337,7 +2406,8 @@ class BotService:
             mail = {"app": "gmail", "account": acc["alias"] or acc["email"], "account_id": acc["id"],
                     "account_email": acc["email"], "to": to, "cc": cc, "subject": (i.get("betreff") or "").strip(),
                     "body": i["text"].strip(), "thread_id": (i.get("thread_id") or "").strip() or None, "status": "draft"}
-            title = ("Antwort an " if mail["thread_id"] else "Mail an ") + ", ".join(to)
+            title = (tx("Antwort an {to}", to=", ".join(to)) if mail["thread_id"]
+                     else tx("Mail an {to}", to=", ".join(to)))
             details = _mail_details(mail)
 
             def send_now(hit: dict) -> str:
@@ -2364,9 +2434,10 @@ class BotService:
             title = (i.get("titel") or domain).strip()
             entry = {"title": title, "url": url, "domain": domain, "username": (i.get("benutzer") or "").strip(),
                      "status": "pending"}
-            card_title = f"Login speichern: {title}"
-            details = (f"Webseite: {url}\nBenutzer: {entry['username'] or '(trägst du ein)'}\n\n"
-                       "Benutzer und Passwort gibst du hier ein. Das Passwort landet nur im Tresor, kein Scoop sieht es.")
+            card_title = tx("Login speichern: {title}", title=title)
+            details = tx("Webseite: {url}\nBenutzer: {user}\n\n"
+                         "Benutzer und Passwort gibst du hier ein. Das Passwort landet nur im Tresor, kein Scoop sieht es.",
+                         url=url, user=entry["username"] or tx("(trägst du ein)"))
             ask(card_title, details, {"kind": "vault", **entry}, {"kind": "vault", "vault": entry})  # nie dauerhaft
             return (f"Tresor-Formular angezeigt. {self.user_name} trägt Benutzer und Passwort selbst ein; du siehst das Passwort nie. "
                     "Beende deine Antwort mit einem kurzen Satz. Sobald gespeichert ist, wirst du mit der Eintrags-ID fortgesetzt.")
@@ -2387,10 +2458,10 @@ class BotService:
             self._add(chat_id, "event", f"{verb}: {f['name']}", {"icon": icon, "file_id": f["id"], **author_meta})
 
         def datei_speichern(i: dict) -> str:
-            name = i["name"].strip() or "Notiz.md"
+            name = i["name"].strip() or tx("Notiz.md")
             data = i["inhalt"].encode("utf-8")
             f = db.add_file(chat_id, actor_id, name, data, _guess_mime(name, "text/markdown"))
-            file_event(f, "Datei gespeichert")
+            file_event(f, tx("Datei gespeichert"))
             # Kopie im Arbeitsordner des Scoops (docs/arbeitsordner.md); Fehler dort brechen das Speichern nie ab
             copy = workspace.mirror_file(db.bot_row(actor_id) or {"id": actor_id}, load_config(), name, data)
             return f"Gespeichert in der Bibliothek ({f['id']})" + (f" und im Arbeitsordner unter {workspace.pretty(copy)}." if copy else ".")
@@ -2405,9 +2476,10 @@ class BotService:
             if len(data) > FILE_FROM_COMPUTER_MAX:
                 return ("Fehler: Datei ist größer als 25 MB, so große Dateien kann ich nicht holen. "
                         "Verkleinern oder packen (z. B. zip) und dann noch einmal versuchen.")
-            name = (i.get("name") or os.path.basename(path)).strip() or "datei"
+            name = (i.get("name") or os.path.basename(path)).strip() or tx("datei")
             f = db.add_file(chat_id, actor_id, name, data, _guess_mime(name))
-            file_event(f, "Vom Rechner geholt")
+            file_event(f, tx("Vom Rechner geholt"))
+
             return f"In der Bibliothek ({f['id']}, {len(data)} Bytes)."
 
         def datei_auf_rechner(i: dict) -> str:
@@ -2455,7 +2527,7 @@ class BotService:
         def link_merken(i: dict) -> str:
             f = db.add_file(chat_id, actor_id, i.get("titel") or i["url"], None, None, kind="link", url=i["url"],
                             note=i.get("notiz", ""))
-            file_event(f, "Link gemerkt")
+            file_event(f, tx("Link gemerkt"))
             return f"Link gemerkt ({f['id']})."
 
         def uebergeben(i: dict) -> str:
@@ -2465,7 +2537,7 @@ class BotService:
             if not target or target["id"] == actor_id:
                 return "Diesen Scoop gibt es in der Gruppe nicht."
             me = self.db.bot_row(actor_id)["name"]
-            self._add(chat_id, "event", f"{me} → {target['name']}: {i['auftrag']}",
+            self._add(chat_id, "event", tx("{name} → {target}: {task}", name=me, target=target["name"], task=i["auftrag"]),
                       {"icon": "arrow.turn.down.right", "author_id": actor_id, "target_id": target["id"],
                        "prompt": f"{me} bittet {target['name']}: {i['auftrag']}"})
             with self.lock:
@@ -2486,7 +2558,7 @@ class BotService:
             self._add(target["id"], "bot", text, {"author_id": actor_id, "peer": True, "silent": True,
                                                   "reply_chat": chat_id})
             # Beim Absender: kurze Zeile, damit Arman den Verlauf sieht
-            self._add(chat_id, "event", f"An {target['name']}: {text}",
+            self._add(chat_id, "event", tx("An {name}: {text}", name=target["name"], text=text),
                       {"icon": "arrow.turn.up.right", "author_id": actor_id, "target_id": target["id"], "peer_out": True})
             expects = bool(i.get("antwort_erwartet", True))
             self.enqueue(target["id"], target["id"], depth + 1,
@@ -2508,8 +2580,9 @@ class BotService:
                      f"Gesprächspartner: {i['empfaenger']}\n\nAnlass und Kontext:\n{i['kontext']}\n\n"
                      f"Ziel / konkrete Fragen:\n{i['ziel']}\n\nGrenzen: Nichts zusagen, buchen oder bezahlen, was nicht "
                      f"ausdrücklich im Auftrag steht. Keine erfundenen Fakten.")
-            title = f"Anruf: {i['empfaenger']} ({number[:4]}…{number[-3:]})"
-            details = f"Nummer: {number}\n\nKontext: {i['kontext']}\n\nZiel: {i['ziel']}"
+            title = tx("Anruf: {who} ({number})", who=i["empfaenger"], number=f"{number[:4]}…{number[-3:]}")
+            details = tx("Nummer: {number}\n\nKontext: {context}\n\nZiel: {goal}", number=number, context=i["kontext"],
+                         goal=i["ziel"])
             ask(title, details, {"kind": "call", "number": number, "brief": brief}, {"kind": "call"})  # nie dauerhaft
             return (f"Anruf-Freigabe angefragt. Lucy (Telefon-Assistentin mit GPT-Live-1) ruft erst an, wenn {self.user_name} freigibt. "
                     "Beende jetzt deine Antwort mit einem kurzen Satz. Du bekommst danach das Ergebnis.")
@@ -2534,7 +2607,9 @@ class BotService:
         def faehigkeit_speichern(i: dict) -> str:
             sk = db.save_skill(None if i.get("fuer_alle_scoops") else actor_id, i["name"].strip(),
                                i["beschreibung"].strip(), i["anleitung"].strip())
-            self._add(chat_id, "event", f"Fähigkeit gespeichert: {sk['name']}", {"icon": "wand.and.stars", "skill_id": sk["id"], **author_meta})
+            self._add(chat_id, "event", tx("Fähigkeit gespeichert: {name}", name=sk["name"]),
+                      {"icon": "wand.and.stars", "skill_id": sk["id"], **author_meta})
+
             self.publish("skill.updated", sk)
             return f"Gespeichert ({sk['id']}). Beim nächsten Mal mit faehigkeit_lesen abrufen."
 
@@ -2605,25 +2680,25 @@ class BotService:
 
         tools = [
             tool("merken", "Speichert etwas dauerhaft in deinem Gedächtnis.",
-                 {"text": s, "fuer_alle_bots": {"type": "boolean"}}, ["text", "fuer_alle_bots"], merken, "Merkt sich etwas"),
+                 {"text": s, "fuer_alle_bots": {"type": "boolean"}}, ["text", "fuer_alle_bots"], merken, tx("Merkt sich etwas")),
             tool("vergessen", "Löscht Gedächtnis-Einträge (ID wie mem_… oder ein Textstück).",
-                 {"was": s}, ["was"], vergessen, "Vergisst etwas"),
+                 {"was": s}, ["was"], vergessen, tx("Vergisst etwas")),
             tool("erinnerung_suchen", "Durchsucht dein Gedächtnis und frühere Gespräche.",
-                 {"suchbegriff": s}, ["suchbegriff"], suchen, "Erinnert sich"),
+                 {"suchbegriff": s}, ["suchbegriff"], suchen, tx("Erinnert sich")),
             tool("routine_anlegen", "Legt eine wiederkehrende Aufgabe an. cron im Format 'Minute Stunde Tag Monat Wochentag' "
                  "(Berliner Zeit), zeitplan_text menschenlesbar (z. B. 'Werktags um 7:30'), auftrag = was du dann tun sollst. "
                  "modell = Modell für die Läufe dieser Routine: 'wie_scoop' (Standard, dein Modell) oder ein bestimmtes, etwa ein "
                  f"kleines für einfache Routinen – nur wenn {self.user_name} das will.",
                  {"titel": s, "cron": s, "zeitplan_text": s, "auftrag": s, "modell": model_enum},
-                 ["titel", "cron", "zeitplan_text", "auftrag", "modell"], routine_anlegen, "Legt eine Routine an"),
+                 ["titel", "cron", "zeitplan_text", "auftrag", "modell"], routine_anlegen, tx("Legt eine Routine an")),
             tool("routine_aendern", "Ändert eine bestehende Routine (ID rt_…): nur die angegebenen Felder. modell = 'wie_scoop' "
                  "(dein Modell) oder ein bestimmtes Modell für die Läufe dieser Routine.",
                  {"id": s, "modell": model_enum, "titel": s, "auftrag": s, "cron": s, "zeitplan_text": s}, ["id"],
-                 routine_aendern, "Ändert eine Routine"),
+                 routine_aendern, tx("Ändert eine Routine")),
             tool("erinnerung_setzen", f"Einmalige Erinnerung an {self.user_name} zu einem Zeitpunkt (ISO-8601 mit Zeitzone).",
-                 {"zeitpunkt": s, "text": s}, ["zeitpunkt", "text"], erinnerung_setzen, "Setzt eine Erinnerung"),
+                 {"zeitpunkt": s, "text": s}, ["zeitpunkt", "text"], erinnerung_setzen, tx("Setzt eine Erinnerung")),
             tool("routine_loeschen", "Löscht eine Routine oder Erinnerung (ID rt_…).", {"id": s}, ["id"],
-                 routine_loeschen, "Löscht eine Routine"),
+                 routine_loeschen, tx("Löscht eine Routine")),
             tool("freigabe_anfordern", f"Fragt {self.user_name} um Freigabe für eine Aktion mit Wirkung nach außen. titel kurz "
                  "('Mail an Jonas senden'), details = genau was passieren würde (Empfänger, Text …). art: Bei wiederkehrenden "
                  "Freigaben derselben Sache ein kurzer, stabiler Schlüssel, jedes Mal gleich (z. B. 'wochenbericht-team-senden'), "
@@ -2631,12 +2706,12 @@ class BotService:
                  "„Immer erlauben“ wählen, und ist das schon erlaubt, wird sofort automatisch freigegeben. Einmalige Dinge, "
                  "Zahlungen, Schlösser/Alarm, Logins und Anrufe: art und art_bezeichnung leer ('').",
                  {"titel": s, "details": s, "art": s, "art_bezeichnung": s}, ["titel", "details", "art", "art_bezeichnung"],
-                 freigabe, "Fragt dich um Freigabe"),
+                 freigabe, tx("Fragt dich um Freigabe")),
             tool("mail_vorbereiten", f"Bereitet eine Mail (oder Antwort) zum Senden vor. {self.user_name} sieht sie als Mail-Fenster, "
                  "kann sie bearbeiten und tippt selbst auf Senden. Einziger Weg, Mails zu verschicken. konto = Name aus "
                  "„Verbundene Konten“ (z. B. privat), an/cc = Adressen mit Komma getrennt, thread_id nur bei Antworten.",
                  {"konto": s, "an": s, "cc": s, "betreff": s, "text": s, "thread_id": s},
-                 ["konto", "an", "betreff", "text"], mail_vorbereiten, "Bereitet eine Mail vor"),
+                 ["konto", "an", "betreff", "text"], mail_vorbereiten, tx("Bereitet eine Mail vor")),
             tool("tresor_eintrag_anlegen", f"Legt einen neuen Login im Tresor an: {self.user_name} bekommt ein Formular und trägt "
                  "Benutzer und Passwort selbst ein (du siehst das Passwort nie). Danach mit login_ausfuellen nutzen. "
                  "url = Adresse der Login-Seite, benutzer optional (falls bekannt).",
@@ -2645,33 +2720,40 @@ class BotService:
             tool("reagieren", f"Reagiert mit einem Emoji auf {self.user_gen} letzte Nachricht (wie bei WhatsApp).",
                  {"emoji": s}, ["emoji"], reagieren, ""),  # kein Arbeitsschritt, die Reaktion selbst ist sichtbar
             tool("datei_speichern", "Legt eine Textdatei (z. B. .md, .csv, .txt) in die Bibliothek dieses Chats.",
-                 {"name": s, "inhalt": s}, ["name", "inhalt"], datei_speichern, "Legt eine Datei ab"),
+                 {"name": s, "inhalt": s}, ["name", "inhalt"], datei_speichern, tx("Legt eine Datei ab")),
             tool("datei_vom_rechner", "Holt eine Datei von deinem Rechner in die Bibliothek (absoluter Pfad, ~ = Home).",
-                 {"pfad": s, "name": s}, ["pfad", "name"], datei_vom_rechner, "Holt eine Datei vom Rechner"),
+                 {"pfad": s, "name": s}, ["pfad", "name"], datei_vom_rechner, tx("Holt eine Datei vom Rechner")),
             tool("datei_auf_rechner", "Legt eine Datei aus der Bibliothek auf deinen Rechner. pfad leer = dein Arbeitsordner "
                  "(Unterordner Dateien/; auf anderen Rechnern ~/Downloads).",
-                 {"datei_id": s, "pfad": s}, ["datei_id", "pfad"], datei_auf_rechner, "Legt eine Datei auf den Rechner"),
+                 {"datei_id": s, "pfad": s}, ["datei_id", "pfad"], datei_auf_rechner, tx("Legt eine Datei auf den Rechner")),
             tool("dateien_auflisten", "Listet die Dateien und Links in der Bibliothek dieses Chats.", {}, [],
-                 dateien_auflisten, "Schaut in die Bibliothek"),
+                 dateien_auflisten, tx("Schaut in die Bibliothek")),
             tool("datei_lesen", "Liest eine Datei aus der Bibliothek (Text, PDF oder Bild).", {"datei_id": s}, ["datei_id"],
-                 datei_lesen, "Liest eine Datei"),
+                 datei_lesen, tx("Liest eine Datei")),
             tool("datei_zeigen", f"Zeigt {self.user_name} eine Datei aus der Bibliothek als Karte unter deiner Antwort. Nur für "
                  f"Ergebnisse, die {self.user_name} wirklich öffnen will (meist eine, oft keine). Status-, Zwischen-, Protokoll- "
                  "und Hilfsdateien nicht zeigen; sie bleiben auch so in der Bibliothek.",
                  {"datei_id": s}, ["datei_id"], datei_zeigen, ""),
             tool("link_merken", "Merkt sich einen Link in der Bibliothek.", {"url": s, "titel": s, "notiz": s},
-                 ["url", "titel", "notiz"], link_merken, "Merkt sich einen Link"),
+                 ["url", "titel", "notiz"], link_merken, tx("Merkt sich einen Link")),
         ]
+        if not guest and not demo.active():
+            # Bilder erstellen/bearbeiten über das ChatGPT-Abo (docs/bilder.md): nur mit verbundenem Abo, nie für Gäste
+            # (ihre Läufe gehen nie über das Abo des Admins). ChatGPT-Scoops im Codex-Weg nehmen stattdessen das
+            # eingebaute Bildwerkzeug (engine_abo.CodexChatEngine).
+            from . import bilder
+            if bilder.available()[0]:
+                tools += bilder.tools(self, chat_id, actor_id, st)
         tools.append(tool("faehigkeit_speichern",
                           "Speichert eine wiederverwendbare Anleitung (Fähigkeit) für eine Aufgabe, die gut geklappt hat und "
                           f"wiederkommen wird – oder wenn {self.user_name} sagt „merk dir, wie das geht“. anleitung = konkrete Schritte "
                           "(Werkzeuge, Datenquellen, Filter, Format des Ergebnisses), so dass du sie später ohne Rückfrage befolgen kannst.",
                           {"name": s, "beschreibung": s, "anleitung": s, "fuer_alle_scoops": {"type": "boolean"}},
-                          ["name", "beschreibung", "anleitung", "fuer_alle_scoops"], faehigkeit_speichern, "Speichert eine Fähigkeit"))
+                          ["name", "beschreibung", "anleitung", "fuer_alle_scoops"], faehigkeit_speichern, tx("Speichert eine Fähigkeit")))
         tools.append(tool("faehigkeit_lesen", "Liest die Anleitung einer gespeicherten Fähigkeit (Name oder ID).",
-                          {"name": s}, ["name"], faehigkeit_lesen, lambda i: f"Nutzt Fähigkeit „{i.get('name', '')}“"))
+                          {"name": s}, ["name"], faehigkeit_lesen, lambda i: tx("Nutzt Fähigkeit „{name}“", name=i.get("name", ""))))
         tools.append(tool("faehigkeit_loeschen", "Löscht eine gespeicherte Fähigkeit.", {"name": s}, ["name"],
-                          faehigkeit_loeschen, "Löscht eine Fähigkeit"))
+                          faehigkeit_loeschen, tx("Löscht eine Fähigkeit")))
         tools.append(tool("login_ausfuellen",
                           "Füllt einen Login aus dem Tresor auf der gerade geöffneten Webseite deines Rechners aus, ohne dass du das "
                           "Passwort siehst. Vorher ins richtige Feld klicken (bei feld='beides' ins Benutzername-Feld). Funktioniert nur, "
@@ -2717,8 +2799,9 @@ class BotService:
                     p = t3.find_project(i["projekt"])
                     if not p:
                         return "Projekt nicht eindeutig gefunden. Nutze t3_projekte und gib Name oder ID genau an."
-                title = f"Coding-Auftrag an T3: {i['titel']} ({p['title']})"
-                details = f"Projekt: {p['title']}\nOrdner: {p['path']}\n\nAuftrag:\n{i['auftrag']}"
+                title = tx("Coding-Auftrag an T3: {title} ({project})", title=i["titel"], project=p["title"])
+                details = tx("Projekt: {project}\nOrdner: {path}\n\nAuftrag:\n{task}", project=p["title"], path=p["path"],
+                             task=i["auftrag"])
                 action = {"kind": "t3", "project_id": p["id"], "message": message, "title": i["titel"],
                           "project_title": p["title"], "project_path": p["path"]}
                 out = ask(title, details, action, {"kind": "t3"}, always=standing_for("t3", action), auto=t3_now(action))
@@ -2743,7 +2826,7 @@ class BotService:
             def t3_nachricht(i: dict) -> str:
                 d = t3.show(i["thread_id"], 1)
                 th = d.get("thread", {})
-                title = f"Nachricht an T3-Thread: {th.get('title') or i['thread_id']}"
+                title = tx("Nachricht an T3-Thread: {thread}", thread=th.get("title") or i["thread_id"])
                 action = {"kind": "t3_send", "thread_id": i["thread_id"], "message": i["nachricht"],
                           "thread_title": th.get("title") or ""}
                 out = ask(title, i["nachricht"], action, {"kind": "t3"}, always=standing_for("t3_send", action),
@@ -2751,17 +2834,17 @@ class BotService:
                 return out or "Freigabe angefragt. Beende deine Antwort kurz."
 
             tools += [
-                tool("t3_projekte", f"Listet {self.user_gen} Programmier-Projekte in T3 Code.", {}, [], t3_projekte, "Schaut in T3"),
+                tool("t3_projekte", f"Listet {self.user_gen} Programmier-Projekte in T3 Code.", {}, [], t3_projekte, tx("Schaut in T3")),
                 tool("t3_auftrag", "Gibt eine Programmieraufgabe an einen Coding-Agenten in T3 Code ab (z. B. App-Fehler beheben, "
                      f"Feature bauen). Braucht {self.user_gen} Freigabe. auftrag = vollständige, eigenständige Beschreibung mit Ziel und "
                      "Abnahmekriterien; titel kurz; rechner 'air' (Standard) oder 'pro' (MacBook Pro, eigene Projektliste).",
                      {"projekt": s, "auftrag": s, "titel": s, "rechner": {"type": "string", "enum": ["air", "pro"]}},
                      ["projekt", "auftrag", "titel", "rechner"],
-                     t3_auftrag, "Bereitet einen Coding-Auftrag vor"),
+                     t3_auftrag, tx("Bereitet einen Coding-Auftrag vor")),
                 tool("t3_threads", "Listet die letzten T3-Threads eines Projekts mit Status.", {"projekt": s}, ["projekt"],
-                     t3_threads, "Schaut in T3"),
+                     t3_threads, tx("Schaut in T3")),
                 tool("t3_thread_lesen", "Liest Status und letzte Nachrichten eines T3-Threads.",
-                     {"thread_id": s, "anzahl": {"type": "integer"}}, ["thread_id", "anzahl"], t3_thread_lesen, "Liest einen T3-Thread"),
+                     {"thread_id": s, "anzahl": {"type": "integer"}}, ["thread_id", "anzahl"], t3_thread_lesen, tx("Liest einen T3-Thread")),
                 tool("t3_nachricht", "Schickt eine Nachricht an einen bestehenden T3-Thread (z. B. Antwort auf Rückfrage). "
                      f"Braucht {self.user_gen} Freigabe.", {"thread_id": s, "nachricht": s}, ["thread_id", "nachricht"], t3_nachricht,
                      "Bereitet eine Nachricht an T3 vor"),
@@ -2772,23 +2855,23 @@ class BotService:
                             "in der App freigeben; danach bekommst du das Ergebnis. nummer international (+49…), empfaenger = "
                             "Name/Firma, kontext = was der Angerufene wissen darf, ziel = konkrete Fragen/gewünschtes Ergebnis.",
                             {"nummer": s, "empfaenger": s, "kontext": s, "ziel": s}, ["nummer", "empfaenger", "kontext", "ziel"],
-                            anrufen, "Bereitet einen Anruf vor"))
+                            anrufen, tx("Bereitet einen Anruf vor")))
             tools.append(tool("anrufe_lesen",
                             "Liest Lucys Anrufprotokolle (eingegangene und ausgehende Anrufe) mit Zusammenfassungen. "
                             "richtung: 'incoming', 'outgoing' oder '' für alle; seit: 'YYYY-MM-DD' oder ''; anzahl 1–5.",
                             {"richtung": s, "seit": s, "anzahl": {"type": "integer"}}, ["richtung", "seit", "anzahl"],
-                            anrufe_lesen, "Schaut in Lucys Anrufe"))
+                            anrufe_lesen, tx("Schaut in Lucys Anrufe")))
         if not group:
             tools.append(tool("scoop_schreiben", "Schreibt einem anderen Scoop direkt "
                               + ("(z. B. Lisa für Leads, Mila für MLP) " if feature("personal_hints") else "")
                               + "mit einer Frage oder Bitte. Seine Antwort kommt hier in den Chat zurück. Für Dinge, die besser "
                               "ein anderer Scoop weiß oder erledigt.",
                               {"name": s, "nachricht": s, "antwort_erwartet": {"type": "boolean"}}, ["name", "nachricht"],
-                              scoop_schreiben, lambda i: f"Schreibt {i.get('name', '')}"))
+                              scoop_schreiben, lambda i: tx("Schreibt {name}", name=i.get("name", ""))))
         if group:
             tools.append(tool("an_scoop_uebergeben", "Übergibt eine Aufgabe an einen anderen Scoop in dieser Gruppe.",
                               {"name": s, "auftrag": s}, ["name", "auftrag"], uebergeben,
-                              lambda i: f"Übergibt an {i.get('name', '')}"))
+                              lambda i: tx("Übergibt an {name}", name=i.get("name", ""))))
         if oversee and not guest and not group:
             # Aufsicht über die anderen Scoops (Server 1.21, oversight.py, docs/aufsicht.md)
             def scoop_verbessern(i: dict) -> str:
@@ -2808,7 +2891,7 @@ class BotService:
                      "kurz, letzte Aktivität, Nachrichten/Antworten/Läufe und Kosten im Zeitraum, Fehler, Abbrüche, Korrekturen, "
                      "offene/abgelehnte Freigaben, Routinen (mit Modell, letzter Lauf), Dauerfreigaben. seit wie bei "
                      "chat_lesen. Startpunkt jeder Prüfung.", {"seit": s}, ["seit"],
-                     lambda i: oversight.overview(self, actor_id, i), "Schaut sich die anderen Scoops an"),
+                     lambda i: oversight.overview(self, actor_id, i), tx("Schaut sich die anderen Scoops an")),
                 tool("chat_lesen", "Liest den Verlauf eines anderen Scoops oder einer Gruppe (name), kompakt und seitenweise "
                      "(ältere zuerst), mit Arbeitsschritten, Modell, Dauer und Kosten pro Antwort; lange Nachrichten gekürzt, "
                      "Bilder nur als Platzhalter, Gast-Gespräche geteilter Scoops ausgeblendet. nur_probleme = nur Fehler, "
@@ -2816,12 +2899,12 @@ class BotService:
                      + " seite = 1, 2, … (Hinweis am Ende).",
                      {"name": s, "seit": s, "bis": s, "seite": {"type": "integer"}, "nur_probleme": {"type": "boolean"}},
                      ["name", "seit", "bis", "seite", "nur_probleme"],
-                     lambda i: oversight.read_chat(self, actor_id, i), lambda i: f"Liest den Chat von {i.get('name', '')}"),
+                     lambda i: oversight.read_chat(self, actor_id, i), lambda i: tx("Liest den Chat von {name}", name=i.get("name", ""))),
                 tool("scoop_details", "Zeigt Charakter/Anweisungen, Fähigkeiten (mit Anleitung und ID), Gedächtnis-Einträge "
                      "(mit ID, ohne Tresor), Routinen (mit ID, Modell und Auftrag), Dauerfreigaben und Einstellungen eines "
                      "anderen Scoops bzw. die Mitglieder einer Gruppe. routine_id = '' oder rt_… für den vollständigen "
                      "Auftrag einer Routine (bei langen Aufträgen).", {"name": s, "routine_id": s}, ["name", "routine_id"],
-                     lambda i: oversight.details(self, actor_id, i), lambda i: f"Schaut sich {i.get('name', '')} genauer an"),
+                     lambda i: oversight.details(self, actor_id, i), lambda i: tx("Schaut sich {name} genauer an", name=i.get("name", ""))),
                 tool("scoop_verbessern", "Schlägt eine dauerhafte Verbesserung bei einem anderen Scoop vor. "
                      f"{self.user_name} bekommt eine Freigabe-Karte mit Vorher/Nachher und kann den Text bearbeiten; erst nach "
                      "Freigabe wird es übernommen (nie automatisch). art: 'faehigkeit' (titel = Name, beschreibung, text = "
@@ -2835,7 +2918,7 @@ class BotService:
                       "beschreibung": s, "text": s, "ersetzt": s, "modus": {"type": "string", "enum": ["ergaenzen", "ersetzen"]},
                       "routine_id": s, "modell": model_enum},
                      ["name", "art", "begruendung"], scoop_verbessern,
-                     lambda i: f"Schlägt eine Verbesserung für {i.get('name', '')} vor"),
+                     lambda i: tx("Schlägt eine Verbesserung für {name} vor", name=i.get("name", ""))),
             ]
         if not guest and self.tasks and self.tasks.enabled_for(actor_id) and depth < MAX_HANDOFFS:
             tasks = self.tasks
@@ -2917,18 +3000,18 @@ class BotService:
                               "'arbeitsordner', 'überall' oder Projektordner als Pfade (mehrere mit ';'); nie weiter, als "
                               + self.user_name + " dir erlaubt hat.",
                               {"titel": s, "auftrag": s, "termin": s, "ordner": s}, ["titel", "auftrag"], aufgabe_starten,
-                              "Startet eine Aufgabe"))
+                              tx("Startet eine Aufgabe")))
             tools.append(tool("aufgaben_status", "Zeigt die Hintergrund-Aufgaben dieses Chats mit Zustand und Kosten.", {}, [],
-                              aufgaben_status, "Schaut nach den Aufgaben"))
+                              aufgaben_status, tx("Schaut nach den Aufgaben")))
             tools.append(tool("aufgabe_fortsetzen", "Setzt eine Aufgabe fort (wartend, angehalten, am Limit oder fehlgeschlagen) oder startet eine offene bzw. geplante jetzt, "
                               "z. B. mit " + self.user_gen + " Antwort auf eine Rückfrage oder nach „mach weiter“. hinweis = Antwort "
                               "bzw. was als Nächstes zu tun ist.", {"aufgabe_id": s, "hinweis": s}, ["aufgabe_id", "hinweis"],
-                              aufgabe_fortsetzen, "Setzt eine Aufgabe fort"))
+                              aufgabe_fortsetzen, tx("Setzt eine Aufgabe fort")))
             tools.append(tool("aufgabe_stoppen", "Hält eine laufende Aufgabe an.", {"aufgabe_id": s}, ["aufgabe_id"],
-                              aufgabe_stoppen, "Hält eine Aufgabe an"))
+                              aufgabe_stoppen, tx("Hält eine Aufgabe an")))
             tools.append(tool("aufgabe_abnehmen", "Nimmt eine fertige Aufgabe ab („Zu prüfen“ → „Abgeschlossen“), wenn "
                               + self.user_name + " sagt, dass das Ergebnis so passt.", {"aufgabe_id": s}, ["aufgabe_id"],
-                              aufgabe_abnehmen, "Nimmt eine Aufgabe ab"))
+                              aufgabe_abnehmen, tx("Nimmt eine Aufgabe ab")))
         apple_svc = getattr(self, "apple", None)
         if apple_svc and not guest:  # Apple-Dienste nie für Gäste (sharing.NEVER_FOR_GUESTS)
             def apple_freigabe(titel: str, details: str, action: dict) -> str:
@@ -2977,11 +3060,19 @@ _NEVER_ALWAYS = re.compile(
     r"\bkaufen\b|\bkauf\b|einkaufen|bestell|\bbuchen\b|abonnier|"
     r"schloss|schlöss|schloess|verriegel|entriegel|tür\b|türen|tuer\b|tueren|garage|alarm|sicherheit|security|"
     r"passwort|password|kennwort|login|anmeldedaten|zugangsdaten|tresor|\bpin\b|\btan\b|"
-    r"anruf|telefon",
+    r"anruf|telefon|"
+    # Englisch (Scoops schreiben Titel in der Sprache der Person, docs/sprache.md)
+    r"purchas|\bbuy\b|\border\b|\bbook\b|booking|subscri|transfer|"
+    r"\b(un)?lock|\bdoors?\b|passcode|credential|\bvault\b|\bcall\b|phone",
     re.IGNORECASE)
+
 # Zu allgemeine Schlüssel: Eine Dauerfreigabe soll genau eine wiederkehrende Sache abdecken.
 _GENERIC_ART = frozenset({"allgemein", "alles", "freigabe", "aktion", "aktionen", "sonstiges", "standard", "default",
-                          "immer", "alle", "aufgabe", "aufgaben", "nachricht", "nachrichten", "mail", "mails"})
+                          "immer", "alle", "aufgabe", "aufgaben", "nachricht", "nachrichten", "mail", "mails",
+                          # Englisch
+                          "general", "everything", "approval", "action", "other", "always", "all", "task", "tasks",
+                          "message", "messages", "email", "emails"})
+
 
 
 def always_blocked(*texts: str) -> bool:
@@ -3031,23 +3122,26 @@ def standing_for(kind: str | None, action: dict | None = None, *, art: str = "",
         acct = (a.get("account_email") or a.get("account") or "").strip().lower()
         if not rcpt or not acct:
             return None
-        return f"mail:{acct}:{','.join(rcpt)}", f"Mails an {', '.join(rcpt)} (Konto {a.get('account') or acct})"
+        return f"mail:{acct}:{','.join(rcpt)}", tx("Mails an {to} (Konto {account})", to=", ".join(rcpt),
+                                                   account=a.get("account") or acct)
     if kind == "t3":
         if not a.get("project_id"):
             return None
         where = a.get("project_path") or ""
-        return f"t3:{a['project_id']}:{where}", f"Coding-Aufträge an T3 im Projekt {a.get('project_title') or where or a['project_id']}"
+        return f"t3:{a['project_id']}:{where}", tx("Coding-Aufträge an T3 im Projekt {project}",
+                                                   project=a.get("project_title") or where or a["project_id"])
     if kind == "t3_send":
         if not a.get("thread_id"):
             return None
-        return f"t3_send:{a['thread_id']}", f"Nachrichten an den T3-Thread „{a.get('thread_title') or a['thread_id']}“"
+        return f"t3_send:{a['thread_id']}", tx("Nachrichten an den T3-Thread „{thread}“",
+                                               thread=a.get("thread_title") or a["thread_id"])
     if kind == "apple":
         params = a.get("params") or {}
         if (a.get("service") != "home" or a.get("sensitive") or a.get("command") not in ("apple.home.set", "apple.home.scene")
                 or any(k in params for k in ("lock", "door", "security")) or not params.get("id")
                 or always_blocked(a.get("label") or "", a.get("done") or "", title)):
             return None
-        return f"apple:{a['command']}:{params['id']}", f"Home: {a.get('label') or params['id']}"
+        return f"apple:{a['command']}:{params['id']}", tx("Home: {label}", label=a.get("label") or params["id"])
     return None
 
 
@@ -3069,8 +3163,9 @@ def _addresses(text: str) -> list[str]:
 
 
 def _mail_details(mail: dict) -> str:
-    lines = [f"Von: {mail.get('account')} ({mail.get('account_email')})", "An: " + ", ".join(mail.get("to") or [])]
+    lines = [tx("Von: {account} ({email})", account=mail.get("account"), email=mail.get("account_email")),
+             tx("An: {to}", to=", ".join(mail.get("to") or []))]
     if mail.get("cc"):
-        lines.append("Cc: " + ", ".join(mail["cc"]))
-    lines.append(f"Betreff: {mail.get('subject') or '(ohne Betreff)'}")
+        lines.append(tx("Cc: {cc}", cc=", ".join(mail["cc"])))
+    lines.append(tx("Betreff: {subject}", subject=mail.get("subject") or tx("(ohne Betreff)")))
     return "\n".join(lines) + "\n\n" + (mail.get("body") or "")

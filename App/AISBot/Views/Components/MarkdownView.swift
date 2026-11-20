@@ -8,6 +8,7 @@ struct MarkdownView: View {
     var mentionBots: [Bot] = []
     var document = false
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let blocks = MarkdownText.blocks(text)
@@ -26,7 +27,7 @@ struct MarkdownView: View {
             attr[run.range].underlineStyle = nil
         }
         for run in attr.runs where run.inlinePresentationIntent?.contains(.code) == true {
-            attr[run.range].font = .system(size: 13.5, design: .monospaced)
+            attr[run.range].font = .app(13.5, design: .monospaced, in: dynamicTypeSize)
         }
         if !mentionBots.isEmpty {
             Mentions.highlight(&attr, bots: mentionBots, theme: theme)
@@ -43,8 +44,7 @@ struct MarkdownView: View {
         case .heading(let s, let level):
             if document {
                 inline(s)
-                    .font(.system(size: [28, 22, 18.5, 16.5, 15.5, 15][min(max(level, 1), 6) - 1],
-                                  weight: level <= 2 ? .bold : .semibold))
+                    .appFont([28, 22, 18.5, 16.5, 15.5, 15][min(max(level, 1), 6) - 1], weight: level <= 2 ? .bold : .semibold)
                     .foregroundStyle(level >= 5 ? theme.textSecondary : theme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, level <= 2 ? 10 : 4)
@@ -151,7 +151,7 @@ struct MarkdownTableView: View {
     private func cell(_ s: String, column: Int) -> some View {
         let a = column < align.count ? align[column] : .leading
         return inline(s)
-            .font(.system(size: 14))
+            .appFont(14)
             .multilineTextAlignment(a == .center ? .center : a == .trailing ? .trailing : .leading)
             .frame(minWidth: 60, maxWidth: 320,
                    alignment: a == .center ? .center : a == .trailing ? .trailing : .leading)
@@ -172,7 +172,8 @@ enum Mentions {
         var targets: [(name: String, color: Color, tint: Color)] = bots.map {
             (name: $0.name, color: readable($0.mascot.color, theme: theme), tint: Color(hex: $0.mascot.color))
         }
-        targets.append((name: "alle", color: theme.accent, tint: theme.accent))
+        // Alle in der Gruppe: der Server versteht @alle, @all und @everyone (docs/sprache.md)
+        for everyone in ["alle", "all", "everyone"] { targets.append((name: everyone, color: theme.accent, tint: theme.accent)) }  // nicht übersetzen: Schlüsselwörter für den Server
         targets.sort { $0.name.count > $1.name.count }
         var taken: [Range<String.Index>] = []
         for t in targets {

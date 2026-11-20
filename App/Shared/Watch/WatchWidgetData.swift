@@ -76,16 +76,16 @@ nonisolated struct WatchWidgetSnapshot: Codable, Equatable, Sendable {
     }
 
     /// Beispieldaten (Widget-Vorschau, Demo)
-    static let preview = WatchWidgetSnapshot(
+    static var preview: WatchWidgetSnapshot { WatchWidgetSnapshot(
         chats: [
-            WatchWidgetChat(id: "b_lucy", name: "Lucy", label: "Assistenz", isGroup: false, unread: 2, waiting: true,
-                            preview: "Soll ich die Mail an Jonas senden?", color: "#FF5FA8", avatarFile: nil),
+            WatchWidgetChat(id: "b_lucy", name: "Lucy", label: demoText("Assistenz", en: "Assistant"), isGroup: false, unread: 2, waiting: true,
+                            preview: demoText("Soll ich die Mail an Jonas senden?", en: "Should I send the email to Jonas?"), color: "#FF5FA8", avatarFile: nil),
             WatchWidgetChat(id: "b_mila", name: "Mila", label: "MLP", isGroup: false, unread: 0, waiting: false,
-                            preview: "Termine für morgen stehen.", color: "#7C5CFF", avatarFile: nil),
+                            preview: demoText("Termine für morgen stehen.", en: "Tomorrow’s schedule is set."), color: "#7C5CFF", avatarFile: nil),
         ],
         pendingApprovals: 2,
-        approvals: [WatchWidgetApproval(title: "Mail an Jonas senden", chatName: "Lucy", chatID: "b_lucy")],
-        serverName: "Demo", demo: true)
+        approvals: [WatchWidgetApproval(title: demoText("Mail an Jonas senden", en: "Send email to Jonas"), chatName: "Lucy", chatID: "b_lucy")],
+        serverName: "Demo", demo: true) }
 }
 
 // Gemeinsame JSON-Kodierung für WatchConnectivity und App-Gruppe (Datum als Sekunden)

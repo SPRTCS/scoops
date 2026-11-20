@@ -12,6 +12,7 @@ struct VaultCard: View {
     let vault: VaultForm
     @Environment(AppStore.self) private var store
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var username: String
     @State private var password = ""
@@ -46,7 +47,7 @@ struct VaultCard: View {
                 if working {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Wird gespeichert …").font(.system(size: 13, weight: .medium)).foregroundStyle(theme.textSecondary)
+                        Text("Wird gespeichert …").appFont(13, weight: .medium).foregroundStyle(theme.textSecondary)
                     }
                 } else {
                     buttons
@@ -82,23 +83,23 @@ struct VaultCard: View {
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: headerIcon)
-                .font(.system(size: 13, weight: .semibold))
+                .appFont(13, weight: .semibold)
                 .foregroundStyle(headerTint)
-                .frame(width: 28, height: 28)
+                .scaledFrame(28)
                 .background(headerTint.opacity(0.14), in: Circle())
             VStack(alignment: .leading, spacing: 1) {
                 Text(kicker)
-                    .font(.system(size: 11.5, weight: .medium)).foregroundStyle(theme.textTertiary)
+                    .appFont(11.5, weight: .medium).foregroundStyle(theme.textTertiary)
                 Text(headline)
-                    .font(.system(size: 15, weight: .semibold))
+                    .appFont(15, weight: .semibold)
                     .foregroundStyle(theme.textPrimary)
-                    .lineLimit(2)
+                    .adaptiveLineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 if !isPending, let detail = compactDetail {
                     Text(detail)
-                        .font(.system(size: 12.5))
+                        .appFont(12.5)
                         .foregroundStyle(theme.textSecondary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                 }
             }
             Spacer(minLength: 0)
@@ -124,16 +125,16 @@ struct VaultCard: View {
 
     private var kicker: String {
         switch status {
-        case "saved": "Tresor"
-        case "declined": "Tresor · Abgelehnt"
-        default: "Tresor · Login anlegen"
+        case "saved": String(localized: "Tresor")
+        case "declined": String(localized: "Tresor · Abgelehnt")
+        default: String(localized: "Tresor · Login anlegen")
         }
     }
 
     private var headline: String {
         switch status {
-        case "saved": "Im Tresor gespeichert"
-        case "declined": "Nicht gespeichert: \(vault.title)"
+        case "saved": String(localized: "Im Tresor gespeichert")
+        case "declined": String(localized: "Nicht gespeichert: \(vault.title)")
         default: vault.title
         }
     }
@@ -153,16 +154,16 @@ struct VaultCard: View {
                 if let link = siteURL {
                     Link(destination: link) {
                         HStack(spacing: 4) {
-                            Text(vault.site ?? link.absoluteString).lineLimit(1)
-                            Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .bold))
+                            Text(vault.site ?? link.absoluteString).adaptiveLineLimit(1)
+                            Image(systemName: "arrow.up.right").appFont(9, weight: .bold)
                         }
-                        .font(.system(size: 14))
+                        .appFont(14)
                         .foregroundStyle(theme.link)
                     }
                     .help(link.absoluteString)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text(vault.site ?? "–").font(.system(size: 14)).foregroundStyle(theme.textSecondary)
+                    Text(vault.site ?? "–").appFont(14).foregroundStyle(theme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -170,7 +171,7 @@ struct VaultCard: View {
             row("Benutzer") {
                 TextField("Name oder E-Mail", text: $username)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 14))
+                    .appFont(14)
                     .foregroundStyle(theme.textPrimary)
                     .textContentType(.username)
                     .autocorrectionDisabled()
@@ -194,7 +195,7 @@ struct VaultCard: View {
                         }
                     }
                     .textFieldStyle(.plain)
-                    .font(.system(size: 14))
+                    .appFont(14)
                     .foregroundStyle(theme.textPrimary)
                     .textContentType(.password)
                     .autocorrectionDisabled()
@@ -207,9 +208,9 @@ struct VaultCard: View {
                     .disabled(working)
                     Button { showPassword.toggle() } label: {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
-                            .font(.system(size: 13, weight: .medium))
+                            .appFont(13, weight: .medium)
                             .foregroundStyle(theme.textSecondary)
-                            .frame(width: 24, height: 22)
+                            .scaledFrame(width: 24, height: 22)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -232,12 +233,14 @@ struct VaultCard: View {
         Rectangle().fill(theme.surfaceBorder).frame(height: 0.5).padding(.leading, 12)
     }
 
-    private func row<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+    private func row<Content: View>(_ label: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
+        // Große Schrift (Bedienungshilfen): Beschriftung über dem Feld statt in einer festen Spalte
+        AdaptiveStack(verticalAlignment: .firstTextBaseline, spacing: dynamicTypeSize.isAccessibilitySize ? 2 : 10) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .appFont(13, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
-                .frame(width: 70, alignment: .leading)
+                .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : AppFont.scaled(70, relativeTo: .footnote, in: dynamicTypeSize),
+                       alignment: .leading)
             content()
         }
         .padding(.horizontal, 12)
@@ -246,14 +249,14 @@ struct VaultCard: View {
 
     private var hint: some View {
         Label("Kein Scoop sieht das Passwort.", systemImage: "lock.fill")
-            .font(.system(size: 12.5))
+            .appFont(12.5)
             .foregroundStyle(theme.textSecondary)
             .labelStyle(HintLabelStyle())
     }
 
     private func errorText(_ text: String) -> some View {
         Label(text, systemImage: "exclamationmark.triangle.fill")
-            .font(.system(size: 13))
+            .appFont(13)
             .foregroundStyle(theme.danger)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -263,7 +266,7 @@ struct VaultCard: View {
     private var canSave: Bool { !password.isEmpty && !working }
 
     private var buttons: some View {
-        HStack(spacing: 8) {
+        AdaptiveButtonRow(spacing: 8, stretchWhenStacked: true) {
             Spacer(minLength: 0)
             Button { decline() } label: { Text("Abbrechen").frame(minWidth: 80) }
                 .buttonStyle(PillButtonStyle(kind: .secondary))
@@ -280,7 +283,7 @@ struct VaultCard: View {
         working = true
         error = nil
         Task {
-            if let authError = await DeviceAuth.confirm(reason: "Login im Tresor speichern", skip: skipsAuthentication) {
+            if let authError = await DeviceAuth.confirm(reason: String(localized: "Login im Tresor speichern"), skip: skipsAuthentication) {
                 error = authError
                 working = false
                 return
@@ -321,7 +324,7 @@ struct VaultCard: View {
 private struct HintLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            configuration.icon.font(.system(size: 10.5))
+            configuration.icon.appFont(10.5)
             configuration.title
         }
     }
@@ -333,16 +336,16 @@ enum DeviceAuth {
     static func confirm(reason: String, skip: Bool = false) async -> String? {
         if skip { return nil }
         let context = LAContext()
-        context.localizedCancelTitle = "Abbrechen"
+        context.localizedCancelTitle = String(localized: "Abbrechen")
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            return "Auf diesem Gerät ist kein Code oder Face ID / Touch ID eingerichtet."
+            return String(localized: "Auf diesem Gerät ist kein Code oder Face ID / Touch ID eingerichtet.")
         }
         do {
             return try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
-                ? nil : "Nicht bestätigt."
+                ? nil : String(localized: "Nicht bestätigt.")
         } catch {
-            return "Nicht bestätigt. Tippe noch einmal auf „Im Tresor speichern“."
+            return String(localized: "Nicht bestätigt. Tippe noch einmal auf „Im Tresor speichern“.")
         }
     }
 }

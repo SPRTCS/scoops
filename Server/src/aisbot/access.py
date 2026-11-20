@@ -29,8 +29,11 @@ import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 
-MODES = {"ask": "Immer genehmigen", "auto": "Automatisch", "full": "Vollzugriff"}
-SCOPES = {"workspace": "Nur Arbeitsordner", "projects": "Projektordner", "home": "Überall"}
+from .i18n import N_, translate, tx
+
+# Beschriftungen (deutsch, für Prompts); sichtbar in der Sprache der Person über mode_label/scope_label
+MODES = {"ask": N_("Immer genehmigen"), "auto": N_("Automatisch"), "full": N_("Vollzugriff")}
+SCOPES = {"workspace": N_("Nur Arbeitsordner"), "projects": N_("Projektordner"), "home": N_("Überall")}
 DEFAULT_MODE, DEFAULT_SCOPE = "auto", "workspace"
 MAX_FOLDERS = 12
 
@@ -72,7 +75,7 @@ def clean_folders(raw, check: bool = True) -> list[str]:
     if isinstance(raw, str):
         raw = [x for x in re.split(r"[\n;]", raw) if x.strip()]
     if not isinstance(raw, list):
-        raise AccessError("Projektordner: Liste von Pfaden erwartet.")
+        raise AccessError(tx("Projektordner: Liste von Pfaden erwartet."))
     home = os.path.realpath(str(Path.home()))
     out: list[str] = []
     for item in raw:
@@ -80,20 +83,21 @@ def clean_folders(raw, check: bool = True) -> list[str]:
         if not s:
             continue
         if "\x00" in s or len(s) > 500 or not (s.startswith("/") or s == "~" or s.startswith("~/")):
-            raise AccessError(f"„{s}“ ist kein absoluter Pfad (beginnt mit / oder ~/).")
+            raise AccessError(tx("„{path}“ ist kein absoluter Pfad (beginnt mit / oder ~/).", path=s))
         real = os.path.realpath(_expand(s))
         if real == home or real == "/" or not (real.startswith(home + os.sep)):
-            raise AccessError(f"„{s}“: Bitte einen Ordner innerhalb deines Home-Ordners wählen (für alles: Bereich „Überall“).")
+            raise AccessError(tx("„{path}“: Bitte einen Ordner innerhalb deines Home-Ordners wählen (für alles: Bereich "
+                                 "„Überall“).", path=s))
         lib = os.path.join(home, "Library")
         if real == lib or real.startswith(lib + os.sep):
-            raise AccessError(f"„{s}“ liegt in ~/Library. Bitte einen anderen Ordner wählen.")
+            raise AccessError(tx("„{path}“ liegt in ~/Library. Bitte einen anderen Ordner wählen.", path=s))
         if check and not os.path.isdir(real):
-            raise AccessError(f"„{_pretty(real)}“ gibt es nicht (oder ist kein Ordner).")
+            raise AccessError(tx("„{path}“ gibt es nicht (oder ist kein Ordner).", path=_pretty(real)))
         p = _pretty(real)
         if p not in out:
             out.append(p)
     if len(out) > MAX_FOLDERS:
-        raise AccessError(f"Höchstens {MAX_FOLDERS} Projektordner.")
+        raise AccessError(tx("Höchstens {n} Projektordner.", n=MAX_FOLDERS))
     return out
 
 
@@ -116,14 +120,14 @@ def normalize(raw, check: bool = False) -> dict:
 def validate(body: dict) -> dict:
     """Änderung über die API prüfen (mode, scope, folders). Fehler als AccessError mit lesbarem Text."""
     if not isinstance(body, dict):
-        raise AccessError("Ungültige Einstellung.")
+        raise AccessError(tx("Ungültige Einstellung."))
     if "mode" in body and body["mode"] not in MODES:
-        raise AccessError("Modus: ask (Immer genehmigen), auto (Automatisch) oder full (Vollzugriff).")
+        raise AccessError(tx("Modus: ask (Immer genehmigen), auto (Automatisch) oder full (Vollzugriff)."))
     if "scope" in body and body["scope"] not in SCOPES:
-        raise AccessError("Bereich: workspace (Nur Arbeitsordner), projects (Projektordner) oder home (Überall).")
+        raise AccessError(tx("Bereich: workspace (Nur Arbeitsordner), projects (Projektordner) oder home (Überall)."))
     folders = clean_folders(body.get("folders"), check=True) if "folders" in body else None
     if body.get("scope") == "projects" and folders is not None and not folders:
-        raise AccessError("Für „Projektordner“ bitte mindestens einen Ordner wählen.")
+        raise AccessError(tx("Für „Projektordner“ bitte mindestens einen Ordner wählen."))
     out = {}
     for k in ("mode", "scope"):
         if k in body:
@@ -136,21 +140,31 @@ def validate(body: dict) -> dict:
 def merge(current: dict, change: dict) -> dict:
     d = {**normalize(current), **change}
     if d["scope"] == "projects" and not d.get("folders"):
-        raise AccessError("Für „Projektordner“ bitte mindestens einen Ordner wählen.")
+        raise AccessError(tx("Für „Projektordner“ bitte mindestens einen Ordner wählen."))
     return normalize(d)
 
 
 def public(setting: dict) -> dict:
     d = normalize(setting)
-    return {**d, "mode_label": MODES[d["mode"]], "scope_label": SCOPES[d["scope"]]}
+    return {**d, "mode_label": mode_label(d["mode"]), "scope_label": scope_label(d["scope"])}
+
+
+def mode_label(mode: str) -> str:
+    """Beschriftung eines Modus in der aktuellen Sprache (i18n)."""
+    return translate(MODES.get(mode, mode))
+
+
+def scope_label(scope: str) -> str:
+    """Beschriftung eines Bereichs in der aktuellen Sprache (i18n)."""
+    return translate(SCOPES.get(scope, scope))
 
 
 def summary(mode: str, scope: str, folders: list[str] | None = None) -> str:
-    """„Automatisch · Projektordner (~/Code/App)“"""
-    s = SCOPES.get(scope, scope)
+    """„Automatisch · Projektordner (~/Code/App)“ (in der aktuellen Sprache)"""
+    s = scope_label(scope)
     if scope == "projects" and folders:
         s += " (" + ", ".join(folders[:3]) + (" …" if len(folders) > 3 else "") + ")"
-    return f"{MODES.get(mode, mode)} · {s}"
+    return f"{mode_label(mode)} · {s}"
 
 
 def narrow(allowed: dict, wanted: dict | None) -> dict:
@@ -164,20 +178,20 @@ def narrow(allowed: dict, wanted: dict | None) -> dict:
         return {"scope": "workspace", "folders": []}
     order = {"workspace": 0, "projects": 1, "home": 2}
     if order[scope] > order[base["scope"]]:
-        raise AccessError(f"Der Bereich „{SCOPES[scope]}“ ist für diesen Scoop nicht freigegeben (erlaubt: "
-                          f"{SCOPES[base['scope']]}). Nur der Nutzer kann ihn erweitern.")
+        raise AccessError(tx("Der Bereich „{scope}“ ist für diesen Scoop nicht freigegeben (erlaubt: {allowed}). Nur der "
+                             "Nutzer kann ihn erweitern.", scope=scope_label(scope), allowed=scope_label(base["scope"])))
     if scope == "home":
         return {"scope": "home", "folders": []}
     folders = clean_folders(wanted.get("folders") or base["folders"], check=True)
     if not folders:
-        raise AccessError("Für „Projektordner“ bitte mindestens einen Ordner nennen.")
+        raise AccessError(tx("Für „Projektordner“ bitte mindestens einen Ordner nennen."))
     if base["scope"] == "projects":
         roots = [os.path.realpath(_expand(f)) for f in base["folders"]]
         for f in folders:
             real = os.path.realpath(_expand(f))
             if not any(real == r or real.startswith(r + os.sep) for r in roots):
-                raise AccessError(f"„{f}“ liegt nicht in den freigegebenen Projektordnern ({', '.join(base['folders'])}). "
-                                  "Nur der Nutzer kann weitere Ordner freigeben.")
+                raise AccessError(tx("„{path}“ liegt nicht in den freigegebenen Projektordnern ({folders}). Nur der Nutzer "
+                                     "kann weitere Ordner freigeben.", path=f, folders=", ".join(base["folders"])))
     return {"scope": "projects", "folders": folders}
 
 
@@ -299,10 +313,10 @@ OK = Verdict("ok")
 
 def check_read(acc: Access, path: str, home: str | None = None) -> Verdict:
     if is_secret(path, home):
-        return Verdict("deny", "Zugangsdaten (Schlüssel, Tokens) liest du nie als Datei.")
+        return Verdict("deny", tx("Zugangsdaten (Schlüssel, Tokens) liest du nie als Datei."))
     if not within(path, acc.roots(home)):
-        return Verdict("deny", f"{_pretty(os.path.realpath(path))} liegt außerhalb deines Bereichs ({acc.label()}). "
-                               f"Erweitern kann ihn nur {acc.user}.")
+        return Verdict("deny", tx("{path} liegt außerhalb deines Bereichs ({scope}). Erweitern kann ihn nur {user}.",
+                                  path=_pretty(os.path.realpath(path)), scope=acc.label(), user=acc.user))
     return OK
 
 
@@ -310,21 +324,23 @@ def check_write(acc: Access, path: str, kind: str, exists: bool, home: str | Non
     """kind: create (neue Datei), edit (gezielt ersetzen), overwrite (ganze Datei ersetzen), delete."""
     real = os.path.realpath(path)
     if is_secret(real, home):
-        return Verdict("deny", "Zugangsdaten änderst du nie.")
+        return Verdict("deny", tx("Zugangsdaten änderst du nie."))
     if not within(real, acc.roots(home)):
-        return Verdict("deny", f"{_pretty(real)} liegt außerhalb deines Bereichs ({acc.label()}). Erweitern kann ihn nur "
-                               f"{acc.user}.")
+        return Verdict("deny", tx("{path} liegt außerhalb deines Bereichs ({scope}). Erweitern kann ihn nur {user}.",
+                                  path=_pretty(real), scope=acc.label(), user=acc.user))
     if within(real, acc.own_roots(home)):
         return OK
     mode = acc.effective_mode
     if mode == "full":
         return OK
-    what = {"create": "Neue Datei", "edit": "Datei ändern", "overwrite": "Datei überschreiben",
-            "delete": "Datei löschen"}.get(kind, "Datei ändern")
+    what = {"create": tx("Neue Datei außerhalb des Arbeitsordners: {path}", path=_pretty(real)),
+            "overwrite": tx("Datei überschreiben außerhalb des Arbeitsordners: {path}", path=_pretty(real)),
+            "delete": tx("Datei löschen außerhalb des Arbeitsordners: {path}", path=_pretty(real))}.get(
+        kind, tx("Datei ändern außerhalb des Arbeitsordners: {path}", path=_pretty(real)))
     if mode == "ask":
-        return Verdict("ask", f"{what} außerhalb des Arbeitsordners: {_pretty(real)}")
+        return Verdict("ask", what)
     if kind == "delete" or (kind == "overwrite" and exists):
-        return Verdict("ask", f"{what} außerhalb des Arbeitsordners: {_pretty(real)}")
+        return Verdict("ask", what)
     return OK
 
 
@@ -437,7 +453,7 @@ def assess_command(acc: Access, command: str, cwd: str | None = None, home: str 
         return OK
     mode = acc.effective_mode
     if _SUDO.search(cmd):
-        return Verdict("ask", "Befehl mit sudo (Administratorrechte)")
+        return Verdict("ask", tx("Befehl mit sudo (Administratorrechte)"))
     own = acc.own_roots(h)
     roots = acc.roots(h)
     reasons: list[str] = []
@@ -452,21 +468,21 @@ def assess_command(acc: Access, command: str, cwd: str | None = None, home: str 
             cwd = _resolve(words[1], cwd, h) if len(words) > 1 and words[1] != "-" else h
             continue
         if _SECRET_CMD.match(line):
-            return Verdict("ask", "Befehl liest oder ändert Passwörter bzw. den Schlüsselbund")
+            return Verdict("ask", tx("Befehl liest oder ändert Passwörter bzw. den Schlüsselbund"))
         risky = None
         if head == "git" and len(words) > 1:
             sub = words[1]
             if sub == "push":
-                risky = "git push (lädt Änderungen hoch)"
+                risky = tx("git push (lädt Änderungen hoch)")
             elif any(w in ("--force", "-f", "--force-with-lease") for w in words[2:]) and sub in ("push", "checkout",
                                                                                                     "branch", "clean"):
-                risky = f"git {sub} mit Force"
+                risky = tx("git {sub} mit Force", sub=sub)
             elif sub == "reset" and "--hard" in words:
-                risky = "git reset --hard (verwirft Änderungen)"
+                risky = tx("git reset --hard (verwirft Änderungen)")
             elif sub == "clean" and any(w.startswith("-") and "f" in w for w in words[2:]):
-                risky = "git clean (löscht Dateien)"
+                risky = tx("git clean (löscht Dateien)")
             elif sub == "branch" and any(w in ("-D", "-d", "--delete") for w in words[2:]):
-                risky = "Git-Branch löschen"
+                risky = tx("Git-Branch löschen")
             if sub not in _GIT_READ or (sub == "branch" and len(words) > 2 and not words[2].startswith("--list")) \
                     or (sub == "remote" and len(words) > 2 and words[2] not in ("-v", "show", "get-url")) \
                     or (sub == "config" and not any(w in ("--get", "--list", "-l", "--get-all") for w in words)) \
@@ -480,11 +496,11 @@ def assess_command(acc: Access, command: str, cwd: str | None = None, home: str 
             for w in _paths(words):
                 p = _resolve(w, cwd, h)
                 if rec and (_is_broad(p, h) or "*" in w and not within(os.path.dirname(p), own)):
-                    risky = f"rm -r auf einen breiten Pfad ({w})"
+                    risky = tx("rm -r auf einen breiten Pfad ({path})", path=w)
                     break
                 if not within(p, own):
-                    risky = (f"Löschen außerhalb des Arbeitsordners ({w})" if within(p, roots)
-                             else f"Löschen außerhalb deines Bereichs ({w})")
+                    risky = (tx("Löschen außerhalb des Arbeitsordners ({path})", path=w) if within(p, roots)
+                             else tx("Löschen außerhalb deines Bereichs ({path})", path=w))
                     break
         elif head in ("mv", "cp", "ditto", "rsync", "ln", "install", "tee", "truncate", "dd"):
             readonly = False
@@ -502,11 +518,11 @@ def assess_command(acc: Access, command: str, cwd: str | None = None, home: str 
                 if within(p, own):
                     continue
                 if not within(p, roots):
-                    risky = f"Schreibt außerhalb deines Bereichs ({w})"
+                    risky = tx("Schreibt außerhalb deines Bereichs ({path})", path=w)
                     break
                 if head == "mv" or head == "dd" or head == "truncate" or exists is None or exists(p) \
                         or (head == "rsync" and "--delete" in words):
-                    risky = f"Überschreiben oder Verschieben außerhalb des Arbeitsordners ({w})"
+                    risky = tx("Überschreiben oder Verschieben außerhalb des Arbeitsordners ({path})", path=w)
                     break
         elif head in ("sed", "perl") and any(w.startswith("-i") or w == "-pi" for w in words[1:]):
             readonly = False
@@ -515,7 +531,7 @@ def assess_command(acc: Access, command: str, cwd: str | None = None, home: str 
             if "-delete" in words:
                 start = _resolve(next((w for w in words[1:] if not w.startswith("-")), "."), cwd, h)
                 if not within(start, own):
-                    risky = "find -delete außerhalb des Arbeitsordners"
+                    risky = tx("find -delete außerhalb des Arbeitsordners")
         elif head in ("curl", "wget"):
             if any(w in ("-o", "-O", "--output", "--remote-name", "-X", "--request", "-d", "--data", "-F", "--form", "-T")
                    for w in words) or head == "wget" and "-O" not in words:
@@ -544,35 +560,35 @@ def assess_command(acc: Access, command: str, cwd: str | None = None, home: str 
         else:
             readonly = False
         if risky is None and _RISK_SYSTEM.match(line):
-            risky = "Systemeinstellung ändern"
+            risky = tx("Systemeinstellung ändern")
         if risky is None and _INSTALL.match(line):
-            risky = "Installation"
+            risky = tx("Installation")
         if risky is None and _PIP.match(line) and not venv and not re.search(r"(^|/)(\.?venv|env|\.tox)/bin/", words[0]) \
                 and "--target" not in words and "-t" not in words:
-            risky = "pip install außerhalb einer venv"
+            risky = tx("pip install außerhalb einer venv")
         if risky is None and _UPLOAD.match(line):
-            risky = "Datei-Upload ins Netz"
+            risky = tx("Datei-Upload ins Netz")
         for op, target in _redirects(seg):
             readonly = False
             p = _resolve(target, cwd, h)
             if within(p, own):
                 continue
             if not within(p, roots):
-                risky = risky or f"Schreibt außerhalb deines Bereichs ({target})"
+                risky = risky or tx("Schreibt außerhalb deines Bereichs ({path})", path=target)
                 continue
             if op == ">" and (exists is None or exists(p)) and risky is None:
-                risky = f"Überschreiben außerhalb des Arbeitsordners ({target})"
+                risky = tx("Überschreiben außerhalb des Arbeitsordners ({path})", path=target)
         if risky:
             reasons.append(risky)
     if _CURL_PIPE.search(cmd):
-        reasons.append("Installationsskript aus dem Netz (curl | sh)")
+        reasons.append(tx("Installationsskript aus dem Netz (curl | sh)"))
         readonly = False
     if mode == "full":
         return OK
     if reasons:
         return Verdict("ask", reasons[0])
     if mode == "ask" and not readonly:
-        return Verdict("ask", "Befehl verändert etwas (Modus „Immer genehmigen“)")
+        return Verdict("ask", tx("Befehl verändert etwas (Modus „Immer genehmigen“)"))
     return OK
 
 

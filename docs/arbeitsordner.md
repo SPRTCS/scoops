@@ -29,6 +29,8 @@ Scoops an Dateien erzeugen, liegt so an einer Stelle im Finder, zusätzlich zur 
 ## Was wohin kommt
 
 - **`datei_speichern`**: Bibliothek wie bisher, dazu eine Kopie in `<Scoop>/Dateien/`. Der Scoop bekommt den Pfad zurück.
+- **Bilder** (`bild_erstellen`, `bild_bearbeiten` und Bilder von ChatGPT-Scoops, ab 1.39, `docs/bilder.md`): Bibliothek
+  und `<Scoop>/Dateien/`; aus einer Aufgabe `<Scoop>/Aufgaben/<JJJJ-MM-TT Titel>/` und `bilder/` im Arbeitsordner der Aufgabe.
 - **Aufgaben-Ergebnisse** (`ergebnis/` bzw. `datei_in_bibliothek`): Bibliothek wie bisher, dazu
   `<Scoop>/Aufgaben/<JJJJ-MM-TT Titel>/`. Die Aufgabe selbst arbeitet weiter isoliert in `<Daten>/tasks/<id>/` und
   darf den Scoop-Ordner nicht selbst anfassen; kopiert wird vom Server.

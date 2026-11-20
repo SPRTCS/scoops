@@ -28,6 +28,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
 from .profile import kc
+from . import i18n
+from .i18n import N_, tx, txn
 
 BUNDLE_ID = "com.ais.aisbot"
 HOSTS = {"production": "https://api.push.apple.com", "sandbox": "https://api.sandbox.push.apple.com"}
@@ -55,8 +57,20 @@ class Relay:
         self._status_at = 0.0
         self._status_running = False
         self._registered: set[str] = set()
-        self.last_error: str | None = None
+        self._error: tuple[str, dict] | None = None  # (deutscher Text mit N_, Platzhalter); übersetzt beim Lesen
         self._lock = threading.Lock()
+
+    @property
+    def last_error(self) -> str | None:
+        """Letzter Fehler für die Einrichtung (server.py), in der Sprache der Anfrage."""
+        if not self._error:
+            return None
+        text, kw = self._error
+        return i18n.translate(text).format(**kw) if kw else i18n.translate(text)
+
+    @last_error.setter
+    def last_error(self, value: str | None) -> None:
+        self._error = (value, {}) if value else None
 
     # Zustand
     def _url(self) -> str:
@@ -94,13 +108,13 @@ class Relay:
                 return
             if r.status_code == 200:
                 self._configured = bool(_json(r).get("configured"))
-                self.last_error = None if self._configured else "Push-Relay ist in der Cloud nicht eingerichtet"
+                self.last_error = None if self._configured else N_("Push-Relay ist in der Cloud nicht eingerichtet")
             elif r.status_code == 401:
                 self._configured = False
                 self._secret = None
-                self.last_error = "Server ist nicht (mehr) mit einem Konto gekoppelt"
+                self.last_error = N_("Server ist nicht (mehr) mit einem Konto gekoppelt")
         except Exception as e:  # noqa: BLE001 – Netzfehler: letzter Stand bleibt
-            self.last_error = f"Push-Relay nicht erreichbar: {e}"
+            self._error = (N_("Push-Relay nicht erreichbar: {e}"), {"e": str(e)})
         finally:
             self._status_at = time.time()
             self._status_running = False
@@ -217,6 +231,7 @@ class Pusher:
         self._badge_last: int | None = None
         self._badge_timer: threading.Timer | None = None
         self._badge_lock = threading.Lock()
+        self.ruhe = None  # Stummschalten und Ruhezeiten (ruhe.Ruhe), setzt server.py
         self.db.q("DROP TABLE IF EXISTS live_ended")
         self.board = LiveBoard(self)
 
@@ -363,20 +378,52 @@ class Pusher:
 
     def notify_users(self, user_ids: list[str], title: str, body: str, data: dict | None = None) -> None:
         """Mitteilung an die Geräte von Gästen (geteilte Scoops). Ohne Badge – die Zahl am App-Symbol gehört dem
-        eigenen Server des Gasts. Zusätzlich `shared`, `server_id`, `owner_id`, damit die App den Chat findet."""
+        eigenen Server des Gasts. Zusätzlich `shared`, `server_id`, `owner_id`, damit die App den Chat findet.
+        Stummschaltung und Ruhezeit gelten pro Gast (ruhe.py)."""
         if not self.enabled or not user_ids:
             return
         ph = ",".join("?" * len(user_ids))
-        devices = [r["token"] for r in self.db.q(
-            f"SELECT token FROM guest_devices WHERE user_id IN ({ph}) AND (platform IN ('ios','macos','ipados') OR platform IS NULL)",
-            tuple(user_ids))]
-        if not devices:
+        rows = self.db.q(
+            f"SELECT token, user_id FROM guest_devices WHERE user_id IN ({ph}) AND (platform IN ('ios','macos','ipados') OR platform IS NULL)",
+            tuple(user_ids))
+        if not rows:
             return
         cfg = self.load_config()
-        payload = {"aps": {"alert": {"title": title, "body": body[:240]}, "sound": "default",
-                           "thread-id": (data or {}).get("bot_id", "aisbot"), "mutable-content": 1},
-                   **(data or {}), "shared": True, "server_id": cfg.get("cloud_server_id"), "owner_id": cfg.get("owner_id")}
-        self._spawn([(d, payload) for d in devices], "alert", BUNDLE_ID, "10")
+        levels = {u: self._delivery(u, data) for u in {r["user_id"] for r in rows}}
+        for level, priority in (("normal", "10"), ("passive", "5")):
+            devices = [r["token"] for r in rows if levels[r["user_id"]] == level]
+            if not devices:
+                continue
+            payload = {"aps": self._alert_aps(title, body, data, level),
+                       **(data or {}), "shared": True, "server_id": cfg.get("cloud_server_id"), "owner_id": cfg.get("owner_id")}
+            self._spawn([(d, payload) for d in devices], "alert", BUNDLE_ID, priority)
+
+    # -- Stummschalten und Ruhezeiten (ruhe.py, setzt server.py als `self.ruhe`) -----------------------------
+    def _delivery(self, user_id: str | None, data: dict | None, kind: str | None = None) -> str | None:
+        """`"normal"`, `"passive"` (Ruhezeit: still) oder `None` (Chat stumm: keine Mitteilung) für diese Person."""
+        ruhe = getattr(self, "ruhe", None)
+        if ruhe is None:
+            return "normal"
+        d = data or {}
+        try:
+            return ruhe.delivery(user_id, d.get("chat_id") or d.get("bot_id"), kind or "message")
+        except Exception as e:  # noqa: BLE001 – im Zweifel lieber melden als verschlucken
+            print("Ruhe-Fehler:", e, flush=True)
+            return "normal"
+
+    @staticmethod
+    def _alert_aps(title: str, body: str, data: dict | None, level: str) -> dict:
+        aps = {"alert": {"title": title, "body": body[:240]},
+               "thread-id": (data or {}).get("bot_id", "aisbot"), "mutable-content": 1}
+        if level == "passive":
+            aps["interruption-level"] = "passive"  # still: ohne Ton und Banner, nur in der Mitteilungszentrale
+        else:
+            aps["sound"] = "default"
+        return aps
+
+    def _badge_count(self) -> int:
+        ruhe = getattr(self, "ruhe", None)
+        return ruhe.unread_chat_count() if ruhe is not None else self.db.unread_chat_count()
 
     def note_token(self, token: str, platform: str | None) -> None:
         """Token, das die App gemeldet hat: im Relay-Modus gleich bei Convex anmelden (im Hintergrund)."""
@@ -395,24 +442,29 @@ class Pusher:
         return [r["token"] for r in self.db.q(f"SELECT token FROM devices WHERE {APP_PLATFORMS_SQL}")]
 
     # -- Mitteilungen und Badge ----------------------------------------------------------
-    def notify(self, title: str, body: str, data: dict | None = None, category: str | None = None) -> None:
+    def notify(self, title: str, body: str, data: dict | None = None, category: str | None = None,
+               kind: str = "message") -> None:
         """Mitteilung an alle registrierten Geräte (im Hintergrund). Badge = Chats mit ungelesenen Nachrichten.
-        `category` = `aps.category` (Freigabe-Knöpfe an der Mitteilung, ab 1.32)."""
+        `category` = `aps.category` (Freigabe-Knöpfe an der Mitteilung, ab 1.32). `kind` (`message`, `approval`,
+        `reminder`) entscheidet mit Stummschaltung und Ruhezeit des Inhabers, ob und wie sie ankommt (ruhe.py)."""
         if not self.enabled:
             return
+        level = self._delivery(None, data, kind)
+        if level is None:
+            return  # Chat ist stumm
         # Nur echte App-Geräte; Widget- und Live-Aktivitäts-Tokens haben eigene Topics.
         devices = self._app_devices()
         if not devices:
             return
-        badge = self.db.unread_chat_count()
+        badge = self._badge_count()
         with self._badge_lock:
             self._badge_last = badge
-        payload = {"aps": {"alert": {"title": title, "body": body[:240]}, "sound": "default", "badge": badge,
-                           "thread-id": (data or {}).get("bot_id", "aisbot"), "mutable-content": 1},
-                   **(data or {})}
+        aps = self._alert_aps(title, body, data, level)
+        aps["badge"] = badge
+        payload = {"aps": aps, **(data or {})}
         if category:
             payload["aps"]["category"] = category
-        self._spawn([(d, payload) for d in devices], "alert", BUNDLE_ID, "10")
+        self._spawn([(d, payload) for d in devices], "alert", BUNDLE_ID, "10" if level == "normal" else "5")
 
     def badge_changed(self) -> None:
         """Ein Chat wurde gelesen (unread=0): Badge der App leise aktualisieren, entprellt, nur bei Änderung."""
@@ -428,7 +480,7 @@ class Pusher:
     def _badge_flush(self) -> None:
         with self._badge_lock:
             self._badge_timer = None
-            n = self.db.unread_chat_count()
+            n = self._badge_count()
             if n == self._badge_last:
                 return
             self._badge_last = n
@@ -551,7 +603,7 @@ class LiveBoard:
         lines = meta.get("lines") or []
         e = dict(old or {})
         e.update({"id": bot["id"], "name": bot["name"], "label": bot.get("label") or None, "mascot": bot["mascot"],
-                  "state": meta.get("state", "running"), "statusLine": (lines or ["Denkt nach"])[-1][:80],
+                  "state": meta.get("state", "running"), "statusLine": (lines or [tx("Denkt nach")])[-1][:80],
                   "steps": len(lines), "startedAt": _apple_ts(meta.get("started_at")) or (time.time() - APPLE_EPOCH)})
         fin = _apple_ts(meta.get("finished_at"))
         if fin is not None:
@@ -642,7 +694,8 @@ class LiveBoard:
         aps = {"timestamp": int(time.time()), "event": "start", "content-state": self.content(),
                "attributes-type": "ScoopsLiveAttributes", "attributes": {"title": "AIS Scoops"},
                "alert": {"title": names[0] if len(names) == 1 else "AIS Scoops",
-                         "body": "arbeitet …" if len(names) == 1 else f"{len(names)} Scoops arbeiten"}}
+                         "body": tx("arbeitet …") if len(names) == 1 else txn("{n} Scoop arbeitet", "{n} Scoops arbeiten",
+                                                                                len(names))}}
         if self.channel:
             aps["input-push-channel"] = self.channel
         else:

@@ -1,3 +1,4 @@
+import CoreSpotlight
 import SwiftUI
 import UserNotifications
 
@@ -20,6 +21,11 @@ struct AISBotApp: App {
         NotificationManager.shared.setUp()
         // Für Freigabe-Knöpfe an Mitteilungen, auch wenn iOS die App nur im Hintergrund startet
         NotificationManager.shared.store = store
+        // Teilen-Menü, Kurzbefehle, Controls, Spotlight (docs/system.md); auch beim Hintergrundstart für einen Kurzbefehl
+        SystemSync.shared.start(store: store)
+        // `aisbot://today` (Kurzbefehle, Widgets): Seite „Heute“. Der Router wartet beim Kaltstart, bis die Verbindung
+        // steht und damit bekannt ist, ob der Server die Seite kennt.
+        DeepLinkRouter.shared.openToday = { [weak store] in store?.openToday() }
         #if os(iOS)
         // Apple Watch: Zugangsdaten übergeben und Anfragen der Uhr beantworten (auch beim Hintergrundstart)
         WatchBridge.shared.start(store: store)
@@ -36,8 +42,12 @@ struct AISBotApp: App {
         WindowGroup("AIS Scoops") {
             RootView()
                 .environment(store)
+                // Debug: `-dynamictype ax3` stellt die Schriftgröße für Screenshots ein
+                .launchDynamicTypeOverride()
                 .task { await launch() }
                 .onOpenURL { handle($0) }
+                // Treffer aus der Systemsuche (Spotlight): Chat öffnen
+                .onContinueUserActivity(CSSearchableItemActionType) { DeepLinkRouter.shared.open($0) }
                 // Links (Kopplung, Widgets) im vorhandenen Fenster öffnen statt ein neues anzulegen.
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 #if os(macOS)
@@ -144,7 +154,7 @@ struct AISBotApp: App {
         if args.contains("-perfbench") {
             Task {
                 try? await Task.sleep(for: .seconds(2))
-                await store.send("Kannst du im Browser suchen?", to: "b_theo")
+                await store.send("Kannst du im Browser suchen?", to: "b_theo")  // nicht übersetzen: Messwerkzeug -perfbench
                 let ids = ["b_mila", "g_team", "b_lio", "b_theo", "b_nora", "b_pip"]
                 for _ in 0..<3 {
                     for id in ids {
@@ -172,6 +182,9 @@ struct AISBotApp: App {
         if args.contains("-vault") { store.showVault = true }
         if args.contains("-connections") { store.showConnections = true }
         if args.contains("-palette") { store.showCommandPalette = true }
+        // Screenshots: Seite „Heute“ öffnen (iPhone: im Stapel; mit `-heuteleer` ohne Inhalt), Aufgaben-Board öffnen
+        if args.contains("-heute") { store.openToday() }
+        if args.contains("-aufgaben") { store.showTaskBoard = true }
         // Screenshots: Annahme-Blatt einer Demo-Einladung (`-acceptdemo`)
         if args.contains("-acceptdemo") { store.presentedInviteCode = "DEMO-KIKO" }
         if args.contains("-hatchdemo"), store.isMock {
@@ -208,9 +221,12 @@ struct AISBotApp: App {
         }
     }
 
-    /// `aisbot://pair?url=…&token=…` koppelt, `aisbot://bot/<id>` öffnet einen Chat,
-    /// `aisscoops://invite/<code>` (bzw. `https://…/i/<code>`) zeigt eine Einladung zu einem geteilten Scoop.
+    /// `aisbot://pair?url=…&token=…` koppelt, `aisbot://chat/<id>` öffnet einen Chat, `aisbot://voice` den Sprechmodus
+    /// (alle Links: `DeepLink`), `aisscoops://invite/<code>` (bzw. `https://…/i/<code>`) zeigt eine Einladung zu einem
+    /// geteilten Scoop.
     private func handle(_ url: URL) {
+        // Scoop-Vorlage (.scoop) per „Öffnen mit“, AirDrop oder Doppelklick: Vorschau vor dem Import
+        if store.openTemplateFile(url) { return }
         // Kopplungscode aus dem Assistenten von AIS Scoops Server (aisscoops://link?code=…, docs/onboarding.md)
         if store.openPairingLink(url) { return }
         if InviteLink.code(from: url) != nil {
@@ -226,6 +242,8 @@ struct AISBotApp: App {
             return
         }
         guard url.scheme?.lowercased() == "aisbot" else { return }
+        // Chat, „Neue Nachricht“, Sprechmodus, „Heute“ (Widgets, Controls, Kurzbefehle, Spotlight): auch beim Kaltstart
+        if DeepLinkRouter.shared.open(url) { return }
         switch url.host()?.lowercased() {
         case "pair":
             store.handlePairingURL(url)
@@ -235,18 +253,16 @@ struct AISBotApp: App {
             #if os(iOS)
             store.showSettings = true
             #endif
-        case "bot", "group", "chat":
-            if let id = url.pathComponents.dropFirst().first, !id.isEmpty {
-                store.selectedChatID = id
-                store.showInspector = false
-            }
         default:
             break
         }
     }
 }
 
-/// Menübefehle und Tastenkürzel (⌘N neuer Scoop, ⌘F suchen, ⌘I Profil, ⌘K Befehlspalette, ⌃⌘S Seitenleiste).
+/// Menübefehle und Tastenkürzel. Ablage: ⌘N neuer Scoop, ⇧⌘N neue Gruppe (im Aufgaben-Board: neue Aufgabe), ⌘O Scoop
+/// aus Vorlage. Bearbeiten: ⌘F sucht im sichtbaren Bereich (Chat, Aufgaben-Board, sonst Seitenleiste), ⇧⌘F Scoops und
+/// Nachrichten. Darstellung: ⇧⌘H Heute (nur Mac), ⌘K Befehlspalette, ⌃⌘S Seitenleiste (nur Mac), ⌘I Profil.
+/// In Ansichten: ⌘R aktualisiert „Heute“ bzw. die Nutzung, ⌘G/⇧⌘G springen in der Suche im Chat.
 struct AppCommands: Commands {
     let store: AppStore
 
@@ -260,18 +276,38 @@ struct AppCommands: Commands {
             .disabled(store.phase == .unconfigured)
         }
         CommandGroup(after: .newItem) {
+            // ⇧⌘N gehört im Aufgaben-Board „Neue Aufgabe“ (Knopf im Board), sonst „Neue Gruppe“
             Button("Neue Gruppe") { store.showCreateGroup = true }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .keyboardShortcut(store.showTaskBoard ? nil : KeyboardShortcut("n", modifiers: [.command, .shift]))
                 .disabled(store.phase == .unconfigured || store.bots.count < 2)
+            Button("Scoop aus Vorlage …") { store.templates.showPicker = true }
+                .keyboardShortcut("o", modifiers: .command)
+                .disabled(store.phase == .unconfigured || !store.supportsTemplates)
         }
         CommandGroup(after: .textEditing) {
-            Button("Scoops suchen") { store.searchFocusRequest += 1 }
-                .keyboardShortcut("f", modifiers: .command)
+            // ⌘F sucht dort, wo man gerade ist: im Aufgaben-Board in den Aufgaben, im geöffneten Chat im Verlauf,
+            // sonst (Seite „Heute“, kein Chat) in der Seitenleiste. ⇧⌘F ist immer die Seitenleiste.
+            Button(store.showTaskBoard ? "Aufgaben durchsuchen" : (store.selectedChatID != nil ? "Im Chat suchen" : "Scoops suchen")) {
+                if store.showTaskBoard { store.taskBoard.searchFocusRequest += 1 }
+                else if store.selectedChatID != nil { store.chatFindRequest += 1 }
+                else { store.searchFocusRequest += 1 }
+            }
+            .keyboardShortcut("f", modifiers: .command)
+            Button("Scoops und Nachrichten suchen") { store.searchFocusRequest += 1 }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
         }
         CommandGroup(after: .sidebar) {
+            #if os(macOS)
+            // Seite „Heute“ (Freigaben-Postfach). Nur am Mac: iPadOS belegt ⇧⌘H selbst (Home-Bildschirm); dort ist
+            // „Heute“ der oberste Eintrag der Seitenleiste. Auf der Seite aktualisiert ⌘R.
+            Button("Heute") { store.openToday() }
+                .keyboardShortcut("h", modifiers: [.command, .shift])
+                .disabled(!store.today.available)
+            #endif
             Button("Befehlspalette …") { store.showCommandPalette.toggle() }
                 .keyboardShortcut("k", modifiers: .command)
                 .disabled(store.phase == .unconfigured)
+            Divider()
             #if os(macOS)
             // Nur Mac: iPadOS belegt ⌃⌘S selbst („Seitenleiste“); ein zweiter Befehl mit demselben Kürzel lässt
             // UIKit beim Aufbau des Menüs abstürzen. Dort schaltet das System-Kürzel dieselbe Spalte.

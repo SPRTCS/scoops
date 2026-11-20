@@ -103,7 +103,7 @@ struct AuthorHeader: View {
         HStack(spacing: 6) {
             MascotView(mascot: bot.mascot, size: 20, seed: bot.id, animated: false)
             Text(bot.name)
-                .font(.system(size: 12.5, weight: .semibold))
+                .appFont(12.5, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
         }
         .padding(.leading, 4)
@@ -123,7 +123,7 @@ struct BotBubble: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             MarkdownView(text: message.text, mentionBots: store.bots)
-                .font(.system(size: 15))
+                .appFont(15)
                 .lineSpacing(3.5)
                 .foregroundStyle(theme.textPrimary)
                 #if os(macOS)
@@ -141,10 +141,12 @@ struct BotBubble: View {
                     }
                 }
                 .messageReactions(message, trailing: false, copyText: message.text)
+            // Vorschau zum ersten Link (App 1.3), unter der Blase
+            MessageLinkPreview(text: message.text).padding(.top, 6)
             if message.meta.live == true {
                 // Im Live-Sprechmodus gesprochen (v1.13)
                 Label("Live gesprochen", systemImage: "waveform")
-                    .font(.system(size: 11, weight: .medium))
+                    .appFont(11, weight: .medium)
                     .foregroundStyle(theme.textTertiary)
                     .padding(.leading, 6)
                     .padding(.top, 3)
@@ -185,19 +187,19 @@ struct UserBubble: View {
 
     /// Termin/Modell aus dem Aufgaben-Chip, z. B. „Mo 08:00 · Sonnet 5.5“
     private func taskOptionsText(_ o: TaskOptions) -> some View {
-        let start = o.backlog == true ? "Offen gesammelt" : o.scheduledAt.map { Formatting.dayTime($0) }
+        let start = o.backlog == true ? String(localized: "Offen gesammelt", comment: "Aufgaben-Chip: Aufgabe ohne Termin, gesammelt in der Spalte Offen") : o.scheduledAt.map { Formatting.dayTime($0) }
         let scope = o.access?.accessScope.map { $0.text(folders: o.access?.folders ?? []) }
         let parts = [start, o.model.map { BotModel.displayName(for: $0) }, scope].compactMap { $0 }
         let icon = o.backlog == true ? "tray" : (o.scheduledAt == nil ? "cpu" : "calendar.badge.clock")
         return Label(parts.joined(separator: " · "), systemImage: icon)
-            .font(.system(size: 12, weight: .medium))
+            .appFont(12, weight: .medium)
             .foregroundStyle(theme.textSecondary)
-            .lineLimit(1)
+            .adaptiveLineLimit(1)
     }
 
     private func plainText(_ s: String) -> some View {
         Text(Mentions.attributed(s, bots: store.bots, theme: theme))
-            .font(.system(size: 15))
+            .appFont(15)
             .lineSpacing(3)
             .foregroundStyle(theme.textPrimary)
             #if os(macOS)
@@ -209,12 +211,12 @@ struct UserBubble: View {
         VStack(alignment: .trailing, spacing: 6) {
             if let to = message.meta.toPeople, !to.isEmpty {
                 Label("Nur an \(to.joined(separator: ", "))", systemImage: "arrow.turn.down.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .appFont(12, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
                     .padding(.trailing, 4)
             } else if showsOwnLabel {
                 Text("Du")
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .appFont(12.5, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
                     .padding(.trailing, 4)
                     .accessibilityHidden(true)
@@ -231,7 +233,7 @@ struct UserBubble: View {
                     Spacer(minLength: 60)
                     if message.meta.voice == true {
                         Image(systemName: "waveform")
-                            .font(.system(size: 11, weight: .semibold))
+                            .appFont(11, weight: .semibold)
                             .foregroundStyle(theme.textTertiary)
                             .padding(.bottom, 10)
                             .accessibilityLabel(message.meta.live == true ? "Live gesprochen" : "Gesprochen")
@@ -242,23 +244,25 @@ struct UserBubble: View {
                         .padding(.vertical, 9)
                         .background(theme.userBubble, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(ReplyQuote.accessibilityPrefix(message.meta.replyTo) + "Du: \(message.text)")
+                        .accessibilityLabel(ReplyQuote.accessibilityPrefix(message.meta.replyTo) + String(localized: "Du: \(message.text)"))
                         .accessibilityAction(named: "Kopieren") { Clipboard.copy(message.text) }
                         .accessibilityAction(named: "Zur Originalnachricht") { jumpToOriginal() }
                         .messageReactions(message, trailing: true, copyText: message.text)
                 }
                 .opacity(message.localState == .sending ? 0.6 : 1)
             }
+            if message.meta.edited != nil { EditedLabel() }
+            if message.localState == nil { MessageLinkPreview(text: message.text) }
             if message.localState == .failed {
                 Button { store.retry(message) } label: {
                     Label("Nicht gesendet · Erneut senden", systemImage: "exclamationmark.arrow.circlepath")
-                        .font(.system(size: 12, weight: .medium))
+                        .appFont(12, weight: .medium)
                         .foregroundStyle(theme.danger)
                 }
                 .buttonStyle(.plain)
             } else if message.localState == .sending {
                 Text("Wird gesendet …")
-                    .font(.system(size: 11))
+                    .appFont(11)
                     .foregroundStyle(theme.textTertiary)
             }
         }
@@ -279,7 +283,7 @@ struct EventLine: View {
 
     /// „Fähigkeit gespeichert: …“ öffnet die Fähigkeit.
     private var isSkillEvent: Bool {
-        message.meta.skillId != nil || message.meta.icon == "wand.and.stars" || message.text.hasPrefix("Fähigkeit gespeichert")
+        message.meta.skillId != nil || message.meta.icon == "wand.and.stars"
     }
 
     @Environment(\.openURL) private var openURL
@@ -320,21 +324,21 @@ struct EventLine: View {
         HStack(spacing: 5) {
             if message.meta.peerOut == true {
                 Image(systemName: "arrow.turn.up.right")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .appFont(10.5, weight: .semibold)
                 if let target = peerTarget {
                     MascotView(mascot: target.mascot, size: 16, seed: target.id, animated: false)
                 }
             } else {
                 Image(systemName: SymbolName.resolve(message.meta.icon,
                                                      fallback: message.text.contains("→") ? "arrow.right.circle" : "info.circle"))
-                    .font(.system(size: 11, weight: .medium))
+                    .appFont(11, weight: .medium)
             }
             Text(message.text)
-                .font(.system(size: 12))
+                .appFont(12)
             if link != nil {
-                Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .bold))
+                Image(systemName: "arrow.up.right").appFont(9, weight: .bold)
             } else if isSkillEvent {
-                Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold))
+                Image(systemName: "chevron.right").appFont(9, weight: .bold)
             }
         }
         .foregroundStyle(isSkillEvent || link != nil ? theme.accent : theme.textSecondary)
@@ -374,7 +378,7 @@ struct TypingBubble: View {
             .themedCard(theme, radius: theme.bubbleRadius)
             if showsName {
                 Text("\(bot.name) schreibt …")
-                    .font(.system(size: 12))
+                    .appFont(12)
                     .foregroundStyle(theme.textTertiary)
             }
             Spacer()
@@ -394,6 +398,7 @@ struct StatusRow: View {
     var run: RunRole = .finished
     @Environment(AppStore.self) private var store
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var expanded = false
     @State private var showScreen = false
 
@@ -454,40 +459,49 @@ struct StatusRow: View {
 
     private var baseTitle: String {
         if let task {
-            if run == .superseded { return "Aufgabe beendet" }
+            if run == .superseded { return String(localized: "Aufgabe beendet") }
             switch state {
             case "running":
                 if waiting {
-                    if task.waitingKind == "scoop" { return "Aufgabe wartet auf \(task.waitingFor ?? "einen anderen Scoop")" }
-                    return "Aufgabe wartet auf dich"
+                    if task.waitingKind == "scoop" {
+                        // `waiting_for` kommt vom Server in der Sprache der App (z. B. „Antwort von Lio“)
+                        if let waitingFor = task.waitingFor { return String(localized: "Aufgabe wartet auf \(waitingFor)") }
+                        return String(localized: "Aufgabe wartet auf einen anderen Scoop")
+                    }
+                    return String(localized: "Aufgabe wartet auf dich")
                 }
-                return task.state == "queued" ? "Aufgabe wartet auf einen Platz" : "\(bot.name) arbeitet an einer Aufgabe …"
-            case "failed": return "Aufgabe fehlgeschlagen"
+                return task.state == "queued" ? String(localized: "Aufgabe wartet auf einen Platz")
+                    : String(localized: "\(bot.name) arbeitet an einer Aufgabe …")
+            case "failed": return String(localized: "Aufgabe fehlgeschlagen")
             case "stopped":
-                if interrupted { return "Aufgabe unterbrochen" }
-                return task.state == "limit" ? "Aufgabe am Limit angehalten" : "Aufgabe angehalten"
+                if interrupted { return String(localized: "Aufgabe unterbrochen") }
+                return task.state == "limit" ? String(localized: "Aufgabe am Limit angehalten") : String(localized: "Aufgabe angehalten")
             default:
                 if let s = message.meta.startedAt, let f = message.meta.finishedAt {
-                    return "Aufgabe fertig · \(Formatting.duration(f.timeIntervalSince(s)))"
+                    let duration = Formatting.duration(f.timeIntervalSince(s))
+                    return String(localized: "Aufgabe fertig · \(duration)")
                 }
-                return "Aufgabe fertig"
+                return String(localized: "Aufgabe fertig")
             }
         }
-        if run == .superseded { return "Beendet" }
+        if run == .superseded { return String(localized: "Beendet", comment: "Statuszeile: Lauf wurde von einem neueren abgelöst") }
         switch state {
-        case "running": return "\(bot.name) arbeitet …"
-        case "failed": return "Fehlgeschlagen"
-        case "stopped": return interrupted ? "Abgebrochen" : "Angehalten"
+        case "running": return String(localized: "\(bot.name) arbeitet …")
+        case "failed": return String(localized: "Fehlgeschlagen", comment: "Statuszeile: Lauf fehlgeschlagen")
+        case "stopped":
+            return interrupted ? String(localized: "Abgebrochen", comment: "Statuszeile: Lauf durch Server-Neustart abgebrochen")
+                : String(localized: "Angehalten", comment: "Statuszeile: Lauf angehalten")
         default:
             if let s = message.meta.startedAt, let f = message.meta.finishedAt {
-                return "Fertig · \(Formatting.duration(f.timeIntervalSince(s)))"
+                let duration = Formatting.duration(f.timeIntervalSince(s))
+                return String(localized: "Fertig · \(duration)", comment: "Statuszeile: Lauf fertig, mit Dauer")
             }
-            return "Fertig"
+            return String(localized: "Fertig", comment: "Statuszeile: Lauf fertig")
         }
     }
 
     private var stepText: String {
-        lines.count == 1 ? "1 Schritt" : "\(lines.count) Schritte"
+        String(localized: "\(lines.count) Schritte")
     }
 
     private var icon: (String, Color) {
@@ -496,6 +510,15 @@ struct StatusRow: View {
         case "failed": return ("exclamationmark.triangle.fill", theme.warning)
         case "stopped": return (interrupted ? "bolt.horizontal.circle" : "stop.circle", theme.textTertiary)
         default: return ("checkmark.circle.fill", theme.success)
+        }
+    }
+
+    private var titleRow: some View {
+        HStack(spacing: 4) {
+            Text(title).foregroundStyle(running ? theme.textPrimary : theme.textSecondary)
+            if !lines.isEmpty {
+                Text("· \(stepText)").foregroundStyle(theme.textTertiary)
+            }
         }
     }
 
@@ -509,35 +532,41 @@ struct StatusRow: View {
                         // Nur der aktuelle Lauf bewegt sich (spart Animationen bei mehreren Karten)
                         MascotView(mascot: bot.mascot, size: 22, mood: .working, seed: bot.id, animated: run == .current)
                     } else {
-                        Image(systemName: icon.0).foregroundStyle(icon.1).font(.system(size: 14))
+                        Image(systemName: icon.0).foregroundStyle(icon.1).appFont(14)
                             .frame(width: 22, height: 22)
                     }
                     VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 4) {
-                            Text(title).foregroundStyle(running ? theme.textPrimary : theme.textSecondary)
-                            if !lines.isEmpty {
-                                Text("· \(stepText)").foregroundStyle(theme.textTertiary)
+                        // Größere Schrift: passt es nicht in eine Zeile, ein Text, der als Satz umbricht.
+                        // Bei Standardgröße und kleiner die bisherige Zeile.
+                        Group {
+                            if dynamicTypeSize <= .large {
+                                titleRow
+                            } else {
+                                ViewThatFits(in: .horizontal) {
+                                    titleRow
+                                    Text("\(Text(title).foregroundStyle(running ? theme.textPrimary : theme.textSecondary))\(Text(lines.isEmpty ? "" : " · \(stepText)").foregroundStyle(theme.textTertiary))")
+                                }
                             }
                         }
-                        .font(.system(size: 13, weight: .medium))
+                        .appFont(13, weight: .medium)
                         if let task, let t = task.title, !t.isEmpty {
                             Label(t, systemImage: "checklist")
-                                .font(.system(size: 12))
+                                .appFont(12)
                                 .foregroundStyle(theme.textTertiary)
-                                .lineLimit(1)
+                                .adaptiveLineLimit(1)
                         }
                         if running, !expanded, let last = lines.last {
                             Text(last)
-                                .font(.system(size: 12.5))
+                                .appFont(12.5)
                                 .foregroundStyle(theme.textSecondary)
-                                .lineLimit(1)
+                                .adaptiveLineLimit(1, large: 1, accessibility: 2)
                                 .contentTransition(.opacity)
                         }
                     }
                     Spacer(minLength: 0)
                     if !lines.isEmpty {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
+                            .appFont(10, weight: .semibold)
                             .foregroundStyle(theme.textTertiary)
                             .rotationEffect(.degrees(expanded ? 180 : 0))
                     }
@@ -552,18 +581,18 @@ struct StatusRow: View {
                         let current = running && idx == lines.count - 1
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: current ? "circle.dotted" : "checkmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .appFont(10, weight: .bold)
                                 .foregroundStyle(current ? theme.accent : theme.textTertiary)
-                                .frame(width: 14)
+                                .scaledFrame(width: 14)
                                 .symbolEffect(.rotate, isActive: current)
                             Text(line)
-                                .font(.system(size: 13))
+                                .appFont(13)
                                 .foregroundStyle(current ? theme.textPrimary : theme.textSecondary)
                         }
                     }
                     if let note = task?.note, !note.isEmpty {
                         Text(note)
-                            .font(.system(size: 12.5))
+                            .appFont(12.5)
                             .foregroundStyle(theme.textSecondary)
                             .padding(.leading, 22)
                     }
@@ -573,7 +602,7 @@ struct StatusRow: View {
                             Task { await store.stopTask(task.id, chatID: message.chatId); stopping = false }
                         } label: {
                             Label(stopping ? "Wird angehalten …" : "Aufgabe anhalten", systemImage: "stop.circle")
-                                .font(.system(size: 12.5, weight: .medium))
+                                .appFont(12.5, weight: .medium)
                         }
                         .buttonStyle(.borderless)
                         .disabled(stopping)
@@ -583,7 +612,7 @@ struct StatusRow: View {
                     if !running, let model = message.meta.model {
                         let cost = message.meta.costUsd.map { " · \(Formatting.usd($0))" } ?? ""
                         Text("\(BotModel.displayName(for: model))\(cost)")
-                            .font(.system(size: 11.5))
+                            .appFont(11.5)
                             .foregroundStyle(theme.textTertiary)
                             .padding(.leading, 22)
                     }
@@ -599,7 +628,7 @@ struct StatusRow: View {
                         .overlay(alignment: .topLeading) {
                             HStack(spacing: 4) {
                                 Circle().fill(theme.danger).frame(width: 6, height: 6)
-                                Text("Live").font(.system(size: 10.5, weight: .semibold))
+                                Text("Live").appFont(10.5, weight: .semibold)
                             }
                             .foregroundStyle(.white)
                             .padding(.horizontal, 7).padding(.vertical, 3)
@@ -646,38 +675,47 @@ struct ApprovalCard: View {
     /// v1.20: Server erlaubt „Immer erlauben“ (nie bei Anrufen, Tresor, Schlössern, Zahlungen oder Gast-Freigaben)
     private var canAlways: Bool { message.meta.canAlways == true && message.meta.guestView != true }
     private var alwaysLabel: String { message.meta.alwaysLabel ?? message.meta.title ?? message.text }
-    private var scoopName: String { store.bot(message.meta.authorId ?? message.chatId)?.name ?? "Der Scoop" }
+    private var scoopName: String { store.bot(message.meta.authorId ?? message.chatId)?.name ?? String(localized: "Der Scoop", comment: "Rückfall für den Namen am Satzanfang") }
     /// Anruf über Lucy (`meta.kind == "call"`) bzw. Auftrag an T3 Code (`"t3"`): eigenes Symbol und Beschriftungen.
     private var isCall: Bool { message.meta.kind == "call" }
     private var isT3: Bool { message.meta.kind == "t3" }
 
     private var kindIcon: String { isCall ? "phone.arrow.up.right" : (isT3 ? "hammer.fill" : "hand.raised.fill") }
     private var kindColor: Color { isCall ? theme.success : (isT3 ? theme.accent : theme.warning) }
-    private var kindLabel: String? { isCall ? "Anruf" : (isT3 ? "T3 Code" : nil) }
-    private var approveTitle: String { isCall ? "Anrufen lassen" : (isT3 ? "An T3 geben" : "Freigeben") }
-    private var declineTitle: String { isCall ? "Nicht anrufen" : (isT3 ? "Nicht jetzt" : "Ablehnen") }
-    private var approvedTitle: String { isCall ? "Anruf freigegeben" : (isT3 ? "An T3 gegeben" : "Freigegeben") }
-    private var declinedTitle: String { isCall ? "Nicht angerufen" : (isT3 ? "Nicht gegeben" : "Abgelehnt") }
+    private var kindLabel: String? { isCall ? String(localized: "Anruf") : (isT3 ? "T3 Code" : nil) }
+    private var approveTitle: String {
+        isCall ? String(localized: "Anrufen lassen") : (isT3 ? String(localized: "An T3 geben") : String(localized: "Freigeben"))
+    }
+    private var declineTitle: String {
+        isCall ? String(localized: "Nicht anrufen") : (isT3 ? String(localized: "Nicht jetzt") : String(localized: "Ablehnen"))
+    }
+    private var approvedTitle: String {
+        isCall ? String(localized: "Anruf freigegeben") : (isT3 ? String(localized: "An T3 gegeben") : String(localized: "Freigegeben"))
+    }
+    private var declinedTitle: String {
+        isCall ? String(localized: "Nicht angerufen") : (isT3 ? String(localized: "Nicht gegeben") : String(localized: "Abgelehnt"))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: kindIcon)
-                    .font(.system(size: 13))
+                    .appFont(13)
                     .foregroundStyle(kindColor)
-                    .frame(width: 26, height: 26)
+                    .scaledFrame(26)
                     .background(kindColor.opacity(0.14), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(state == "pending" ? (kindLabel.map { "\($0) · Freigabe nötig" } ?? "Freigabe nötig") : (kindLabel ?? "Freigabe"))
-                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(theme.textTertiary)
+                    Text(state == "pending" ? (kindLabel.map { String(localized: "\($0) · Freigabe nötig") } ?? String(localized: "Freigabe nötig"))
+                         : (kindLabel ?? String(localized: "Freigabe")))
+                        .appFont(11.5, weight: .medium).foregroundStyle(theme.textTertiary)
                     Text(message.meta.title ?? message.text)
-                        .font(.system(size: 15, weight: .semibold))
+                        .appFont(15, weight: .semibold)
                         .foregroundStyle(theme.textPrimary)
                 }
             }
             if let details = message.meta.details, !details.isEmpty {
                 Text(details)
-                    .font(.system(size: 13.5))
+                    .appFont(13.5)
                     .lineSpacing(2.5)
                     .foregroundStyle(theme.textSecondary)
                     .padding(12)
@@ -691,7 +729,7 @@ struct ApprovalCard: View {
             switch state {
             case "pending":
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
+                    AdaptiveButtonRow(spacing: 8) {
                         Button {
                             decide(true)
                         } label: {
@@ -711,18 +749,18 @@ struct ApprovalCard: View {
                     }
                     if let error {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 12.5)).foregroundStyle(theme.danger)
+                            .appFont(12.5).foregroundStyle(theme.danger)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .disabled(working)
             case "approved":
-                Label(message.meta.always == true ? "Immer erlaubt" : approvedTitle,
+                Label(message.meta.always == true ? String(localized: "Immer erlaubt") : approvedTitle,
                       systemImage: message.meta.always == true ? "checkmark.seal.fill" : "checkmark.circle.fill")
-                    .font(.system(size: 13, weight: .medium)).foregroundStyle(theme.success)
+                    .appFont(13, weight: .medium).foregroundStyle(theme.success)
             default:
                 Label(declinedTitle, systemImage: "xmark.circle.fill")
-                    .font(.system(size: 13, weight: .medium)).foregroundStyle(theme.textTertiary)
+                    .appFont(13, weight: .medium).foregroundStyle(theme.textTertiary)
             }
         }
         .padding(14)
@@ -779,7 +817,7 @@ struct ScoopUpdateCard: View {
     }
     private var isPending: Bool { status == "pending" && message.meta.state != "approved" }
     private var target: Bot? { update.targetId.flatMap { store.bot($0) } }
-    private var proposer: String { store.bot(message.meta.authorId ?? message.chatId)?.name ?? "Dein Scoop" }
+    private var proposer: String { store.bot(message.meta.authorId ?? message.chatId)?.name ?? String(localized: "Dein Scoop") }
     private var isModel: Bool { update.art == "routine_modell" }
     private var targetTitle: String {
         if let target { return target.title }
@@ -794,8 +832,8 @@ struct ScoopUpdateCard: View {
             targetRow
             if let reason = update.reason, !reason.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Warum").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(theme.textTertiary)
-                    Text(reason).font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                    Text("Warum").appFont(11.5, weight: .semibold).foregroundStyle(theme.textTertiary)
+                    Text(reason).appFont(13.5).foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -822,16 +860,16 @@ struct ScoopUpdateCard: View {
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: headerIcon)
-                .font(.system(size: 13, weight: .semibold))
+                .appFont(13, weight: .semibold)
                 .foregroundStyle(headerTint)
-                .frame(width: 28, height: 28)
+                .scaledFrame(28)
                 .background(headerTint.opacity(0.14), in: Circle())
             VStack(alignment: .leading, spacing: 1) {
                 Text(isPending ? "Verbesserung · Freigabe nötig" : "Verbesserung · \(update.artTitle)")
-                    .font(.system(size: 11.5, weight: .medium)).foregroundStyle(theme.textTertiary)
+                    .appFont(11.5, weight: .medium).foregroundStyle(theme.textTertiary)
                 Text(update.label ?? update.artTitle)
-                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(theme.textPrimary)
-                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    .appFont(15, weight: .semibold).foregroundStyle(theme.textPrimary)
+                    .adaptiveLineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
@@ -862,13 +900,13 @@ struct ScoopUpdateCard: View {
             if let target {
                 MascotView(mascot: target.mascot, size: 22, seed: target.id, animated: false)
             } else {
-                Image(systemName: "person.crop.circle").font(.system(size: 18)).foregroundStyle(theme.textTertiary)
+                Image(systemName: "person.crop.circle").appFont(18).foregroundStyle(theme.textTertiary)
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text("Für \(targetTitle)")
-                    .font(.system(size: 13.5, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                    .appFont(13.5, weight: .semibold).foregroundStyle(theme.textPrimary)
                 Text("Vorschlag von \(proposer) · \(update.artTitle)")
-                    .font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                    .appFont(12).foregroundStyle(theme.textTertiary)
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 7)
@@ -878,11 +916,11 @@ struct ScoopUpdateCard: View {
 
     private var modelChange: some View {
         HStack(spacing: 8) {
-            Text(update.before ?? "wie Scoop").strikethrough().foregroundStyle(theme.textTertiary)
-            Image(systemName: "arrow.right").font(.system(size: 11, weight: .bold)).foregroundStyle(theme.textTertiary)
+            Text(update.before ?? String(localized: "wie Scoop", comment: "Modell einer Routine: wie beim Scoop eingestellt")).strikethrough().foregroundStyle(theme.textTertiary)
+            Image(systemName: "arrow.right").appFont(11, weight: .bold).foregroundStyle(theme.textTertiary)
             Text(update.after).fontWeight(.semibold).foregroundStyle(theme.textPrimary)
         }
-        .font(.system(size: 13.5))
+        .appFont(13.5)
         .lineLimit(1)
         .minimumScaleFactor(0.8)
     }
@@ -891,15 +929,15 @@ struct ScoopUpdateCard: View {
         VStack(alignment: .leading, spacing: 4) {
             Button { showBefore.toggle() } label: {
                 HStack(spacing: 4) {
-                    Text("Vorher").font(.system(size: 11.5, weight: .semibold))
-                    Image(systemName: showBefore ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .bold))
+                    Text("Vorher").appFont(11.5, weight: .semibold)
+                    Image(systemName: showBefore ? "chevron.up" : "chevron.down").appFont(9, weight: .bold)
                 }
                 .foregroundStyle(theme.textTertiary)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             Text(before)
-                .font(.system(size: 13))
+                .appFont(13)
                 .foregroundStyle(theme.textTertiary)
                 .lineLimit(showBefore ? nil : 3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -913,14 +951,14 @@ struct ScoopUpdateCard: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text(update.before?.isEmpty == false ? "Nachher" : "Neu")
-                    .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(theme.textTertiary)
+                    .appFont(11.5, weight: .semibold).foregroundStyle(theme.textTertiary)
                 if update.edited == true || (isPending && edited) {
-                    Text("bearbeitet").font(.system(size: 11, weight: .medium)).foregroundStyle(theme.accent)
+                    Text("bearbeitet").appFont(11, weight: .medium).foregroundStyle(theme.accent)
                 }
                 Spacer()
                 if isPending, update.editable, !working {
                     Button(editing ? "Fertig" : "Bearbeiten") { editing.toggle() }
-                        .font(.system(size: 12.5, weight: .medium))
+                        .appFont(12.5, weight: .medium)
                         .buttonStyle(.plain)
                         .foregroundStyle(theme.accent)
                 }
@@ -928,12 +966,12 @@ struct ScoopUpdateCard: View {
             Group {
                 if editing {
                     TextEditor(text: $draft)
-                        .font(.system(size: 13.5))
+                        .appFont(13.5)
                         .scrollContentBackground(.hidden)
                         .frame(minHeight: 110, maxHeight: 260)
                 } else {
                     Text(isPending ? draft : update.after)
-                        .font(.system(size: 13.5))
+                        .appFont(13.5)
                         .foregroundStyle(theme.textPrimary)
                         .lineSpacing(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -954,7 +992,7 @@ struct ScoopUpdateCard: View {
         switch status {
         case "pending":
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
+                AdaptiveButtonRow(spacing: 8) {
                     Button { decide(true) } label: { Text("Freigeben").frame(minWidth: 90) }
                         .buttonStyle(PillButtonStyle(kind: .primary))
                         .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -964,21 +1002,22 @@ struct ScoopUpdateCard: View {
                 }
                 if let error {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12.5)).foregroundStyle(theme.danger)
+                        .appFont(12.5).foregroundStyle(theme.danger)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .disabled(working)
         case "applied":
             Label("Übernommen bei \(update.targetName)", systemImage: "checkmark.circle.fill")
-                .font(.system(size: 13, weight: .medium)).foregroundStyle(theme.success)
+                .appFont(13, weight: .medium).foregroundStyle(theme.success)
         case "failed":
-            Label("Nicht übernommen" + (update.error.map { ": \($0)" } ?? ""), systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 13, weight: .medium)).foregroundStyle(theme.danger)
+            Label(update.error.map { String(localized: "Nicht übernommen: \($0)") } ?? String(localized: "Nicht übernommen"),
+                  systemImage: "exclamationmark.triangle.fill")
+                .appFont(13, weight: .medium).foregroundStyle(theme.danger)
                 .fixedSize(horizontal: false, vertical: true)
         default:
             Label("Abgelehnt", systemImage: "xmark.circle.fill")
-                .font(.system(size: 13, weight: .medium)).foregroundStyle(theme.textTertiary)
+                .appFont(13, weight: .medium).foregroundStyle(theme.textTertiary)
         }
     }
 
@@ -1002,7 +1041,7 @@ struct AlwaysAllowButton: View {
     var body: some View {
         Button(action: action) {
             Label("Immer erlauben", systemImage: "checkmark.seal")
-                .font(.system(size: 13, weight: .medium))
+                .appFont(13, weight: .medium)
                 .foregroundStyle(theme.accent)
                 .padding(.vertical, 2)
                 .contentShape(Rectangle())
@@ -1034,7 +1073,7 @@ struct PillButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13.5, weight: .semibold))
+            .appFont(13.5, weight: .semibold)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .foregroundStyle(foreground)

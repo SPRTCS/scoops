@@ -84,21 +84,24 @@ nonisolated struct BotTask: Codable, Hashable, Identifiable, Sendable {
     /// Kurzer Zustand für Karte und Detail
     var stateLabel: String {
         switch state {
-        case "open": return "Offen"
-        case "scheduled": return "Geplant"
-        case "queued": return "Wartet auf einen Platz"
-        case "running": return "Läuft"
+        case "open": return String(localized: "Offen", comment: "Aufgabe/Spalte im Board: noch nicht gestartet")
+        case "scheduled": return String(localized: "Geplant", comment: "Aufgabe/Spalte im Board: mit Termin geplant")
+        case "queued": return String(localized: "Wartet auf einen Platz")
+        case "running": return String(localized: "Läuft", comment: "Zustand einer Aufgabe")
         case "waiting":
-            if waitingKind == "scoop" { return waitingFor.map { "Wartet auf \($0)" } ?? "Wartet auf anderen Scoop" }
-            return waitingKind == "frage" ? "Rückfrage an dich" : "Wartet auf Freigabe"
-        case "failed": return "Fehlgeschlagen"
-        case "stopped": return "Angehalten"
-        case "limit": return "Am Limit angehalten"
+            if waitingKind == "scoop" {
+                // `waitingFor` kommt vom Server (in der Sprache der App), z. B. „Antwort von Lio“
+                return waitingFor.map { String(localized: "Wartet auf \($0)") } ?? String(localized: "Wartet auf anderen Scoop")
+            }
+            return waitingKind == "frage" ? String(localized: "Rückfrage an dich") : String(localized: "Wartet auf Freigabe")
+        case "failed": return String(localized: "Fehlgeschlagen", comment: "Zustand einer Aufgabe")
+        case "stopped": return String(localized: "Angehalten", comment: "Zustand einer Aufgabe")
+        case "limit": return String(localized: "Am Limit angehalten")
         default:
             switch review {
-            case "done": return "Abgeschlossen"
-            case "archived": return "Archiviert"
-            default: return "Fertig – zu prüfen"
+            case "done": return String(localized: "Abgeschlossen", comment: "Aufgabe/Spalte im Board: abgenommen")
+            case "archived": return String(localized: "Archiviert", comment: "Zustand einer Aufgabe")
+            default: return String(localized: "Fertig – zu prüfen")
             }
         }
     }
@@ -139,12 +142,12 @@ nonisolated enum TaskColumn: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .open: "Offen"
-        case .planned: "Geplant"
-        case .active: "In Arbeit"
-        case .review: "Zu prüfen"
-        case .done: "Abgeschlossen"
-        case .archived: "Archiv"
+        case .open: String(localized: "Offen", comment: "Aufgabe/Spalte im Board: noch nicht gestartet")
+        case .planned: String(localized: "Geplant", comment: "Aufgabe/Spalte im Board: mit Termin geplant")
+        case .active: String(localized: "In Arbeit", comment: "Spalte im Board: laufende Aufgaben")
+        case .review: String(localized: "Zu prüfen", comment: "Spalte im Board: fertig, noch nicht abgenommen")
+        case .done: String(localized: "Abgeschlossen", comment: "Aufgabe/Spalte im Board: abgenommen")
+        case .archived: String(localized: "Archiv", comment: "Reiter im Board")
         }
     }
 
@@ -161,12 +164,12 @@ nonisolated enum TaskColumn: String, CaseIterable, Identifiable, Sendable {
 
     var emptyText: String {
         switch self {
-        case .open: "Hier sammelst du Aufgaben, die noch nicht losgehen sollen. Sie starten erst, wenn du sie startest oder planst."
-        case .planned: "Keine geplanten Aufgaben. Mit „+ Neue Aufgabe“ und einem Termin planst du eine."
-        case .active: "Gerade arbeitet kein Scoop an einer Aufgabe."
-        case .review: "Nichts zu prüfen."
-        case .done: "Noch nichts abgenommen."
-        case .archived: "Das Archiv ist leer."
+        case .open: String(localized: "Hier sammelst du Aufgaben, die noch nicht losgehen sollen. Sie starten erst, wenn du sie startest oder planst.")
+        case .planned: String(localized: "Keine geplanten Aufgaben. Mit „+ Neue Aufgabe“ und einem Termin planst du eine.")
+        case .active: String(localized: "Gerade arbeitet kein Scoop an einer Aufgabe.")
+        case .review: String(localized: "Nichts zu prüfen.")
+        case .done: String(localized: "Noch nichts abgenommen.")
+        case .archived: String(localized: "Das Archiv ist leer.")
         }
     }
 }

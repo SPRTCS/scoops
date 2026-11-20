@@ -153,7 +153,7 @@ final class LocationBridge: NSObject, CLLocationManagerDelegate {
             throw AppleBridgeError("Für Orte braucht AIS Scoops den Standortzugriff „Immer“.")
         }
         let id = p["id"]?.string ?? UUID().uuidString
-        let name = p["name"]?.string ?? "Ort"
+        let name = p["name"]?.string ?? String(localized: "Ort", comment: "Name eines überwachten Orts ohne eigenen Namen")
         let radius = Double(max(100, min(2000, p["radius"]?.int ?? 150)))
         var center: CLLocationCoordinate2D
         var address: String?
@@ -257,10 +257,10 @@ final class LocationBridge: NSObject, CLLocationManagerDelegate {
         let kind = state == .satisfied ? "enter" : "exit"
         let wanted = kind == "enter" ? (place["on_entry"]?.bool ?? true) : (place["on_exit"]?.bool ?? false)
         guard wanted else { return }
-        let name = place["name"]?.string ?? "Ort"
+        let name = place["name"]?.string ?? String(localized: "Ort", comment: "Name eines überwachten Orts ohne eigenen Namen")
         let content = UNMutableNotificationContent()
-        content.title = kind == "enter" ? "\(name) betreten" : "\(name) verlassen"
-        content.body = "Dein Scoop kümmert sich darum."
+        content.title = kind == "enter" ? String(localized: "\(name) betreten") : String(localized: "\(name) verlassen")
+        content.body = String(localized: "Dein Scoop kümmert sich darum.")
         content.sound = .default
         content.threadIdentifier = "ais-scoops-orte"
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ort-\(id)-\(Int(date.timeIntervalSince1970))",

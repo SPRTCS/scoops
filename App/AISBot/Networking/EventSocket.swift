@@ -5,7 +5,12 @@ import Foundation
 final class EventSocket {
     private let makeRequest: () -> URLRequest?
     private let decoder: JSONDecoder
-    private let session = URLSession(configuration: .default)
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        // Sprache der App (docs/sprache.md), auch für den WebSocket-Aufbau
+        config.httpAdditionalHeaders = ["Accept-Language": AppLanguage.acceptLanguage]
+        return URLSession(configuration: config)
+    }()
     private var task: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?

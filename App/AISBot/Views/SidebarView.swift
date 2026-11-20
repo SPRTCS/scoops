@@ -38,19 +38,28 @@ struct SidebarView: View {
                     #if os(iOS)
                     if !standalone { splitTitle }
                     #endif
-                    if searching { searchField.padding(.horizontal, 12).padding(.bottom, 10) }
+                    // iPhone: Suchfeld immer sichtbar über der Chatliste (Scoops und Nachrichten); sonst über die Lupe
+                    if searching || standalone { searchField.padding(.horizontal, 12).padding(.bottom, 10) }
+                    // Seite „Heute“ (Freigaben-Postfach) als fester erster Eintrag; bei der Suche nur Scoops
+                    if store.today.available, store.searchText.isEmpty {
+                        TodaySidebarRow(standalone: standalone).padding(.bottom, standalone ? 4 : 8)
+                    }
                     if !store.pinnedEntries.isEmpty { pinnedGrid }
                     ForEach(store.pendingChats) { pending in pendingRow(pending) }
                     ForEach(store.sections) { section in sectionBlock(section) }
                     if !store.sharedEntries.isEmpty { sharedSection }
                     if store.phase == .unconfigured, !store.sharedBots.isEmpty { ownServerHint }
                     if store.bots.isEmpty, store.sharedBots.isEmpty, store.phase == .online { emptyState }
-                    if !store.searchText.isEmpty, store.pinnedEntries.isEmpty, store.sections.isEmpty, store.sharedEntries.isEmpty,
+                    // Ab zwei Zeichen übernimmt die Nachrichtensuche darunter den leeren Zustand
+                    if !store.searchText.isEmpty, store.searchText.trimmingCharacters(in: .whitespaces).count < 2,
+                       store.pinnedEntries.isEmpty, store.sections.isEmpty, store.sharedEntries.isEmpty,
                        !store.bots.isEmpty || !store.sharedBots.isEmpty {
                         Text("Kein Scoop gefunden")
                             .font(.callout).foregroundStyle(theme.textSecondary)
                             .frame(maxWidth: .infinity).padding(.top, 30)
                     }
+                    // Treffer in Nachrichten aller Chats (App 1.3, Search/MessageSearchViews.swift)
+                    if !store.searchText.isEmpty { SidebarMessageHits(large: standalone) }
                 }
                 .padding(.bottom, 12)
                 // Leere Fläche unten: Rechtsklick / langes Drücken legt einen neuen Bereich an
@@ -135,9 +144,12 @@ struct SidebarView: View {
         // Scroll-Kanten-Effekt, die Liste läuft darunter bis an den oberen Rand.
         .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { toggleSearch() } label: {
-                    Label(searching ? "Suche schließen" : "Suchen", systemImage: searching ? "xmark" : "magnifyingglass")
+            // iPhone: Das Suchfeld steht immer über der Liste, die Lupe gibt es nur in der Split-Seitenleiste
+            if !standalone {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { toggleSearch() } label: {
+                        Label(searching ? "Suche schließen" : "Suchen", systemImage: searching ? "xmark" : "magnifyingglass")
+                    }
                 }
             }
             // Befehlspalette nur auf dem iPhone als eigener Knopf (iPad: ⌘K und „Befehle …“ im Neu-Menü;
@@ -178,11 +190,11 @@ struct SidebarView: View {
             Button { withAnimation(.snappy(duration: 0.2)) { sharedCollapsed.toggle() } } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9.5, weight: .bold))
+                        .appFont(9.5, weight: .bold)
                         .rotationEffect(.degrees(sharedCollapsed ? 0 : 90))
-                        .frame(width: 12)
-                    Text("Mit mir geteilt").font(.system(size: 12.5, weight: .semibold))
-                    Image(systemName: "person.2.fill").font(.system(size: 10))
+                        .scaledFrame(width: 12)
+                    Text("Mit mir geteilt").appFont(12.5, weight: .semibold)
+                    Image(systemName: "person.2.fill").appFont(10)
                     Spacer()
                 }
                 .foregroundStyle(theme.textTertiary)
@@ -190,7 +202,7 @@ struct SidebarView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Mit mir geteilt\(sharedCollapsed ? ", eingeklappt" : "")")
+            .accessibilityLabel(sharedCollapsed ? "Mit mir geteilt, eingeklappt" : "Mit mir geteilt")
             if !sharedCollapsed {
                 ForEach(store.sharedEntries, id: \.bot.id) { entry in sharedRow(entry.bot, entry.share) }
             }
@@ -207,7 +219,11 @@ struct SidebarView: View {
             }
             Button("Abbrechen", role: .cancel) { shareToLeave = nil }
         } message: {
-            Text("Zurück geht es nur mit einer neuen Einladung von \(shareToLeave?.ownerName ?? "dem Admin").")
+            if let owner = shareToLeave?.ownerName {
+                Text("Zurück geht es nur mit einer neuen Einladung von \(owner).")
+            } else {
+                Text("Zurück geht es nur mit einer neuen Einladung vom Admin.")
+            }
         }
     }
 
@@ -227,10 +243,13 @@ struct SidebarView: View {
                             .accessibilityHidden(true)
                     }
                 VStack(alignment: .leading, spacing: m.title > 15 ? 3 : 2) {
-                    Text(bot.title)
-                        .font(.system(size: m.title, weight: m.title > 15 ? .semibold : .medium))
-                        .foregroundStyle(theme.textPrimary)
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Text(bot.title)
+                            .appFont(m.title, weight: m.title > 15 ? .semibold : .medium)
+                            .foregroundStyle(theme.textPrimary)
+                            .adaptiveLineLimit(1, large: 1, accessibility: 2)
+                        if bot.isMuted { MutedBadge(size: m.title * 0.68) }
+                    }
                     Group {
                         if busy {
                             Text("Arbeitet …").foregroundStyle(theme.accent)
@@ -240,15 +259,15 @@ struct SidebarView: View {
                             Text("von \(share.ownerName)").foregroundStyle(theme.textSecondary)
                         }
                     }
-                    .font(.system(size: m.preview))
-                    .lineLimit(1)
+                    .appFont(m.preview)
+                    .adaptiveLineLimit(1, large: 2, accessibility: 3)
                     Text("\(share.ownerFirstName) · \(online ? "online" : "offline")")
-                        .font(.system(size: m.preview - 2))
+                        .appFont(m.preview - 2)
                         .foregroundStyle(theme.textTertiary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1, large: 1, accessibility: 2)
                 }
                 Spacer(minLength: 4)
-                if bot.unread > 0 { UnreadDot() }
+                if bot.unread > 0 { UnreadDot(muted: bot.isMuted) }
             }
             .padding(.leading, m.leading)
             .padding(.trailing, 10)
@@ -265,18 +284,26 @@ struct SidebarView: View {
                 store.openChat(bot.id)
                 store.showInspector = true
             } label: { Label("Profil", systemImage: "info.circle") }
+            MuteMenu(chatID: bot.id, store: store)
             Divider()
             Button(role: .destructive) { shareToLeave = share } label: {
                 Label("Austreten", systemImage: "rectangle.portrait.and.arrow.right")
             }
         }
-        .accessibilityLabel("\(bot.name), geteilt von \(share.ownerName), \(online ? "online" : "offline")"
-                            + (bot.unread > 0 ? ", \(bot.unread) ungelesen" : ""))
+        .accessibilityLabel(sharedAccessibility(bot, share, online: online))
+    }
+
+    private func sharedAccessibility(_ bot: Bot, _ share: SharedScoop, online: Bool) -> String {
+        let status = online ? "online" : "offline"
+        var parts = [String(localized: "\(bot.name), geteilt von \(share.ownerName), \(status)")]
+        if bot.isMuted { parts.append(String(localized: "stumm", comment: "Bedienungshilfen: Chat ist stummgeschaltet")) }
+        if bot.unread > 0 { parts.append(String(localized: "\(bot.unread) ungelesen")) }
+        return parts.joined(separator: ", ")
     }
 
     private func sharedPreview(_ m: Message) -> String {
         if m.role == .user {
-            return store.isOwnMessage(m) ? "Du: \(m.previewText)" : "\(store.authorName(of: m)): \(m.previewText)"
+            return store.isOwnMessage(m) ? String(localized: "Du: \(m.previewText)") : "\(store.authorName(of: m)): \(m.previewText)"
         }
         return m.previewText
     }
@@ -284,12 +311,12 @@ struct SidebarView: View {
     /// Nur geteilte Scoops, kein eigener Server: Hinweis auf den eigenen Server
     private var ownServerHint: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Eigene Scoops").font(.system(size: 13.5, weight: .semibold)).foregroundStyle(theme.textPrimary)
+            Text("Eigene Scoops").appFont(13.5, weight: .semibold).foregroundStyle(theme.textPrimary)
             Text("Für eigene Scoops brauchst du einen eigenen AIS-Scoops-Server auf deinem Mac.")
-                .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                .appFont(12.5).foregroundStyle(theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Server verbinden") { store.showOwnServerSetup = true }
-                .font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(theme.accent)
+                .appFont(13, weight: .semibold).buttonStyle(.plain).foregroundStyle(theme.accent)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -298,7 +325,8 @@ struct SidebarView: View {
     }
 
     private var deleteTitle: String {
-        "„\(botToDelete?.name ?? "")“ löschen?"
+        let name = botToDelete?.name ?? ""
+        return String(localized: "„\(name)“ löschen?")
     }
 
     // MARK: Kopfzeile
@@ -342,7 +370,7 @@ struct SidebarView: View {
     /// Titel „Scoops“ in der Split-Seitenleiste (siehe `toolbar(removing:)`), scrollt mit der Liste.
     private var splitTitle: some View {
         Text("Scoops")
-            .font(.system(size: 28, weight: .bold))
+            .appFont(28, weight: .bold)
             .foregroundStyle(theme.textPrimary)
             .padding(.horizontal, 16)
             .padding(.top, 2)
@@ -352,7 +380,7 @@ struct SidebarView: View {
     #endif
 
     private var searchToggle: some View {
-        CircleIconButton(systemName: searching ? "xmark" : "magnifyingglass", help: "Suchen (⌘F)") {
+        CircleIconButton(systemName: searching ? "xmark" : "magnifyingglass", help: String(localized: "Scoops und Nachrichten suchen (⇧⌘F)")) {
             toggleSearch()
         }
     }
@@ -369,14 +397,30 @@ struct SidebarView: View {
         @Bindable var store = store
         return HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundStyle(theme.textTertiary)
-            TextField("Scoops durchsuchen", text: $store.searchText)
+            TextField("Scoops und Nachrichten suchen", text: $store.searchText)
                 .textFieldStyle(.plain)
                 .focused($searchFocused)
                 .foregroundStyle(theme.textPrimary)
+                .autocorrectionDisabled()
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
+                #endif
                 .onKeyPress(.escape) {
                     withAnimation(.snappy) { searching = false; store.searchText = "" }
+                    searchFocused = false
                     return .handled
                 }
+            if !store.searchText.isEmpty {
+                Button {
+                    store.searchText = ""
+                    searchFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Suche leeren")
+            }
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
         .background(theme.surface, in: Capsule())
@@ -393,14 +437,23 @@ struct SidebarView: View {
                     VStack(spacing: 6) {
                         ZStack(alignment: .topTrailing) {
                             ChatAvatar(chatID: entry.id, size: 58, animateWhenBusy: false, showsWaiting: true)
-                            if entry.unread > 0 { UnreadDot().offset(x: 2, y: 4) }
+                            if entry.unread > 0 { UnreadDot(muted: store.isMuted(entry.id)).offset(x: 2, y: 4) }
+                        }
+                        // Stumm: durchgestrichene Glocke unten links (rechts sitzt die Krone des Haupt-Scoops)
+                        .overlay(alignment: .bottomLeading) {
+                            if store.isMuted(entry.id) {
+                                MutedBadge(size: 10)
+                                    .padding(4)
+                                    .background(theme.sidebarBackground, in: Circle())
+                                    .offset(x: -6, y: 2)
+                            }
                         }
                         // Krone unten rechts neben dem Körper (überdeckt weder Gesicht noch Accessoire)
                         .overlay(alignment: .bottomTrailing) {
                             if entry.isPrimary { PrimaryBadge(size: 17).offset(x: 9, y: 1) }
                         }
                         Text(entry.name)
-                            .font(.system(size: 12.5, weight: .medium))
+                            .appFont(12.5, weight: .medium)
                             .foregroundStyle(theme.textPrimary)
                             .lineLimit(1)
                     }
@@ -416,7 +469,8 @@ struct SidebarView: View {
                 }
                 .buttonStyle(HoverButtonStyle(radius: 14))
                 .contextMenu { menu(entry) }
-                .accessibilityLabel("\(entry.name), angepinnt")
+                .accessibilityLabel(store.isMuted(entry.id) ? String(localized: "\(entry.name), angepinnt, stumm")
+                                    : String(localized: "\(entry.name), angepinnt"))
             }
         }
         .padding(.horizontal, 12)
@@ -426,16 +480,18 @@ struct SidebarView: View {
     // MARK: Bereiche
 
     private var promptTitle: String {
-        if case .rename = store.sectionPrompt { return "Bereich umbenennen" }
-        return "Neuer Bereich"
+        if case .rename = store.sectionPrompt { return String(localized: "Bereich umbenennen") }
+        return String(localized: "Neuer Bereich")
     }
     private var promptAction: String {
-        if case .rename = store.sectionPrompt { return "Umbenennen" }
-        return "Anlegen"
+        if case .rename = store.sectionPrompt { return String(localized: "Umbenennen") }
+        return String(localized: "Anlegen")
     }
     private var promptMessage: String {
-        if case .create(let id?) = store.sectionPrompt { return "„\(store.chatName(id))“ wird in den neuen Bereich verschoben." }
-        return "Bereiche ordnen deine Scoops und Gruppen in der Seitenleiste, z. B. „Arbeit“ oder „Privat“."
+        if case .create(let id?) = store.sectionPrompt {
+            return String(localized: "„\(store.chatName(id))“ wird in den neuen Bereich verschoben.")
+        }
+        return String(localized: "Bereiche ordnen deine Scoops und Gruppen in der Seitenleiste, z. B. „Arbeit“ oder „Privat“.")
     }
 
     private func submitPrompt() {
@@ -469,7 +525,7 @@ struct SidebarView: View {
                 }
                 if section.entries.isEmpty {
                     Text(section.name == nil ? "Hierher ziehen, um aus dem Bereich zu nehmen" : "Scoops hierher ziehen")
-                        .font(.system(size: 12.5))
+                        .appFont(12.5)
                         .foregroundStyle(theme.textTertiary)
                         .frame(maxWidth: .infinity, minHeight: 40)
                         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -520,14 +576,14 @@ struct SidebarView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9.5, weight: .bold))
+                    .appFont(9.5, weight: .bold)
                     .rotationEffect(.degrees(section.collapsed ? 0 : 90))
-                    .frame(width: 12)
+                    .scaledFrame(width: 12)
                 Text(section.title)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .appFont(12.5, weight: .semibold)
                 if section.collapsed && !section.entries.isEmpty {
                     Text("\(section.entries.count)")
-                        .font(.system(size: 11, weight: .semibold))
+                        .appFont(11, weight: .semibold)
                         .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(theme.selection, in: Capsule())
                 }
@@ -540,7 +596,9 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Bereich \(section.title)\(section.collapsed ? ", eingeklappt, \(section.entries.count) Einträge" : "")")
+        .accessibilityLabel(section.collapsed
+                            ? String(localized: "Bereich \(section.title), eingeklappt, \(section.entries.count) Einträge")
+                            : String(localized: "Bereich \(section.title)"))
         .accessibilityHint(section.collapsed ? "Ausklappen" : "Einklappen")
         .modifier(SectionDragModifier(name: section.name))
         .contextMenu { sectionMenu(section) }
@@ -618,16 +676,17 @@ struct SidebarView: View {
                 VStack(alignment: .leading, spacing: m.title > 15 ? 3 : 2) {
                     HStack(spacing: 5) {
                         Text(title(entry))
-                            .font(.system(size: m.title, weight: m.title > 15 ? .semibold : .medium))
+                            .appFont(m.title, weight: m.title > 15 ? .semibold : .medium)
                             .foregroundStyle(theme.textPrimary)
-                            .lineLimit(1)
+                            .adaptiveLineLimit(1, large: 1, accessibility: 2)
                         // Mit anderen geteilt (Admin)
                         if case .bot(let b) = entry, b.isSharedByMe {
                             Image(systemName: "person.2.fill")
-                                .font(.system(size: m.title * 0.62))
+                                .appFont(m.title * 0.62)
                                 .foregroundStyle(theme.textTertiary)
                                 .accessibilityLabel("geteilt")
                         }
+                        if store.isMuted(entry.id) { MutedBadge(size: m.title * 0.68) }
                     }
                     Group {
                         if busy, let line = busyLine(entry) {
@@ -636,11 +695,11 @@ struct SidebarView: View {
                             Text(preview(entry)).foregroundStyle(theme.textSecondary)
                         }
                     }
-                    .font(.system(size: m.preview))
-                    .lineLimit(1)
+                    .appFont(m.preview)
+                    .adaptiveLineLimit(1, large: 2, accessibility: 3)
                 }
                 Spacer(minLength: 4)
-                if entry.unread > 0 { UnreadDot() }
+                if entry.unread > 0 { UnreadDot(muted: store.isMuted(entry.id)) }
             }
             .padding(.leading, m.leading)
             .padding(.trailing, 10)
@@ -653,7 +712,14 @@ struct SidebarView: View {
         .buttonStyle(HoverButtonStyle(radius: 14))
         .padding(.horizontal, 8)
         .contextMenu { menu(entry) }
-        .accessibilityLabel("\(title(entry))\(entry.unread > 0 ? ", \(entry.unread) ungelesen" : "")")
+        .accessibilityLabel(rowAccessibility(entry))
+    }
+
+    private func rowAccessibility(_ entry: AppStore.ChatEntry) -> String {
+        var parts = [title(entry)]
+        if store.isMuted(entry.id) { parts.append(String(localized: "stumm", comment: "Bedienungshilfen: Chat ist stummgeschaltet")) }
+        if entry.unread > 0 { parts.append(String(localized: "\(entry.unread) ungelesen")) }
+        return parts.joined(separator: ", ")
     }
 
     /// Platzhalter, bis der Server den neuen Scoop / die Gruppe bestätigt.
@@ -662,11 +728,11 @@ struct SidebarView: View {
             HatchingAvatar(mascot: pending.mascot, members: pending.memberIDs.compactMap { store.bot($0) }, size: metrics.avatar)
             VStack(alignment: .leading, spacing: 2) {
                 Text(pending.name)
-                    .font(.system(size: metrics.title, weight: metrics.title > 15 ? .semibold : .medium))
+                    .appFont(metrics.title, weight: metrics.title > 15 ? .semibold : .medium)
                     .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
+                    .adaptiveLineLimit(1, large: 1, accessibility: 2)
                 Text(pending.mascot == nil ? "Gruppe wird erstellt …" : "Schlüpft gerade …")
-                    .font(.system(size: metrics.preview))
+                    .appFont(metrics.preview)
                     .foregroundStyle(theme.accent)
             }
             Spacer(minLength: 4)
@@ -701,7 +767,7 @@ struct SidebarView: View {
                 return g.memberIds.compactMap { store.bot($0)?.name }.joined(separator: ", ")
             }
             if let author = store.bot(m.meta.authorId) { return "\(author.name): \(m.previewText)" }
-            if m.role == .user { return "Du: \(m.previewText)" }
+            if m.role == .user { return String(localized: "Du: \(m.previewText)") }
             return m.previewText
         }
     }
@@ -709,11 +775,13 @@ struct SidebarView: View {
     private func busyLine(_ entry: AppStore.ChatEntry) -> String? {
         switch entry {
         case .bot(let b):
-            return (store.isTyping(b.id) || b.busy) ? "Arbeitet …" : nil
+            return (store.isTyping(b.id) || b.busy) ? String(localized: "Arbeitet …") : nil
         case .group(let g):
             let names = (Set(g.busyIds).union(store.typing[g.id] ?? [])).compactMap { store.bot($0)?.name }.sorted()
             if names.isEmpty { return nil }
-            return names.count == 1 ? "\(names[0]) arbeitet …" : "\(names.joined(separator: ", ")) arbeiten …"
+            if names.count == 1 { return String(localized: "\(names[0]) arbeitet …") }
+            let list = names.joined(separator: ", ")
+            return String(localized: "\(list) arbeiten …", comment: "Mehrere Scoops arbeiten, Namen mit Komma getrennt")
         }
     }
 
@@ -738,6 +806,7 @@ struct SidebarView: View {
         } label: {
             Label("Bearbeiten", systemImage: "pencil")
         }
+        MuteMenu(chatID: g.id, store: store)
         moveMenu(g.id, current: g.trimmedSection)
         Divider()
         Button(role: .destructive) {
@@ -760,7 +829,13 @@ struct SidebarView: View {
         } label: {
             Label("Aussehen ändern", systemImage: "paintbrush")
         }
+        MuteMenu(chatID: bot.id, store: store)
         moveMenu(bot.id, current: bot.trimmedSection)
+        if store.canExportTemplate(bot.id) {
+            Button { store.exportTemplate(bot.id) } label: {
+                Label("Als Vorlage exportieren …", systemImage: "square.and.arrow.up")
+            }
+        }
         Divider()
         Button(role: .destructive) {
             botToDelete = bot
@@ -811,8 +886,9 @@ struct SidebarView: View {
         case .connecting:
             HStack(spacing: 8) {
                 ProgressView().controlSize(.mini)
-                Text(store.settings.cloudServerName.map { "Verbinde mit \($0) …" } ?? "Verbinde …")
-                    .font(.caption).foregroundStyle(theme.textSecondary).lineLimit(1)
+                Text(store.settings.cloudServerName.map { name in String(localized: "Verbinde mit \(name) …") }
+                     ?? String(localized: "Verbinde …"))
+                    .font(.caption).foregroundStyle(theme.textSecondary).adaptiveLineLimit(1)
                 Spacer()
             }
             .padding(.horizontal, 20).padding(.bottom, 6)
@@ -836,9 +912,11 @@ struct SidebarView: View {
 // MARK: - Kleine Bausteine
 
 struct UnreadDot: View {
+    /// Stummer Chat: Der Punkt bleibt, aber dezent (grau statt Akzent)
+    var muted = false
     @Environment(\.theme) private var theme
     var body: some View {
-        Circle().fill(theme.unreadDot).frame(width: 8, height: 8)
+        Circle().fill(muted ? theme.textTertiary.opacity(0.7) : theme.unreadDot).frame(width: 8, height: 8)
             .accessibilityLabel("Ungelesen")
     }
 }
@@ -850,7 +928,7 @@ struct CircleIconLabel: View {
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.system(size: size * 0.42, weight: .medium))
+            .font(.fixed(size * 0.42, weight: .medium))
             .foregroundStyle(theme.textPrimary)
             .frame(width: size, height: size)
             .background(theme.circleButton, in: Circle())
@@ -865,6 +943,17 @@ struct CircleIconButton: View {
     var help: String
     var size: CGFloat = 34
     var action: () -> Void
+
+    /// Hilfe/Bedienungshilfen-Text als übersetzbarer Text (Literale landen im String Catalog).
+    init(systemName: String, help: LocalizedStringResource, size: CGFloat = 34, action: @escaping () -> Void) {
+        self.systemName = systemName; self.help = String(localized: help); self.size = size; self.action = action
+    }
+
+    /// Hilfe-Text als fertiger Text.
+    @_disfavoredOverload
+    init(systemName: String, help: String, size: CGFloat = 34, action: @escaping () -> Void) {
+        self.systemName = systemName; self.help = help; self.size = size; self.action = action
+    }
 
     var body: some View {
         Button(action: action) { CircleIconLabel(systemName: systemName, size: size) }
@@ -925,7 +1014,7 @@ private struct DragPreview: View {
             } else if let b = members.first {
                 MascotView(mascot: b.mascot, size: 28, seed: b.id, animated: false)
             }
-            Text(name).font(.system(size: 13.5, weight: .semibold)).foregroundStyle(theme.textPrimary)
+            Text(name).appFont(13.5, weight: .semibold).foregroundStyle(theme.textPrimary)
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(theme.surfaceRaised, in: Capsule())

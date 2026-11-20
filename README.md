@@ -61,11 +61,13 @@ and you bring your own AI access, either your **Claude or ChatGPT subscription**
 
 ### 💬 Chat with personality
 Shape, color, character, rules. Scoops remember preferences, people and projects across conversations, react with
-emoji, and answer like a colleague, not like a form.
+emoji, and answer like a colleague, not like a form. Search across all chats, edit your last message, see link
+previews.
 
 ### 🗂️ Background tasks
 Hand off bigger jobs ("research this", "clean up these receipts"). They run like a coding agent on their own board
-(*Open → Scheduled → Running → Review → Done*) and drop the results into your library.
+(*Open → Scheduled → Running → Review → Done*) and drop the results into your library. **Today** shows what's
+waiting for you across all Scoops: approvals, tasks to review, today's routines.
 
 ### 🖥️ Real work on a real computer
 Scoops get a persistent shell, file tools and **computer use**: they can operate apps on the server Mac, in a macOS
@@ -75,6 +77,10 @@ VM, or on other Macs you connect. Watch live and take over any time.
 Anything that leaves the house (mails, posts, purchases, calls, risky shell commands) shows up as an **approval card**.
 Approve once, decline, or allow a kind of action permanently. Every step stays visible.
 
+### 🎨 Images on your subscription
+Scoops create and edit images through your **ChatGPT subscription** (via the official Codex app), right in the chat
+or as part of a task. No extra API costs ([details](docs/bilder.md)).
+
 </td>
 <td width="50%" valign="top">
 
@@ -82,17 +88,22 @@ Approve once, decline, or allow a kind of action permanently. Every step stays v
 Connect Gmail, Notion, calendars and more via Composio, add **any MCP server** (OAuth included), and use Apple
 Reminders, Calendar, Contacts and Home. Passwords go into a vault the Scoops never see.
 
-### ⏰ Routines
-Morning briefing, weekly review, inbox check: recurring jobs on a schedule, with check times and the board as a
-paper trail.
+### ⏰ Routines and quiet
+Morning briefing, weekly review, inbox check: recurring jobs on a schedule, with the board as a paper trail.
+**Mute** a chat or set **quiet hours**, and notifications wait until you're ready.
 
-### 👥 Teams and sharing
+### 👥 Teams, sharing and templates
 Group chats with several Scoops, a main Scoop that keeps the overview and can coach the others, and shared Scoops
-for your partner, family or team, each with their own role.
+for your partner, family or team. Share a Scoop as a **template** file without anything personal
+([format and examples](docs/vorlagen.md)).
 
 ### 🎙️ Everywhere you are
-Native SwiftUI apps for **iPhone, iPad, Mac and Apple Watch**, plus widgets, lock-screen widgets, Live Activities,
-push notifications and a hands-free **voice mode**.
+Native SwiftUI apps for **iPhone, iPad, Mac and Apple Watch**, plus widgets, Live Activities, push notifications, a
+hands-free **voice mode**, the **share sheet**, **Shortcuts and Siri**, **Control Center** and **Spotlight**. Text
+grows with your Dynamic Type setting.
+
+### 🌍 English and German
+The apps, the server and the server app speak **English and German**, and each Scoop answers in your language.
 
 </td>
 </tr>
@@ -109,7 +120,7 @@ push notifications and a hands-free **voice mode**.
 1. Install **AIS Scoops** from the [App Store](https://apps.apple.com/app/id6833654924) on your iPhone, iPad or Mac.
 2. Download **AIS Scoops Server** from the [latest release](https://github.com/SPRTCS/ais-scoops-server/releases/latest)
    and drag it into *Applications*. You need a Mac with Apple silicon and macOS 26 or newer.
-3. The setup assistant shows a pairing code. Enter it in the app under *Your servers → Add server*.
+3. The setup assistant shows a pairing code. Enter it in the app under *Your Servers → Add Server*.
 4. Connect an AI: sign in with your **Claude** (Pro/Max) or **ChatGPT** (Plus/Pro) subscription, or paste an API key.
 5. Hatch your first Scoop. 🐣
 
@@ -217,12 +228,15 @@ Around 60k lines of Swift, 25k lines of Python and 30+ test suites for the serve
 
 ## 🗺️ Roadmap and good first issues
 
-- 🌍 **English UI.** The app and the Scoops speak German today. Moving strings into a String Catalog and translating
-  them is the most valuable contribution right now.
-- 📖 **English docs.** The feature docs in `docs/` are German. Translations are very welcome.
+- 📖 **English docs.** The apps speak English, but the feature docs in `docs/` are still German. Translations are
+  the most valuable contribution right now.
+- 🌍 **More languages.** Apps, server and server app are built for translation (String Catalogs and one table per
+  language on the server). The steps and the glossary are in [docs/sprache.md](docs/sprache.md).
+- 🧩 **Community templates.** Share your best Scoops as `.scoop` templates: a role, instructions, skills and
+  routines. Start from the [examples](docs/vorlagen/) and the [format](docs/vorlagen.md).
 - 🐧 **Linux server.** The server core is plain Python. macOS-specific parts (keychain, macOS VMs, Apple services)
   would need small adapters.
-- 🧩 **More connectors and skills.** New MCP presets, routines and Scoop templates.
+- 🔌 **More connections.** New MCP presets, Composio apps and Apple services.
 
 Have an idea? Open a [discussion](../../discussions) or an [issue](../../issues/new/choose).
 

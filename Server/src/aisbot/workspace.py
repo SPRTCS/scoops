@@ -19,6 +19,7 @@ Regeln:
 
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import os
 import re
@@ -31,6 +32,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .db import TZ
+from .i18n import N_, translate, tx
 from .profile import DATA_DIR
 from .profile import HOME as SERVER_HOME
 
@@ -51,8 +53,8 @@ last_error: str | None = None  # letzter Fehler beim Spiegeln (für den Status i
 
 
 IO_TIMEOUT = 8.0  # Sekunden; danach gilt ein Dateizugriff als hängend (z. B. offene macOS-Datenschutz-Abfrage)
-PENDING_HINT = ("macOS fragt auf dem Server-Mac vermutlich gerade, ob der Server auf diesen Ordner zugreifen darf. Bitte dort "
-                "„Erlauben“ wählen oder einen Ordner außerhalb von Schreibtisch und Dokumente nehmen.")
+PENDING_HINT = N_("macOS fragt auf dem Server-Mac vermutlich gerade, ob der Server auf diesen Ordner zugreifen darf. Bitte "
+                  "dort „Erlauben“ wählen oder einen Ordner außerhalb von Schreibtisch und Dokumente nehmen.")
 
 
 class WorkspaceError(ValueError):
@@ -70,11 +72,12 @@ def guarded(fn, *args, timeout: float | None = None):
         except BaseException as e:  # noqa: BLE001
             box["error"] = e
 
-    th = threading.Thread(target=run, daemon=True, name="workspace-io")
+    ctx = contextvars.copy_context()  # Sprache der Anfrage (i18n) auch im Hilfs-Thread
+    th = threading.Thread(target=ctx.run, args=(run,), daemon=True, name="workspace-io")
     th.start()
     th.join(IO_TIMEOUT if timeout is None else timeout)
     if th.is_alive():
-        raise WorkspaceError(PENDING_HINT)
+        raise WorkspaceError(translate(PENDING_HINT))
     if "error" in box:
         raise box["error"]
     return box.get("value")
@@ -184,14 +187,15 @@ def save_bytes(folder: Path, name: str, data: bytes) -> Path:
             with open(target, "xb") as f:
                 f.write(data)
             return target
-    raise WorkspaceError(f"Zu viele Dateien mit dem Namen „{base}“")
+    raise WorkspaceError(tx("Zu viele Dateien mit dem Namen „{name}“", name=base))
 
 
 def _note_error(what: str, e: Exception) -> None:
     global last_error
     msg = f"{what}: {e}"
     if isinstance(e, PermissionError):
-        msg += " (macOS erlaubt dem Server diesen Ordner nicht; Datenschutz-Freigabe prüfen oder anderen Ordner wählen)"
+        msg += " " + tx("(macOS erlaubt dem Server diesen Ordner nicht; Datenschutz-Freigabe prüfen oder anderen Ordner "
+                        "wählen)")
     last_error = msg
     print("Arbeitsordner:", msg, flush=True)
 
@@ -204,7 +208,7 @@ def mirror_bytes(folder: Path, name: str, data: bytes) -> Path | None:
         last_error = None
         return p
     except Exception as e:  # noqa: BLE001
-        _note_error(f"„{name}“ nicht nach {pretty(folder)} kopiert", e)
+        _note_error(tx("„{name}“ nicht nach {folder} kopiert", name=name, folder=pretty(folder)), e)
         return None
 
 
@@ -226,14 +230,14 @@ def ensure_all(bots, cfg: dict) -> list[str]:
             try:
                 bot_dir(b, cfg, create=True)
             except Exception as e:  # noqa: BLE001
-                _note_error(f"Ordner für {_bot_name(b)[0]} nicht angelegt", e)
+                _note_error(tx("Ordner für {name} nicht angelegt", name=_bot_name(b)[0]), e)
                 errors.append(str(e))
         return errors
 
     try:
         return guarded(make_all)  # eine Zeitgrenze für alle (hängt einer, hängen meist alle)
     except WorkspaceError as e:
-        _note_error("Scoop-Ordner nicht angelegt", e)
+        _note_error(tx("Scoop-Ordner nicht angelegt"), e)
         return [str(e)]
 
 
@@ -242,7 +246,7 @@ def rename_bot(cfg: dict, bot_id: str, old_name: str, new_name: str) -> str:
     try:
         return guarded(_rename_bot, cfg, bot_id, old_name, new_name)
     except WorkspaceError as e:
-        _note_error("Ordner nicht umbenannt", e)
+        _note_error(tx("Ordner nicht umbenannt"), e)
         return "Fehler"
 
 
@@ -262,7 +266,7 @@ def _rename_bot(cfg: dict, bot_id: str, old_name: str, new_name: str) -> str:
         os.rename(old, new)
         return "umbenannt"
     except Exception as e:  # noqa: BLE001
-        _note_error(f"Ordner {pretty(old)} nicht umbenannt", e)
+        _note_error(tx("Ordner {folder} nicht umbenannt", folder=pretty(old)), e)
         return "Fehler"
 
 
@@ -277,35 +281,37 @@ def _validate(raw: str) -> Path:
     if not raw:
         raw = default_dir()
     if not (raw.startswith("/") or raw == "~" or raw.startswith("~/")):
-        raise WorkspaceError("Bitte einen absoluten Pfad angeben (beginnt mit / oder ~/).")
+        raise WorkspaceError(tx("Bitte einen absoluten Pfad angeben (beginnt mit / oder ~/)."))
     if "\x00" in raw or len(raw) > 500:
-        raise WorkspaceError("Ungültiger Pfad.")
+        raise WorkspaceError(tx("Ungültiger Pfad."))
     p = expand(raw)
     home = Path.home()
     if p in (Path("/"), home) or p == home.parent:
-        raise WorkspaceError("Bitte einen eigenen Ordner wählen, nicht den Home-Ordner oder die oberste Ebene.")
+        raise WorkspaceError(tx("Bitte einen eigenen Ordner wählen, nicht den Home-Ordner oder die oberste Ebene."))
     for blocked in (SERVER_HOME, DATA_DIR, home / "Library"):
         b = expand(str(blocked))
         if p == b or b in p.parents:
-            raise WorkspaceError(f"{pretty(p)} liegt in einem Systemordner ({pretty(b)}). Bitte einen anderen Ordner wählen.")
+            raise WorkspaceError(tx("{path} liegt in einem Systemordner ({system}). Bitte einen anderen Ordner wählen.",
+                                    path=pretty(p), system=pretty(b)))
     try:
         p.mkdir(parents=True, exist_ok=True)
     except FileExistsError:
-        raise WorkspaceError(f"{pretty(p)} ist eine Datei, kein Ordner.") from None
+        raise WorkspaceError(tx("{path} ist eine Datei, kein Ordner.", path=pretty(p))) from None
     except PermissionError:
-        raise WorkspaceError(f"Keine Berechtigung, {pretty(p)} anzulegen. macOS erlaubt dem Server diesen Ort nicht "
-                             "(Datenschutz-Freigabe) – bitte anderen Ordner wählen.") from None
+        raise WorkspaceError(tx("Keine Berechtigung, {path} anzulegen. macOS erlaubt dem Server diesen Ort nicht "
+                                "(Datenschutz-Freigabe) – bitte anderen Ordner wählen.", path=pretty(p))) from None
     except OSError as e:
-        raise WorkspaceError(f"{pretty(p)} lässt sich nicht anlegen: {e.strerror or e}") from None
+        raise WorkspaceError(tx("{path} lässt sich nicht anlegen: {error}", path=pretty(p), error=e.strerror or e)) from None
     if not p.is_dir():
-        raise WorkspaceError(f"{pretty(p)} ist kein Ordner.")
+        raise WorkspaceError(tx("{path} ist kein Ordner.", path=pretty(p)))
     try:
         fd, probe = tempfile.mkstemp(prefix=".scoops-schreibtest-", dir=p)
         os.close(fd)
         os.remove(probe)
     except OSError as e:
-        raise WorkspaceError(f"In {pretty(p)} darf der Server nicht schreiben ({e.strerror or e}). Bitte anderen Ordner "
-                             "wählen oder dem Server in den Systemeinstellungen den Zugriff erlauben.") from None
+        raise WorkspaceError(tx("In {path} darf der Server nicht schreiben ({error}). Bitte anderen Ordner wählen oder dem "
+                                "Server in den Systemeinstellungen den Zugriff erlauben.", path=pretty(p),
+                                error=e.strerror or e)) from None
     return p
 
 
@@ -400,14 +406,14 @@ def _inside_root(raw: str | None) -> Path:
     if raw == "~" or raw.startswith("~/"):
         raw = str(BROWSE_ROOT) + raw[1:]
     if not raw.startswith("/"):
-        raise WorkspaceError("Ungültiger Pfad.")
+        raise WorkspaceError(tx("Ungültiger Pfad."))
     p = Path(os.path.abspath(raw))
     try:
         real = p.resolve()
     except OSError:
         real = p
     if real != base and base not in real.parents:
-        raise WorkspaceError("Nur Ordner innerhalb deines Home-Ordners.")
+        raise WorkspaceError(tx("Nur Ordner innerhalb deines Home-Ordners."))
     return p
 
 
@@ -419,14 +425,15 @@ def browse(raw: str | None) -> dict:
 def _browse(raw: str | None) -> dict:
     p = _inside_root(raw)
     if not p.is_dir():
-        raise WorkspaceError(f"{pretty(p)} gibt es nicht.")
+        raise WorkspaceError(tx("{path} gibt es nicht.", path=pretty(p)))
     try:
         with os.scandir(p) as it:
             dirs = [e for e in it if not _hidden(e) and e.is_dir()]
     except PermissionError:
-        raise WorkspaceError(f"Kein Zugriff auf {pretty(p)} (macOS-Datenschutz). Bitte einen anderen Ordner wählen.") from None
+        raise WorkspaceError(tx("Kein Zugriff auf {path} (macOS-Datenschutz). Bitte einen anderen Ordner wählen.",
+                                path=pretty(p))) from None
     except OSError as e:
-        raise WorkspaceError(f"{pretty(p)} lässt sich nicht lesen: {e.strerror or e}") from None
+        raise WorkspaceError(tx("{path} lässt sich nicht lesen: {error}", path=pretty(p), error=e.strerror or e)) from None
     dirs.sort(key=lambda e: e.name.casefold())
     base = BROWSE_ROOT.resolve()
     parent = None if p.resolve() == base else pretty(p.parent)
@@ -444,14 +451,14 @@ def _make_folder(parent: str | None, name: str) -> dict:
     p = _inside_root(parent)
     n = str(name or "").strip()
     if not n or n.startswith(".") or "/" in n or ":" in n or len(n) > 100 or n in (".", ".."):
-        raise WorkspaceError("Ungültiger Ordnername.")
+        raise WorkspaceError(tx("Ungültiger Ordnername."))
     target = p / unicodedata.normalize("NFC", n)
     try:
         target.mkdir(exist_ok=True)
     except PermissionError:
-        raise WorkspaceError(f"Keine Berechtigung, in {pretty(p)} einen Ordner anzulegen.") from None
+        raise WorkspaceError(tx("Keine Berechtigung, in {path} einen Ordner anzulegen.", path=pretty(p))) from None
     except OSError as e:
-        raise WorkspaceError(f"Ordner lässt sich nicht anlegen: {e.strerror or e}") from None
+        raise WorkspaceError(tx("Ordner lässt sich nicht anlegen: {error}", error=e.strerror or e)) from None
     return _browse(str(target))
 
 

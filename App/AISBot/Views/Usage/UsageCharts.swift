@@ -62,7 +62,7 @@ struct UsageTrendChart: View {
                     Spacer()
                     Text(points.last.map { label(for: $0.key) } ?? "")
                 }
-                .font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                .appFont(13).foregroundStyle(theme.textSecondary)
             }
         } else {
             styled
@@ -79,7 +79,7 @@ struct UsageTrendChart: View {
                     if style == .area, let k = v.as(String.self), axisKeys.contains(k) {
                         AxisValueLabel(anchor: anchor(for: k), collisionResolution: .disabled) {
                             Text(style == .area ? label(for: k).uppercased() : label(for: k))
-                                .font(.system(size: style == .area ? 11 : 13, weight: style == .area ? .medium : .regular))
+                                .appFont(style == .area ? 11 : 13, weight: style == .area ? .medium : .regular)
                                 .foregroundStyle(theme.textSecondary)
                                 .fixedSize()
                         }
@@ -92,7 +92,7 @@ struct UsageTrendChart: View {
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(theme.surfaceBorder)
                         AxisValueLabel {
                             if let d = v.as(Double.self) {
-                                Text(format(d, axis: true)).font(.system(size: 11)).foregroundStyle(theme.textSecondary)
+                                Text(format(d, axis: true)).appFont(11).foregroundStyle(theme.textSecondary)
                             }
                         }
                     }
@@ -155,22 +155,22 @@ struct UsageTrendChart: View {
 
     private func tooltip(_ p: UsageDetails.Point) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label(for: p.key)).font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textSecondary)
+            Text(label(for: p.key)).appFont(12.5, weight: .medium).foregroundStyle(theme.textSecondary)
             ForEach(UsageProvider.allCases.reversed()) { prov in
                 HStack(spacing: 6) {
                     Circle().fill(palette.color(prov)).frame(width: 7, height: 7)
-                    Text(prov == .claude ? "Claude" : "OpenAI").font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                    Text(prov == .claude ? "Claude" : "OpenAI").appFont(12.5).foregroundStyle(theme.textSecondary)
                     Spacer(minLength: 12)
                     Text(format(metric == .cost ? p.part(prov).costUsd : Double(p.part(prov).tokens)))
-                        .font(.system(size: 12.5, weight: .medium)).monospacedDigit().foregroundStyle(theme.textPrimary)
+                        .appFont(12.5, weight: .medium).monospacedDigit().foregroundStyle(theme.textPrimary)
                 }
             }
             Divider()
             HStack {
-                Text("Gesamt").font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                Text("Gesamt").appFont(12.5).foregroundStyle(theme.textSecondary)
                 Spacer(minLength: 12)
                 Text(format(metric == .cost ? p.costUsd : Double(p.tokens)))
-                    .font(.system(size: 12.5, weight: .semibold)).monospacedDigit().foregroundStyle(theme.textPrimary)
+                    .appFont(12.5, weight: .semibold).monospacedDigit().foregroundStyle(theme.textPrimary)
             }
         }
         .padding(10)
@@ -198,7 +198,7 @@ struct UsageTable: View {
     let palette: UsagePalette
     let theme: Theme
     var numbered = true
-    var nameTitle = "Modell"
+    var nameTitle = String(localized: "Modell")
 
     var body: some View {
         VStack(spacing: 0) {
@@ -210,7 +210,7 @@ struct UsageTable: View {
                     Text("Anteil").frame(width: 70, alignment: .trailing)
                     Text("Tokens").frame(width: 90, alignment: .trailing)
                 }
-                .font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                .appFont(13).foregroundStyle(theme.textSecondary)
                 .padding(.horizontal, 12).padding(.vertical, 10)
                 Rectangle().fill(theme.surfaceBorder).frame(height: 0.5)
             }
@@ -236,16 +236,16 @@ struct UsageTable: View {
                 if r.provider != nil {
                     Circle().fill(palette.color(r.provider)).frame(width: 8, height: 8)
                 }
-                Text(r.label).font(.system(size: 15)).foregroundStyle(theme.textPrimary).lineLimit(1)
+                Text(r.label).appFont(15).foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
                 if r.priceEstimated == true {
-                    Text("Preis geschätzt").font(.system(size: 11)).foregroundStyle(theme.textTertiary)
+                    Text("Preis geschätzt").appFont(11).foregroundStyle(theme.textTertiary)
                 }
                 if r.apiUsd > 0.005 && isCost {
-                    Text("API \(UsageFormat.usd(r.apiUsd))").font(.system(size: 11, weight: .medium))
+                    Text("API \(UsageFormat.usd(r.apiUsd))").appFont(11, weight: .medium)
                         .foregroundStyle(palette.api)
                         .padding(.horizontal, 6).padding(.vertical, 1.5)
                         .background(palette.api.opacity(0.12), in: Capsule())
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                 }
             }
             GeometryReader { g in
@@ -260,14 +260,14 @@ struct UsageTable: View {
     private func wideRow(_ i: Int, _ r: UsageDetails.Row) -> some View {
         HStack(spacing: 12) {
             if numbered {
-                Text("\(i + 1)").font(.system(size: 13.5)).foregroundStyle(theme.textSecondary).frame(width: 22, alignment: .leading)
+                Text("\(i + 1)").appFont(13.5).foregroundStyle(theme.textSecondary).frame(width: 22, alignment: .leading)
             }
             nameCell(r).frame(maxWidth: .infinity, alignment: .leading)
-            Text(UsageFormat.usd(r.costUsd)).font(.system(size: 15)).monospacedDigit().foregroundStyle(theme.textPrimary)
+            Text(UsageFormat.usd(r.costUsd)).appFont(15).monospacedDigit().foregroundStyle(theme.textPrimary)
                 .frame(width: 110, alignment: .trailing)
-            Text(UsageFormat.percent(share(r))).font(.system(size: 15)).monospacedDigit().foregroundStyle(theme.textSecondary)
+            Text(UsageFormat.percent(share(r))).appFont(15).monospacedDigit().foregroundStyle(theme.textSecondary)
                 .frame(width: 70, alignment: .trailing)
-            Text(UsageFormat.tokens(r.tokens)).font(.system(size: 15)).monospacedDigit().foregroundStyle(theme.textSecondary)
+            Text(UsageFormat.tokens(r.tokens)).appFont(15).monospacedDigit().foregroundStyle(theme.textSecondary)
                 .frame(width: 90, alignment: .trailing)
         }
         .padding(.horizontal, 12)
@@ -280,11 +280,12 @@ struct UsageTable: View {
                 nameCell(r)
                 Spacer(minLength: 8)
                 Text(isCost ? UsageFormat.usd(r.costUsd) : UsageFormat.tokens(r.tokens))
-                    .font(.system(size: 15, weight: .medium)).monospacedDigit().foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
+                    .appFont(15, weight: .medium).monospacedDigit().foregroundStyle(theme.textPrimary)
+                    .adaptiveLineLimit(1)
             }
-            Text("\(UsageFormat.percent(share(r))) · \(isCost ? UsageFormat.tokens(r.tokens) + " Tokens" : UsageFormat.usd(r.costUsd))")
-                .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+            Text(isCost ? "\(UsageFormat.percent(share(r))) · \(UsageFormat.tokens(r.tokens)) Tokens"
+                        : "\(UsageFormat.percent(share(r))) · \(UsageFormat.usd(r.costUsd))")
+                .appFont(12.5).foregroundStyle(theme.textSecondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -324,9 +325,9 @@ struct LimitCard: View {
 
     private var paceText: String? {
         switch pace {
-        case .under: "Unter Tempo"
-        case .on: "Im Tempo"
-        case .over: "Über Tempo"
+        case .under: String(localized: "Unter Tempo", comment: "Abo-Limit: Verbrauch langsamer als gleichmäßig")
+        case .on: String(localized: "Im Tempo", comment: "Abo-Limit: Verbrauch wie gleichmäßig")
+        case .over: String(localized: "Über Tempo", comment: "Abo-Limit: Verbrauch schneller als gleichmäßig")
         case nil: nil
         }
     }
@@ -349,7 +350,7 @@ struct LimitCard: View {
     private var resetText: String? {
         guard let resets else { return nil }
         let s = resets.timeIntervalSince(now)
-        return s <= 0 ? "jetzt" : UsageFormat.remaining(s)
+        return s <= 0 ? String(localized: "jetzt", comment: "Abo-Limit: Reset steht sofort an") : UsageFormat.remaining(s)
     }
 
     private var extrasText: String? {
@@ -362,10 +363,10 @@ struct LimitCard: View {
             if wide {
                 HStack(alignment: .center, spacing: 28) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(window.label).font(.system(size: 15, weight: .medium)).foregroundStyle(theme.textPrimary)
+                        Text(window.label).appFont(15, weight: .medium).foregroundStyle(theme.textPrimary)
                         percentLine
                         if let paceText {
-                            Text(paceText).font(.system(size: 12.5)).foregroundStyle(paceColor)
+                            Text(paceText).appFont(12.5).foregroundStyle(paceColor)
                         }
                     }
                     .frame(width: 210, alignment: .leading)
@@ -374,40 +375,47 @@ struct LimitCard: View {
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(window.label).font(.system(size: 16, weight: .medium)).foregroundStyle(theme.textPrimary)
+                        Text(window.label).appFont(16, weight: .medium).foregroundStyle(theme.textPrimary)
                         Spacer()
-                        if let paceText { Text(paceText).font(.system(size: 14)).foregroundStyle(paceColor) }
+                        if let paceText { Text(paceText).appFont(14).foregroundStyle(paceColor) }
                     }
                     percentLine
                     if let resetText {
                         HStack(spacing: 5) {
-                            Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .semibold))
+                            Image(systemName: "arrow.clockwise").appFont(11, weight: .semibold)
                             Text("+\(Int(used.rounded())) % in \(resetText)")
                             if let extrasText {
                                 Text("·")
-                                Image(systemName: "ticket").font(.system(size: 11))
+                                Image(systemName: "ticket").appFont(11)
                                 Text(extrasText)
                             }
                         }
-                        .font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                        .appFont(13.5).foregroundStyle(theme.textSecondary)
                     }
                     bar(height: 34, overlayInfo: false)
                 }
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(provider.label), \(window.label): \(Int(left.rounded())) Prozent übrig"
-                            + (resetText.map { ", Reset in \($0)" } ?? "") + (paceText.map { ", \($0)" } ?? ""))
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        let percent = Int(left.rounded())
+        var parts = [String(localized: "\(provider.label), \(window.label): \(percent) Prozent übrig")]
+        if let resetText { parts.append(String(localized: "Reset in \(resetText)")) }
+        if let paceText { parts.append(paceText) }
+        return parts.joined(separator: ", ")
     }
 
     private var percentLine: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("\(Int(left.rounded())) %").font(.system(size: wide ? 40 : 38, weight: .bold)).monospacedDigit()
+            Text("\(Int(left.rounded())) %").appFont(wide ? 40 : 38, weight: .bold).monospacedDigit()
                 .foregroundStyle(theme.textPrimary)
-            Text("übrig").font(.system(size: 16)).foregroundStyle(theme.textSecondary)
+            Text("übrig").appFont(16).foregroundStyle(theme.textSecondary)
             if let pace {
                 Image(systemName: pace == .over ? "chart.line.uptrend.xyaxis" : "chart.line.downtrend.xyaxis")
-                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(paceColor)
+                    .appFont(12, weight: .semibold).foregroundStyle(paceColor)
             }
         }
     }
@@ -432,15 +440,15 @@ struct LimitCard: View {
                 }
                 if overlayInfo, let resetText {
                     HStack(spacing: 5) {
-                        Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "arrow.clockwise").appFont(11, weight: .semibold)
                         Text(resetText).monospacedDigit()
                         if let extrasText {
                             Text("·")
-                            Image(systemName: "ticket").font(.system(size: 11))
+                            Image(systemName: "ticket").appFont(11)
                             Text(extrasText)
                         }
                     }
-                    .font(.system(size: 13, weight: .medium))
+                    .appFont(13, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(theme.groupedCard.opacity(0.92), in: RoundedRectangle(cornerRadius: 7, style: .continuous))

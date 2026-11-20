@@ -145,7 +145,7 @@ struct MascotColorPalette: View {
                 Circle().fill(Color(hex: mascot.color)).frame(width: 16, height: 16).accessibilityHidden(true)
             } else {
                 Image(systemName: "plus")
-                    .font(.system(size: 10, weight: .bold))
+                    .appFont(10, weight: .bold)
                     .foregroundStyle(theme.textSecondary)
                     .accessibilityHidden(true)
             }

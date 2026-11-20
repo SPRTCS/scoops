@@ -26,6 +26,7 @@ from pathlib import Path
 from . import access as acc_mod
 from . import workspace
 from .engine import ExtraTool, status_line
+from .i18n import tx
 
 OUT_LIMIT = 12_000  # Zeichen stdout je Befehl (Anfang + Ende), stderr 4000
 ERR_LIMIT = 4_000
@@ -341,10 +342,11 @@ class ComputerTools:
                                          exists=lambda p: self.target.info(p)[0], venv=bool(sess.env.get("VIRTUAL_ENV")))
         outside = bool(i.get("ausserhalb_bereich")) and not self.target.vm
         if verdict.kind == "ask" or outside:
-            reason = verdict.reason if verdict.kind == "ask" else "Befehl soll außerhalb deines Bereichs schreiben"
-            return self._card(f"Befehl ausführen: {command[:70]}", reason,
+            reason = verdict.reason if verdict.kind == "ask" else tx("Befehl soll außerhalb deines Bereichs schreiben")
+            return self._card(tx("Befehl ausführen: {command}", command=command[:70]), reason,
                               {"op": "shell", "command": command, "chat_id": self.chat_id},
-                              f"Rechner: {self.target.hub.name}\nOrdner: {cwd}\n\n$ {command}")
+                              tx("Rechner: {computer}\nOrdner: {folder}", computer=self.target.hub.name, folder=cwd)
+                              + f"\n\n$ {command}")
         if verdict.kind == "deny":
             return f"Abgelehnt: {verdict.reason}"
         return self.execute_shell(command, sandboxed=True)
@@ -447,8 +449,10 @@ class ComputerTools:
             return f"{path} ist ein Ordner."
         blocked = self._write_checked(path, "overwrite" if exists else "create", exists,
                                       {"op": "write", "path": path, "content": content},
-                                      f"Datei {'überschreiben' if exists else 'anlegen'}: {os.path.basename(path)}",
-                                      f"Datei: {path}\n\n{content[:1500]}" + (" …" if len(content) > 1500 else ""))
+                                      (tx("Datei überschreiben: {name}", name=os.path.basename(path)) if exists
+                                       else tx("Datei anlegen: {name}", name=os.path.basename(path))),
+                                      tx("Datei: {path}", path=path) + f"\n\n{content[:1500]}"
+                                      + (" …" if len(content) > 1500 else ""))
         if blocked:
             return blocked
         return self.apply_write(path, content, exists)
@@ -480,8 +484,8 @@ class ComputerTools:
             return f"alt kommt {n}-mal vor. Mehr Kontext angeben, damit es eindeutig ist, oder alle: true."
         updated = text.replace(old, new) if alle else text.replace(old, new, 1)
         blocked = self._write_checked(path, "edit", True, {"op": "edit", "path": path, "old": old, "new": new, "all": alle},
-                                      f"Datei ändern: {os.path.basename(path)}",
-                                      f"Datei: {path}\n\n− {old[:700]}\n+ {new[:700]}")
+                                      tx("Datei ändern: {name}", name=os.path.basename(path)),
+                                      tx("Datei: {path}", path=path) + f"\n\n− {old[:700]}\n+ {new[:700]}")
         if blocked:
             return blocked
         self.target.write(path, updated.encode("utf-8"))
@@ -527,21 +531,21 @@ class ComputerTools:
             mk("rechner_datei_lesen", "Liest eine Textdatei auf deinem Rechner mit Zeilennummern (pfad absolut, ~ oder relativ zum "
                "Ordner der Shell). ab_zeile/zeilen für Abschnitte (Standard 400 Zeilen).",
                {"pfad": s, "ab_zeile": {"type": "integer"}, "zeilen": {"type": "integer"}}, ["pfad"], safe(self.lesen),
-               lambda i: f"Liest {os.path.basename(str(i.get('pfad') or ''))}".strip()),
+               lambda i: tx("Liest {name}", name=os.path.basename(str(i.get("pfad") or ""))).strip()),
             mk("rechner_dateien_suchen", "Sucht auf deinem Rechner in deinem Bereich. art 'name': Dateien per Glob (muster z. B. "
                "'*.md', '**/*.swift'); art 'inhalt': Text per Regex (grep -E) in Dateien, optional dateimuster wie '*.py'. "
                "pfad = Startordner (Standard: Ordner der Shell).",
                {"muster": s, "art": {"type": "string", "enum": ["name", "inhalt"]}, "pfad": s, "dateimuster": s,
-                "gross_klein_egal": {"type": "boolean"}}, ["muster"], safe(self.suchen), lambda i: "Durchsucht Dateien"),
+                "gross_klein_egal": {"type": "boolean"}}, ["muster"], safe(self.suchen), lambda i: tx("Durchsucht Dateien")),
             mk("rechner_datei_ersetzen", "Ersetzt in einer Datei auf deinem Rechner genau einen Textabschnitt (alt → neu), wie ein "
                "Editor. alt muss genau so (mit Einrückung) und eindeutig vorkommen; alle: true ersetzt jedes Vorkommen. "
                "Vorher mit rechner_datei_lesen ansehen.",
                {"pfad": s, "alt": s, "neu": s, "alle": {"type": "boolean"}}, ["pfad", "alt", "neu"], safe(self.ersetzen),
-               lambda i: f"Bearbeitet {os.path.basename(str(i.get('pfad') or ''))}".strip()),
+               lambda i: tx("Bearbeitet {name}", name=os.path.basename(str(i.get("pfad") or ""))).strip()),
             mk("rechner_datei_schreiben", "Schreibt eine Textdatei auf deinem Rechner (legt Ordner an; eine vorhandene Datei wird "
                "ganz ersetzt – für kleine Änderungen rechner_datei_ersetzen).",
                {"pfad": s, "inhalt": s}, ["pfad", "inhalt"], safe(self.schreiben),
-               lambda i: f"Schreibt {os.path.basename(str(i.get('pfad') or ''))}".strip()),
+               lambda i: tx("Schreibt {name}", name=os.path.basename(str(i.get("pfad") or ""))).strip()),
         ]
 
 

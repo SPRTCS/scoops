@@ -98,12 +98,12 @@ struct ServerSetupView: View {
     private var blockedHint: String? {
         switch step {
         case .welcome:
-            if case .failed = manager.phase { return "Der Server läuft nicht." }
-            return manager.phase == .running ? nil : "Warte, bis der Server läuft …"
+            if case .failed = manager.phase { return String(localized: "Der Server läuft nicht.") }
+            return manager.phase == .running ? nil : String(localized: "Warte, bis der Server läuft …")
         case .account:
-            return manager.linked ? nil : "Weiter, sobald AIS Scoops verbunden ist."
+            return manager.linked ? nil : String(localized: "Weiter, sobald AIS Scoops verbunden ist.")
         case .keys:
-            return controller.hasModelAccess ? nil : "Erst Abo verbinden oder Schlüssel speichern."
+            return controller.hasModelAccess ? nil : String(localized: "Erst Abo verbinden oder Schlüssel speichern.")
         default:
             return nil
         }
@@ -164,46 +164,46 @@ enum SetupStep: Int, CaseIterable, Comparable {
     /// Zweiter Knopf neben „Weiter“, solange der Schritt nicht erledigt ist
     var skipTitle: String? {
         switch self {
-        case .account: "Später verbinden"
-        case .mac, .reach: "Überspringen"
+        case .account: String(localized: "Später verbinden")
+        case .mac, .reach: String(localized: "Überspringen")
         default: nil
         }
     }
 
     var title: String {
         switch self {
-        case .welcome: "Willkommen"
-        case .account: "Mit der App verbinden"
-        case .keys: "KI-Zugang"
-        case .mac: "Diesen Mac freigeben"
-        case .reach: "Von unterwegs erreichbar"
-        case .awake: "Dauerbetrieb"
-        case .done: "Fertig"
+        case .welcome: String(localized: "Willkommen", comment: "Schritt des Einrichtungsassistenten (Seitenleiste)")
+        case .account: String(localized: "Mit der App verbinden", comment: "Schritt des Einrichtungsassistenten (Seitenleiste)")
+        case .keys: String(localized: "KI-Zugang", comment: "Schritt des Einrichtungsassistenten (Seitenleiste)")
+        case .mac: String(localized: "Diesen Mac freigeben", comment: "Schritt des Einrichtungsassistenten (Seitenleiste)")
+        case .reach: String(localized: "Von unterwegs erreichbar", comment: "Schritt des Einrichtungsassistenten (Seitenleiste)")
+        case .awake: String(localized: "Dauerbetrieb", comment: "Schritt des Einrichtungsassistenten (Seitenleiste)")
+        case .done: String(localized: "Fertig", comment: "Schritt des Einrichtungsassistenten (Seitenleiste)")
         }
     }
 
     var headline: String {
         switch self {
-        case .welcome: "Willkommen bei AIS Scoops Server"
-        case .account: "Mit AIS Scoops verbinden"
-        case .keys: "KI-Zugang einrichten"
-        case .mac: "Diesen Mac für die Scoops freigeben"
-        case .reach: "Von unterwegs erreichbar machen"
-        case .awake: "Damit deine Scoops immer können"
-        case .done: "Alles bereit"
+        case .welcome: String(localized: "Willkommen bei AIS Scoops Server")
+        case .account: String(localized: "Mit AIS Scoops verbinden")
+        case .keys: String(localized: "KI-Zugang einrichten")
+        case .mac: String(localized: "Diesen Mac für die Scoops freigeben")
+        case .reach: String(localized: "Von unterwegs erreichbar machen")
+        case .awake: String(localized: "Damit deine Scoops immer können")
+        case .done: String(localized: "Alles bereit")
         }
     }
 
     /// Warum dieser Schritt nötig ist (unter der Überschrift)
     var why: String {
         switch self {
-        case .welcome: "Deine eigenen Scoops, auf deinem Mac. Der Assistent begleitet dich Schritt für Schritt."
-        case .account: "Damit AIS Scoops auf iPhone, iPad oder Mac diesen Server findet und dir Mitteilungen schicken kann."
-        case .keys: "Deine Scoops denken mit einem KI-Modell. Ohne Abo oder Schlüssel können sie nicht antworten."
-        case .mac: "Damit Scoops auf diesem Mac Programme öffnen, klicken und tippen können. Ohne diesen Schritt chatten sie nur."
-        case .reach: "Ohne diesen Schritt erreicht AIS Scoops den Server nur, wenn du direkt an diesem Mac bist."
-        case .awake: "Scoops arbeiten auch, wenn du nicht am Mac sitzt, etwa für Erinnerungen oder Aufgaben von unterwegs."
-        case .done: "Prüfe kurz, ob alles steht. Danach geht es in der App weiter."
+        case .welcome: String(localized: "Deine eigenen Scoops, auf deinem Mac. Der Assistent begleitet dich Schritt für Schritt.")
+        case .account: String(localized: "Damit AIS Scoops auf iPhone, iPad oder Mac diesen Server findet und dir Mitteilungen schicken kann.")
+        case .keys: String(localized: "Deine Scoops denken mit einem KI-Modell. Ohne Abo oder Schlüssel können sie nicht antworten.")
+        case .mac: String(localized: "Damit Scoops auf diesem Mac Programme öffnen, klicken und tippen können. Ohne diesen Schritt chatten sie nur.")
+        case .reach: String(localized: "Ohne diesen Schritt erreicht AIS Scoops den Server nur, wenn du direkt an diesem Mac bist.")
+        case .awake: String(localized: "Scoops arbeiten auch, wenn du nicht am Mac sitzt, etwa für Erinnerungen oder Aufgaben von unterwegs.")
+        case .done: String(localized: "Prüfe kurz, ob alles steht. Danach geht es in der App weiter.")
         }
     }
 
@@ -255,7 +255,7 @@ private struct SetupSidebar: View {
             VStack(alignment: .leading, spacing: 6) {
                 ProgressView(value: Double(step.rawValue), total: Double(SetupStep.allCases.count - 1))
                     .accessibilityLabel("Fortschritt der Einrichtung")
-                    .accessibilityValue("Schritt \(step.rawValue + 1) von \(SetupStep.allCases.count)")
+                    .accessibilityValue(Text("Schritt \(step.rawValue + 1) von \(SetupStep.allCases.count)"))
                 Text("Schritt \(step.rawValue + 1) von \(SetupStep.allCases.count) · etwa 10 Minuten insgesamt")
                     .font(.caption2).foregroundStyle(.secondary)
                     .accessibilityHidden(true)
@@ -325,26 +325,28 @@ private struct SetupSidebar: View {
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
-        .accessibilityLabel("Schritt \(s.rawValue + 1): \(s.title)")
+        .accessibilityLabel(Text("Schritt \(s.rawValue + 1): \(s.title)"))
         .accessibilityValue(accessibilityValue(st, s))
         .accessibilityAddTraits(st == .current ? .isSelected : [])
     }
 
     private func needLabel(_ s: SetupStep, _ st: RowState) -> String? {
-        if st == .skipped { return s.need == .optional ? "Übersprungen" : "Noch offen" }
+        if st == .skipped { return s.need == .optional ? String(localized: "Übersprungen") : String(localized: "Noch offen") }
         switch s.need {
-        case .optional: return "Optional"
-        case .recommended: return "Empfohlen"
+        case .optional: return String(localized: "Optional")
+        case .recommended: return String(localized: "Empfohlen")
         default: return nil
         }
     }
 
     private func accessibilityValue(_ st: RowState, _ s: SetupStep) -> String {
         switch st {
-        case .done: "erledigt"
-        case .current: "aktueller Schritt"
-        case .skipped: s.need == .optional ? "übersprungen" : "noch offen"
-        case .open: s.need == .optional ? "optional, noch nicht erreicht" : "noch nicht erreicht"
+        case .done: String(localized: "erledigt", comment: "Bedienungshilfen: Zustand eines Schritts")
+        case .current: String(localized: "aktueller Schritt", comment: "Bedienungshilfen: Zustand eines Schritts")
+        case .skipped: s.need == .optional ? String(localized: "übersprungen", comment: "Bedienungshilfen: Zustand eines Schritts")
+            : String(localized: "noch offen", comment: "Bedienungshilfen: Zustand eines Schritts")
+        case .open: s.need == .optional ? String(localized: "optional, noch nicht erreicht", comment: "Bedienungshilfen: Zustand eines Schritts")
+            : String(localized: "noch nicht erreicht", comment: "Bedienungshilfen: Zustand eines Schritts")
         }
     }
 }
@@ -382,7 +384,11 @@ struct NeedBadge: View {
             .accessibilityLabel(text)
     }
     private var text: String {
-        switch need { case .required: "Nötig"; case .recommended: "Empfohlen"; case .optional: "Optional" }
+        switch need {
+        case .required: String(localized: "Nötig")
+        case .recommended: String(localized: "Empfohlen")
+        case .optional: String(localized: "Optional")
+        }
     }
     private var color: Color {
         switch need { case .required: .accentColor; case .recommended: .green; case .optional: .secondary }
@@ -624,7 +630,8 @@ private struct AccountStep: View {
                         .tracking(5)
                         .textSelection(.enabled)
                         .accessibilityLabel("Kopplungscode")
-                        .accessibilityValue(code.map { $0 == "-" ? "Strich" : String($0) }.joined(separator: " "))
+                        .accessibilityValue(code.map { $0 == "-" ? String(localized: "Strich", comment: "Bedienungshilfen: Bindestrich im Kopplungscode") : String($0) }
+                            .joined(separator: " "))
                     Button {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(code, forType: .string)
@@ -642,7 +649,8 @@ private struct AccountStep: View {
                     if let exp = m.pendingExpiry {
                         TimelineView(.periodic(from: .now, by: 1)) { ctx in
                             let left = max(0, Int(exp.timeIntervalSince(ctx.date)))
-                            Text("Gültig noch \(left / 60):\(String(format: "%02d", left % 60)) Min.")
+                            Text("Gültig noch \(left / 60):\(String(format: "%02d", left % 60)) Min.",
+                                 comment: "Restzeit des Kopplungscodes, Minuten:Sekunden")
                                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         }
                     }
@@ -675,8 +683,13 @@ private struct AccountStep: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Verbunden!").font(.title3.weight(.semibold))
-                    Text(m.ownerName.map { "AIS Scoops ist mit diesem Server verbunden, Konto von **\($0)**." }
-                         ?? "AIS Scoops ist mit diesem Server verbunden.")
+                    Group {
+                        if let owner = m.ownerName {
+                            Text("AIS Scoops ist mit diesem Server verbunden, Konto von **\(owner)**.")
+                        } else {
+                            Text("AIS Scoops ist mit diesem Server verbunden.")
+                        }
+                    }
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -728,7 +741,7 @@ private struct AccountStep: View {
             lastExpiry = m.pendingExpiry
             error = nil
         } catch {
-            self.error = "Code konnte nicht angefordert werden: \(error.localizedDescription)"
+            self.error = String(localized: "Code konnte nicht angefordert werden: \(error.localizedDescription)")
         }
     }
 }
@@ -743,21 +756,28 @@ private struct DoneStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
-                check(ok: m.phase == .running, title: "Server läuft",
-                      detail: m.phase == .running ? "Startet nach dem Anmelden am Mac von selbst." : "Der Server ist gerade nicht bereit.",
+                check(ok: m.phase == .running, title: String(localized: "Server läuft"),
+                      detail: m.phase == .running ? String(localized: "Startet nach dem Anmelden am Mac von selbst.")
+                          : String(localized: "Der Server ist gerade nicht bereit."),
                       fix: m.phase == .running ? nil : .welcome)
-                check(ok: m.linked, title: m.linked ? "Mit AIS Scoops verbunden" : "Noch nicht mit AIS Scoops verbunden",
-                      detail: m.linked ? (m.ownerName.map { "Konto von \($0)" } ?? "Konto verbunden") : "Ohne Verbindung findet die App diesen Server nicht.",
+                check(ok: m.linked, title: m.linked ? String(localized: "Mit AIS Scoops verbunden")
+                          : String(localized: "Noch nicht mit AIS Scoops verbunden"),
+                      detail: m.linked ? (m.ownerName.map { String(localized: "Konto von \($0)") } ?? String(localized: "Konto verbunden"))
+                          : String(localized: "Ohne Verbindung findet die App diesen Server nicht."),
                       fix: m.linked ? nil : .account)
-                check(ok: controller.hasModelAccess, title: controller.hasModelAccess ? "KI-Zugang ok" : "Noch kein KI-Zugang",
-                      detail: controller.accessSummary ?? "Ohne Abo oder Schlüssel können die Scoops nicht antworten.",
+                check(ok: controller.hasModelAccess, title: controller.hasModelAccess ? String(localized: "KI-Zugang ok")
+                          : String(localized: "Noch kein KI-Zugang"),
+                      detail: controller.accessSummary ?? String(localized: "Ohne Abo oder Schlüssel können die Scoops nicht antworten."),
                       fix: controller.hasModelAccess ? nil : .keys)
                 check(ok: controller.thisMacRegistered, optional: true,
-                      title: controller.thisMacRegistered ? "Dieser Mac ist freigegeben" : "Dieser Mac ist nicht freigegeben",
-                      detail: controller.thisMacRegistered ? "Scoops können hier klicken und tippen." : "Optional. Die Scoops chatten trotzdem.",
+                      title: controller.thisMacRegistered ? String(localized: "Dieser Mac ist freigegeben")
+                          : String(localized: "Dieser Mac ist nicht freigegeben"),
+                      detail: controller.thisMacRegistered ? String(localized: "Scoops können hier klicken und tippen.")
+                          : String(localized: "Optional. Die Scoops chatten trotzdem."),
                       fix: controller.thisMacRegistered ? nil : .mac)
                 check(ok: m.publicURL.hasPrefix("https://"), optional: true,
-                      title: m.publicURL.hasPrefix("https://") ? "Von unterwegs erreichbar: Ja" : "Von unterwegs erreichbar: Nein",
+                      title: m.publicURL.hasPrefix("https://") ? String(localized: "Von unterwegs erreichbar: Ja")
+                          : String(localized: "Von unterwegs erreichbar: Nein"),
                       detail: reachDetail, fix: m.publicURL.hasPrefix("https://") ? nil : .reach)
             }
             nextStepCard
@@ -769,8 +789,8 @@ private struct DoneStep: View {
     private var reachDetail: String {
         let u = m.publicURL
         if u.hasPrefix("https://") { return u }
-        if !u.isEmpty { return "Nur im selben WLAN wie dieser Mac (\(u))." }
-        return "Nur hier am Mac. Optional, lässt sich jederzeit nachholen."
+        if !u.isEmpty { return String(localized: "Nur im selben WLAN wie dieser Mac (\(u)).") }
+        return String(localized: "Nur hier am Mac. Optional, lässt sich jederzeit nachholen.")
     }
 
     private func check(ok: Bool, optional: Bool = false, title: String, detail: String, fix: SetupStep?) -> some View {
@@ -786,9 +806,9 @@ private struct DoneStep: View {
             }
             Spacer(minLength: 0)
             if let fix {
-                Button(optional ? "Einrichten" : "Beheben") { go(fix) }
+                Button(optional ? String(localized: "Einrichten") : String(localized: "Beheben")) { go(fix) }
                     .controlSize(.small)
-                    .accessibilityLabel("\(optional ? "Einrichten" : "Beheben"): \(title)")
+                    .accessibilityLabel(optional ? Text("Einrichten: \(title)") : Text("Beheben: \(title)"))
             }
         }
         .accessibilityElement(children: .combine)
@@ -801,8 +821,13 @@ private struct DoneStep: View {
                 Text("🎉").font(.system(size: 38)).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Glückwunsch zu deinem ersten Scoop!").font(.title3.weight(.semibold))
-                    Text(m.newestOwnScoop.map { "**\($0)** ist bereit. Schreib ihm in AIS Scoops, wobei er dir helfen soll." }
-                         ?? "Er ist bereit. Schreib ihm in AIS Scoops, wobei er dir helfen soll.")
+                    Group {
+                        if let newest = m.newestOwnScoop {
+                            Text("**\(newest)** ist bereit. Schreib ihm in AIS Scoops, wobei er dir helfen soll.")
+                        } else {
+                            Text("Er ist bereit. Schreib ihm in AIS Scoops, wobei er dir helfen soll.")
+                        }
+                    }
                         .fixedSize(horizontal: false, vertical: true)
                     if count > 1 {
                         Text("Du hast schon \(count) eigene Scoops.").font(.callout).foregroundStyle(.secondary)

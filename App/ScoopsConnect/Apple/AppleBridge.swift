@@ -9,6 +9,15 @@ nonisolated enum AppleService: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
+        case .reminders: String(localized: "Erinnerungen", comment: "Apple-Dienst (Name der App in macOS)")
+        case .calendar: String(localized: "Kalender", comment: "Apple-Dienst (Name der App in macOS)")
+        case .contacts: String(localized: "Kontakte", comment: "Apple-Dienst (Name der App in macOS)")
+        }
+    }
+
+    /// Name in Antworten an den Server (Protokoll, bleibt deutsch wie alle Befehlsmeldungen der App)
+    var protocolTitle: String {
+        switch self {
         case .reminders: "Erinnerungen"
         case .calendar: "Kalender"
         case .contacts: "Kontakte"
@@ -17,9 +26,9 @@ nonisolated enum AppleService: String, CaseIterable, Identifiable, Sendable {
 
     var detail: String {
         switch self {
-        case .reminders: "Scoops lesen, legen an, ändern und haken ab. Löschen nur mit deiner Freigabe in AIS Scoops."
-        case .calendar: "Scoops lesen Termine und tragen neue ein. Löschen nur mit deiner Freigabe in AIS Scoops."
-        case .contacts: "Scoops schlagen Telefonnummern, Mailadressen und Geburtstage nach (nur lesen)."
+        case .reminders: String(localized: "Scoops lesen, legen an, ändern und haken ab. Löschen nur mit deiner Freigabe in AIS Scoops.")
+        case .calendar: String(localized: "Scoops lesen Termine und tragen neue ein. Löschen nur mit deiner Freigabe in AIS Scoops.")
+        case .contacts: String(localized: "Scoops schlagen Telefonnummern, Mailadressen und Geburtstage nach (nur lesen).")
         }
     }
 
@@ -135,9 +144,9 @@ nonisolated final class AppleBridge: @unchecked Sendable {
 
         switch Self.permission(service) {
         case "granted": break
-        case "disabled": return CmdResult.fail("\(service.title) sind auf diesem Mac in AIS Scoops Server für die Scoops ausgeschaltet.")
-        case "not_determined": return CmdResult.fail("\(service.title): Freigabe auf diesem Mac noch nicht erteilt (AIS Scoops Server → Apple-Dienste).")
-        default: return CmdResult.fail("\(service.title): Keine Freigabe auf diesem Mac (Systemeinstellungen → Datenschutz).")
+        case "disabled": return CmdResult.fail("\(service.protocolTitle) sind auf diesem Mac in AIS Scoops Server für die Scoops ausgeschaltet.")
+        case "not_determined": return CmdResult.fail("\(service.protocolTitle): Freigabe auf diesem Mac noch nicht erteilt (AIS Scoops Server → Apple-Dienste).")
+        default: return CmdResult.fail("\(service.protocolTitle): Keine Freigabe auf diesem Mac (Systemeinstellungen → Datenschutz).")
         }
 
         do {

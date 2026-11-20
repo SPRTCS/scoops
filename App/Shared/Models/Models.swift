@@ -49,45 +49,107 @@ nonisolated struct Mascot: Codable, Hashable, Sendable {
                               "beanie", "tophat", "cowboy", "partyhat", "wizard", "halo", "hair_bow", "cat_ears",
                               "bunny_ears", "horns", "headset", "sunglasses", "monocle", "tie", "scarf"]
     /// Gruppen für die Auswahl im Maskottchen-Editor (jedes Accessoire genau einmal).
-    static let accessoryGroups: [(title: String, items: [String])] = [
-        ("Kopf", ["none", "beret", "cap", "beanie", "tophat", "cowboy", "partyhat", "wizard", "crown", "halo",
-                  "flower", "hair_bow", "cat_ears", "bunny_ears", "horns", "headphones", "headset"]),
-        ("Gesicht", ["glasses", "sunglasses", "monocle"]),
-        ("Hals", ["bowtie", "tie", "scarf"]),
-    ]
+    static var accessoryGroups: [(title: String, items: [String])] { [
+        (String(localized: "Kopf", comment: "Accessoire-Gruppe im Maskottchen-Editor"),
+         ["none", "beret", "cap", "beanie", "tophat", "cowboy", "partyhat", "wizard", "crown", "halo",
+          "flower", "hair_bow", "cat_ears", "bunny_ears", "horns", "headphones", "headset"]),
+        (String(localized: "Gesicht", comment: "Accessoire-Gruppe im Maskottchen-Editor"), ["glasses", "sunglasses", "monocle"]),
+        (String(localized: "Hals", comment: "Accessoire-Gruppe im Maskottchen-Editor"), ["bowtie", "tie", "scarf"]),
+    ] }
 
     /// Satte Key-Visual-Farben (v1.31), im Editor in der ersten Reihe: Grün, Gelb, Blau, Violett, Pink, Koralle, Creme.
-    static let boldPalette: [(name: String, hex: String)] = [
-        ("Grün", "#43C62E"), ("Gelb", "#FBBA10"), ("Blau", "#1270E8"), ("Violett", "#8A2EDB"),
-        ("Pink", "#F72A7A"), ("Koralle", "#FA5438"), ("Creme", "#F1DDBB"),
-    ]
+    static var boldPalette: [(name: String, hex: String)] { [
+        (String(localized: "Grün", comment: "Farbe des Maskottchens"), "#43C62E"),
+        (String(localized: "Gelb", comment: "Farbe des Maskottchens"), "#FBBA10"),
+        (String(localized: "Blau", comment: "Farbe des Maskottchens"), "#1270E8"),
+        (String(localized: "Violett", comment: "Farbe des Maskottchens"), "#8A2EDB"),
+        (String(localized: "Pink", comment: "Farbe des Maskottchens"), "#F72A7A"),
+        (String(localized: "Koralle", comment: "Farbe des Maskottchens"), "#FA5438"),
+        (String(localized: "Creme", comment: "Farbe des Maskottchens"), "#F1DDBB"),
+    ] }
     /// Klassische Farbpalette des Anlege-Dialogs (Reihenfolge wie im Design, Indizes werden in den Einstellungen genutzt).
-    static let palette: [(name: String, hex: String)] = [
-        ("Weiß", "#F3EFE7"), ("Braun", "#A87452"), ("Rot", "#F2484E"), ("Orange", "#FF7A30"),
-        ("Bernstein", "#FFB524"), ("Grün", "#34C46C"), ("Türkis", "#22BFAE"), ("Blau", "#3D84F5"),
-        ("Violett", "#8B5CF6"), ("Pink", "#FF5FA8"), ("Grau", "#9C9CA3"),
-    ]
+    static var palette: [(name: String, hex: String)] { [
+        (String(localized: "Weiß", comment: "Farbe des Maskottchens"), "#F3EFE7"),
+        (String(localized: "Braun", comment: "Farbe des Maskottchens"), "#A87452"),
+        (String(localized: "Rot", comment: "Farbe des Maskottchens"), "#F2484E"),
+        (String(localized: "Orange", comment: "Farbe des Maskottchens"), "#FF7A30"),
+        (String(localized: "Bernstein", comment: "Farbe des Maskottchens"), "#FFB524"),
+        (String(localized: "Grün", comment: "Farbe des Maskottchens"), "#34C46C"),
+        (String(localized: "Türkis", comment: "Farbe des Maskottchens"), "#22BFAE"),
+        (String(localized: "Blau", comment: "Farbe des Maskottchens"), "#3D84F5"),
+        (String(localized: "Violett", comment: "Farbe des Maskottchens"), "#8B5CF6"),
+        (String(localized: "Pink", comment: "Farbe des Maskottchens"), "#FF5FA8"),
+        (String(localized: "Grau", comment: "Farbe des Maskottchens"), "#9C9CA3"),
+    ] }
 
-    /// Deutsche Namen für Auswahl und Übersichten.
+    /// Namen (übersetzt) für Auswahl und Übersichten.
     static func shapeName(_ s: String) -> String {
-        ["bean": "Bohne", "pear": "Birne", "cloud": "Wolke", "egg": "Ei", "blob": "Klecks", "star": "Stern",
-         "drop": "Tropfen", "bun": "Brötchen", "ghost": "Gespenst", "flower": "Blume",
-         "circle": "Kreis", "oval_tall": "Oval hoch", "oval_wide": "Oval quer", "square": "Quadrat",
-         "rect_tall": "Rechteck hoch", "rect_wide": "Rechteck quer", "triangle": "Dreieck", "diamond": "Raute",
-         "hexagon": "Sechseck", "heart": "Herz", "arrow": "Pfeil", "pill": "Kapsel",
-         "flower_round": "Runde Blume", "star_soft": "Stern rund"][s] ?? s
+        switch s {
+        case "bean": String(localized: "Bohne", comment: "Form des Maskottchens")
+        case "pear": String(localized: "Birne", comment: "Form des Maskottchens")
+        case "cloud": String(localized: "Wolke", comment: "Form des Maskottchens")
+        case "egg": String(localized: "Ei", comment: "Form des Maskottchens")
+        case "blob": String(localized: "Klecks", comment: "Form des Maskottchens")
+        case "star": String(localized: "Stern", comment: "Form des Maskottchens")
+        case "drop": String(localized: "Tropfen", comment: "Form des Maskottchens")
+        case "bun": String(localized: "Brötchen", comment: "Form des Maskottchens")
+        case "ghost": String(localized: "Gespenst", comment: "Form des Maskottchens")
+        case "flower": String(localized: "Blume", comment: "Form bzw. Accessoire des Maskottchens")
+        case "circle": String(localized: "Kreis", comment: "Form des Maskottchens")
+        case "oval_tall": String(localized: "Oval hoch", comment: "Form des Maskottchens")
+        case "oval_wide": String(localized: "Oval quer", comment: "Form des Maskottchens")
+        case "square": String(localized: "Quadrat", comment: "Form des Maskottchens")
+        case "rect_tall": String(localized: "Rechteck hoch", comment: "Form des Maskottchens")
+        case "rect_wide": String(localized: "Rechteck quer", comment: "Form des Maskottchens")
+        case "triangle": String(localized: "Dreieck", comment: "Form des Maskottchens")
+        case "diamond": String(localized: "Raute", comment: "Form des Maskottchens")
+        case "hexagon": String(localized: "Sechseck", comment: "Form des Maskottchens")
+        case "heart": String(localized: "Herz", comment: "Form des Maskottchens")
+        case "arrow": String(localized: "Pfeil", comment: "Form des Maskottchens")
+        case "pill": String(localized: "Kapsel", comment: "Form des Maskottchens")
+        case "flower_round": String(localized: "Runde Blume", comment: "Form des Maskottchens")
+        case "star_soft": String(localized: "Stern rund", comment: "Form des Maskottchens")
+        default: s
+        }
     }
 
     static func eyesName(_ s: String) -> String {
-        ["lashes": "Wimpern", "cat": "Katzenaugen", "relaxed": "Verträumt", "focused": "Ernst", "dashes": "Striche",
-         "happy": "Zufrieden",
-         // nicht mehr angeboten (Zuordnung siehe `retiredEyeStyles`)
-         "skeptical": "Skeptisch", "calm": "Ruhig", "dots": "Punkte", "ovals": "Ovale", "diamonds": "Rauten",
-         "sleepy": "Verschlafen", "sparkle": "Funkeln"][s] ?? s
+        switch s {
+        case "lashes": String(localized: "Wimpern", comment: "Augenstil des Maskottchens")
+        case "cat": String(localized: "Katzenaugen", comment: "Augenstil des Maskottchens")
+        case "relaxed": String(localized: "Verträumt", comment: "Augenstil des Maskottchens")
+        case "focused": String(localized: "Ernst", comment: "Augenstil des Maskottchens")
+        case "dashes": String(localized: "Striche", comment: "Augenstil des Maskottchens")
+        case "happy": String(localized: "Zufrieden", comment: "Augenstil des Maskottchens")
+        // nicht mehr angeboten (Zuordnung siehe `retiredEyeStyles`)
+        case "skeptical": String(localized: "Skeptisch", comment: "Augenstil des Maskottchens")
+        case "calm": String(localized: "Ruhig", comment: "Augenstil des Maskottchens")
+        case "dots": String(localized: "Punkte", comment: "Augenstil des Maskottchens")
+        case "ovals": String(localized: "Ovale", comment: "Augenstil des Maskottchens")
+        case "diamonds": String(localized: "Rauten", comment: "Augenstil des Maskottchens")
+        case "sleepy": String(localized: "Verschlafen", comment: "Augenstil des Maskottchens")
+        case "sparkle": String(localized: "Funkeln", comment: "Augenstil des Maskottchens")
+        default: s
+        }
     }
 
-    static func gazeName(_ s: String) -> String { ["left": "Links", "center": "Geradeaus", "right": "Rechts"][s] ?? s }
-    static func mouthName(_ s: String) -> String { ["smirk": "Schief", "smile": "Lächeln", "neutral": "Neutral"][s] ?? s }
+    static func gazeName(_ s: String) -> String {
+        switch s {
+        // Eigener Schlüssel: „Links“ gibt es auch als Dateityp (Weblinks)
+        case "left": String(localized: "mascot.gaze.left", defaultValue: "Links", comment: "Blickrichtung des Maskottchens")
+        case "center": String(localized: "Geradeaus", comment: "Blickrichtung des Maskottchens")
+        case "right": String(localized: "Rechts", comment: "Blickrichtung des Maskottchens")
+        default: s
+        }
+    }
+    static func mouthName(_ s: String) -> String {
+        switch s {
+        case "smirk": String(localized: "Schief", comment: "Mund des Maskottchens")
+        case "smile": String(localized: "Lächeln", comment: "Mund des Maskottchens")
+        case "neutral": String(localized: "Neutral", comment: "Mund des Maskottchens")
+        default: s
+        }
+    }
 
     /// Augenstil, mit dem gezeichnet wird (nicht mehr angebotene Stile → Nachfolger). Der Editor zeigt ihn als gewählt.
     var drawnEyes: String { Mascot.retiredEyeStyles[eyes] ?? eyes }
@@ -122,11 +184,32 @@ nonisolated struct Mascot: Codable, Hashable, Sendable {
     }
 
     static func accessoryName(_ s: String) -> String {
-        ["none": "Ohne", "beret": "Baskenmütze", "bowtie": "Fliege", "glasses": "Brille", "headphones": "Kopfhörer",
-         "cap": "Kappe", "flower": "Blume", "crown": "Krone", "beanie": "Bommelmütze", "tophat": "Zylinder",
-         "cowboy": "Cowboyhut", "partyhat": "Partyhut", "wizard": "Zauberhut", "halo": "Heiligenschein",
-         "hair_bow": "Haarschleife", "cat_ears": "Katzenohren", "bunny_ears": "Hasenohren", "horns": "Hörnchen",
-         "headset": "Headset", "sunglasses": "Sonnenbrille", "monocle": "Monokel", "tie": "Krawatte", "scarf": "Schal"][s] ?? s
+        switch s {
+        case "none": String(localized: "Ohne", comment: "Accessoire des Maskottchens")
+        case "beret": String(localized: "Baskenmütze", comment: "Accessoire des Maskottchens")
+        case "bowtie": String(localized: "Fliege", comment: "Accessoire des Maskottchens")
+        case "glasses": String(localized: "Brille", comment: "Accessoire des Maskottchens")
+        case "headphones": String(localized: "Kopfhörer", comment: "Accessoire des Maskottchens")
+        case "cap": String(localized: "Kappe", comment: "Accessoire des Maskottchens")
+        case "flower": String(localized: "Blume", comment: "Form bzw. Accessoire des Maskottchens")
+        case "crown": String(localized: "Krone", comment: "Accessoire des Maskottchens")
+        case "beanie": String(localized: "Bommelmütze", comment: "Accessoire des Maskottchens")
+        case "tophat": String(localized: "Zylinder", comment: "Accessoire des Maskottchens")
+        case "cowboy": String(localized: "Cowboyhut", comment: "Accessoire des Maskottchens")
+        case "partyhat": String(localized: "Partyhut", comment: "Accessoire des Maskottchens")
+        case "wizard": String(localized: "Zauberhut", comment: "Accessoire des Maskottchens")
+        case "halo": String(localized: "Heiligenschein", comment: "Accessoire des Maskottchens")
+        case "hair_bow": String(localized: "Haarschleife", comment: "Accessoire des Maskottchens")
+        case "cat_ears": String(localized: "Katzenohren", comment: "Accessoire des Maskottchens")
+        case "bunny_ears": String(localized: "Hasenohren", comment: "Accessoire des Maskottchens")
+        case "horns": String(localized: "Hörnchen", comment: "Accessoire des Maskottchens")
+        case "headset": String(localized: "Headset", comment: "Accessoire des Maskottchens")
+        case "sunglasses": String(localized: "Sonnenbrille", comment: "Accessoire des Maskottchens")
+        case "monocle": String(localized: "Monokel", comment: "Accessoire des Maskottchens")
+        case "tie": String(localized: "Krawatte", comment: "Accessoire des Maskottchens")
+        case "scarf": String(localized: "Schal", comment: "Accessoire des Maskottchens")
+        default: s
+        }
     }
 
     static let `default` = Mascot(shape: "bean", color: "#8B5CF6", eyes: "dots", accessory: "none")
@@ -170,6 +253,8 @@ nonisolated struct Bot: Codable, Hashable, Identifiable, Sendable {
     var waiting: Bool = false
     /// v1.29: Rechner-Zugriff (Rechte-Modus und Standard-Bereich, nur im JSON des Admins)
     var computerAccess: ScoopAccess?
+    /// App 1.3: Stummschaltung für mich (docs/ruhe.md, pro Person). `nil` = der Server kann es noch nicht.
+    var mute: ChatMute?
 
     init(id: String, name: String, label: String? = nil, mascot: Mascot, character: String? = nil,
          model: String? = nil, escalationModel: String? = nil, pinned: Bool = false, section: String? = nil,
@@ -209,7 +294,11 @@ nonisolated struct Bot: Codable, Hashable, Identifiable, Sendable {
         reviewer = ((try? c.decodeIfPresent(Bool.self, forKey: .reviewer)) ?? nil) ?? false
         waiting = ((try? c.decodeIfPresent(Bool.self, forKey: .waiting)) ?? nil) ?? false
         computerAccess = try? c.decodeIfPresent(ScoopAccess.self, forKey: .computerAccess)
+        mute = try? c.decodeIfPresent(ChatMute.self, forKey: .mute)
     }
+
+    /// Gerade stummgeschaltet (keine Mitteilungen aus diesem Chat)
+    var isMuted: Bool { mute?.isActive() ?? false }
 
     /// Mit anderen geteilt (Admin-Sicht)
     var isSharedByMe: Bool { (shared?.count ?? 0) > 0 }
@@ -300,6 +389,14 @@ nonisolated struct MessageMeta: Codable, Hashable, Sendable {
     var ownerName: String?
     /// v1.15: Antwort auf eine bestimmte Nachricht (Zitat oben in der Blase)
     var replyTo: ReplyRef?
+    /// App 1.3: Nachricht wurde nachträglich bearbeitet (`PATCH /api/messages/{id}`)
+    var edited: EditInfo?
+
+    nonisolated struct EditInfo: Codable, Hashable, Sendable {
+        var at: Date?
+        /// `replaced` = der Scoop hat neu geantwortet, `corrected` = Korrektur als neuer Auftrag; fehlt, solange offen
+        var mode: String?
+    }
     /// v1.19: Statuskarte einer Hintergrund-Aufgabe (Aufgabenmodus, docs/aufgaben.md)
     var task: TaskInfo?
     /// v1.19: Ereignis/Nachricht gehört zu einer Aufgabe
@@ -324,6 +421,9 @@ nonisolated struct MessageMeta: Codable, Hashable, Sendable {
     /// v1.35: Ereignis „Bei … anmelden“ (`kind == "mcp_login"`) bzw. Bezug auf einen eigenen MCP-Server
     var mcpServerId: String?
     var mcpServerName: String?
+    /// Begrüßung des Start-Scoops einer neuen Server-Installation (`meta.welcome`, docs/sprache.md): sprachunabhängiges
+    /// Merkmal statt Textvergleich (siehe `OnboardingLogic.isFreshServer`)
+    var welcome: Bool?
 
     nonisolated struct SecretField: Codable, Hashable, Sendable, Identifiable {
         var key: String
@@ -399,6 +499,7 @@ nonisolated struct MessageMeta: Codable, Hashable, Sendable {
         requestedBy = try? c.decodeIfPresent(RequestedBy.self, forKey: .requestedBy)
         ownerName = try? c.decodeIfPresent(String.self, forKey: .ownerName)
         replyTo = try? c.decodeIfPresent(ReplyRef.self, forKey: .replyTo)
+        edited = try? c.decodeIfPresent(EditInfo.self, forKey: .edited)
         task = try? c.decodeIfPresent(TaskInfo.self, forKey: .task)
         taskOptions = try? c.decodeIfPresent(TaskOptions.self, forKey: .taskOptions)
         toPeople = try? c.decodeIfPresent([String].self, forKey: .toPeople)
@@ -412,6 +513,7 @@ nonisolated struct MessageMeta: Codable, Hashable, Sendable {
         secretFields = try? c.decodeIfPresent([SecretField].self, forKey: .secretFields)
         mcpServerId = try? c.decodeIfPresent(String.self, forKey: .mcpServerId)
         mcpServerName = try? c.decodeIfPresent(String.self, forKey: .mcpServerName)
+        welcome = try? c.decodeIfPresent(Bool.self, forKey: .welcome)
     }
 }
 
@@ -468,11 +570,11 @@ nonisolated struct ScoopUpdate: Codable, Hashable, Sendable {
     /// Lesbare Art der Änderung
     var artTitle: String {
         switch art {
-        case "faehigkeit": "Fähigkeit"
-        case "gedaechtnis": "Gedächtnis"
-        case "anweisungen": "Anweisungen"
-        case "routine_modell": "Routine-Modell"
-        default: "Änderung"
+        case "faehigkeit": String(localized: "Fähigkeit")
+        case "gedaechtnis": String(localized: "Gedächtnis")
+        case "anweisungen": String(localized: "Anweisungen", comment: "Art einer Scoop-Änderung: Anweisungen (Prompt)")
+        case "routine_modell": String(localized: "Routine-Modell")
+        default: String(localized: "Änderung")
         }
     }
 
@@ -537,9 +639,9 @@ nonisolated enum AccessMode: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .ask: "Immer genehmigen"
-        case .auto: "Automatisch"
-        case .full: "Vollzugriff"
+        case .ask: String(localized: "Immer genehmigen")
+        case .auto: String(localized: "Automatisch", comment: "Rechner-Zugriffsmodus")
+        case .full: String(localized: "Vollzugriff")
         }
     }
 
@@ -553,9 +655,9 @@ nonisolated enum AccessMode: String, CaseIterable, Identifiable, Sendable {
 
     var detail: String {
         switch self {
-        case .ask: "Lesen ist frei. Alles, was etwas verändert, fragt vorher mit einer Freigabe-Karte."
-        case .auto: "Arbeitet im Bereich frei. Riskantes fragt vorher: Löschen außerhalb, git push, Installationen, sudo, Systemeinstellungen, Uploads."
-        case .full: "Keine Rückfragen für lokale Arbeit am Rechner. sudo und Passwörter nie ohne dich."
+        case .ask: String(localized: "Lesen ist frei. Alles, was etwas verändert, fragt vorher mit einer Freigabe-Karte.")
+        case .auto: String(localized: "Arbeitet im Bereich frei. Riskantes fragt vorher: Löschen außerhalb, git push, Installationen, sudo, Systemeinstellungen, Uploads.")
+        case .full: String(localized: "Keine Rückfragen für lokale Arbeit am Rechner. sudo und Passwörter nie ohne dich.")
         }
     }
 }
@@ -568,9 +670,9 @@ nonisolated enum AccessScope: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .workspace: "Nur Arbeitsordner"
-        case .projects: "Projektordner"
-        case .home: "Überall"
+        case .workspace: String(localized: "Nur Arbeitsordner")
+        case .projects: String(localized: "Projektordner")
+        case .home: String(localized: "Überall")
         }
     }
 
@@ -584,9 +686,9 @@ nonisolated enum AccessScope: String, CaseIterable, Identifiable, Sendable {
 
     var detail: String {
         switch self {
-        case .workspace: "Nur sein Ordner im Arbeitsordner."
-        case .projects: "Zusätzlich die gewählten Ordner, mit deinem echten Home (Git, SSH, gh funktionieren)."
-        case .home: "Dein ganzes Home, mit deinem echten Home und PATH."
+        case .workspace: String(localized: "Nur sein Ordner im Arbeitsordner.")
+        case .projects: String(localized: "Zusätzlich die gewählten Ordner, mit deinem echten Home (Git, SSH, gh funktionieren).")
+        case .home: String(localized: "Dein ganzes Home, mit deinem echten Home und PATH.")
         }
     }
 
@@ -761,9 +863,11 @@ nonisolated struct Message: Codable, Hashable, Identifiable, Sendable {
         switch role {
         case .status:
             if let last = meta.lines?.last { return last }
-            return meta.state == "running" ? "Arbeitet …" : "Fertig"
+            return meta.state == "running" ? String(localized: "Arbeitet …")
+                : String(localized: "Fertig", comment: "Lauf eines Scoops beendet")
         case .approval:
-            return "Freigabe: \(meta.title ?? text)"
+            let title = meta.title ?? text
+            return String(localized: "Freigabe: \(title)")
         default:
             return MarkdownText.plain(text)
         }
@@ -827,6 +931,8 @@ nonisolated struct ChatGroup: Codable, Hashable, Identifiable, Sendable {
     var busyIds: [String]
     /// Wartet auf den Nutzer (siehe `Bot.waiting`)
     var waiting: Bool = false
+    /// App 1.3: Stummschaltung für mich (siehe `Bot.mute`)
+    var mute: ChatMute?
 
     init(id: String, name: String, memberIds: [String], pinned: Bool = false, section: String? = nil,
          createdAt: Date? = nil, lastMessage: Message? = nil, unread: Int = 0, busy: Bool = false, busyIds: [String] = []) {
@@ -847,7 +953,10 @@ nonisolated struct ChatGroup: Codable, Hashable, Identifiable, Sendable {
         busy = (try? c.decodeIfPresent(Bool.self, forKey: .busy)) ?? false
         busyIds = (try? c.decodeIfPresent([String].self, forKey: .busyIds)) ?? []
         waiting = ((try? c.decodeIfPresent(Bool.self, forKey: .waiting)) ?? nil) ?? false
+        mute = try? c.decodeIfPresent(ChatMute.self, forKey: .mute)
     }
+
+    var isMuted: Bool { mute?.isActive() ?? false }
 
     var trimmedSection: String? {
         guard let s = section?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return nil }
@@ -921,7 +1030,7 @@ nonisolated struct ConnectedAccount: Codable, Hashable, Identifiable, Sendable {
     }
 
     var displayName: String {
-        guard let a = alias?.trimmingCharacters(in: .whitespaces), !a.isEmpty else { return "Standard" }
+        guard let a = alias?.trimmingCharacters(in: .whitespaces), !a.isEmpty else { return String(localized: "Standard", comment: "Verbundenes Konto ohne eigenen Namen") }
         return a
     }
 
@@ -1051,7 +1160,7 @@ nonisolated struct CustomMCPServer: Codable, Hashable, Identifiable, Sendable {
 
     /// Kurze Zeile unter dem Namen: Host bzw. Befehl
     var subtitle: String {
-        if kind == "stdio" { return command ?? "Lokaler Befehl" }
+        if kind == "stdio" { return command ?? String(localized: "Lokaler Befehl") }
         return url.flatMap { URL(string: $0)?.host() } ?? (url ?? "")
     }
 }
@@ -1129,7 +1238,7 @@ nonisolated struct Skill: Codable, Hashable, Identifiable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         botId = try? c.decodeIfPresent(String.self, forKey: .botId)
-        name = (try? c.decode(String.self, forKey: .name)) ?? "Fähigkeit"
+        name = (try? c.decode(String.self, forKey: .name)) ?? String(localized: "Fähigkeit")
         description = try? c.decodeIfPresent(String.self, forKey: .description)
         steps = try? c.decodeIfPresent(String.self, forKey: .steps)
         uses = (try? c.decodeIfPresent(Int.self, forKey: .uses)) ?? 0
@@ -1203,13 +1312,13 @@ nonisolated struct ComputerState: Codable, Hashable, Sendable {
     var screenSize: CGSize { CGSize(width: width ?? 1024, height: height ?? 768) }
 
     var displayText: String {
-        if paused == true && state != "busy" && state != "user" { return "Pausiert" }
-        if online == false { return "Offline" }
+        if paused == true && state != "busy" && state != "user" { return String(localized: "Pausiert", comment: "Zustand: angehalten (Rechner, Timer)") }
+        if online == false { return String(localized: "Offline", comment: "Zustand eines Rechners") }
         switch state {
-        case "awake": return "Wach"
-        case "busy": return "Arbeitet"
-        case "asleep": return "Schläft"
-        case "user": return "Du steuerst"
+        case "awake": return String(localized: "Wach", comment: "Zustand eines Rechners")
+        case "busy": return String(localized: "Arbeitet")
+        case "asleep": return String(localized: "Schläft", comment: "Zustand eines Rechners")
+        case "user": return String(localized: "Du steuerst")
         default: return state.capitalized
         }
     }
@@ -1253,7 +1362,7 @@ nonisolated struct ComputerNode: Codable, Hashable, Identifiable, Sendable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
-        name = (try? c.decode(String.self, forKey: .name)) ?? "Rechner"
+        name = (try? c.decode(String.self, forKey: .name)) ?? String(localized: "Rechner", comment: "Rechner (Computer)")
         mode = ((try? c.decodeIfPresent(String.self, forKey: .mode)) ?? nil) ?? "direct"
         builtin = ((try? c.decodeIfPresent(Bool.self, forKey: .builtin)) ?? nil) ?? (id == Self.builtinID)
         online = ((try? c.decodeIfPresent(Bool.self, forKey: .online)) ?? nil) ?? false
@@ -1274,18 +1383,21 @@ nonisolated struct ComputerNode: Codable, Hashable, Identifiable, Sendable {
 
     /// Kurzer Status für Listen und Auswahl
     var statusText: String {
-        if !online { return isBuiltin ? "Schläft" : "Offline" }
-        if paused { return "Pausiert" }
+        if !online {
+            return isBuiltin ? String(localized: "Schläft", comment: "Zustand eines Rechners")
+                : String(localized: "Offline", comment: "Zustand eines Rechners")
+        }
+        if paused { return String(localized: "Pausiert", comment: "Zustand: angehalten (Rechner, Timer)") }
         switch state {
-        case "busy": return botName.map { "\($0) arbeitet" } ?? "Arbeitet"
-        case "user": return "Du steuerst"
-        default: return "Bereit"
+        case "busy": return botName.map { String(localized: "\($0) arbeitet") } ?? String(localized: "Arbeitet")
+        case "user": return String(localized: "Du steuerst")
+        default: return String(localized: "Bereit", comment: "Zustand eines Rechners")
         }
     }
 
     var modeText: String {
-        if isBuiltin { return "Eingebaut · VM auf dem Server" }
-        return mode == "vm" ? "Abgeschirmte VM" : "Mac direkt gesteuert"
+        if isBuiltin { return String(localized: "Eingebaut · VM auf dem Server") }
+        return mode == "vm" ? String(localized: "Abgeschirmte VM") : String(localized: "Mac direkt gesteuert")
     }
 
     var symbol: String {
@@ -1342,6 +1454,19 @@ nonisolated struct Health: Codable, Sendable {
     var ok: Bool
     var version: String?
     var userName: String?
+    /// App 1.3: Server kann die Suche über alle Chats (`GET /api/search`); fehlt bei älteren Servern
+    var search: Bool? = nil
+    /// App 1.3: Server kann eigene Nachrichten bearbeiten (`PATCH /api/messages/{id}`)
+    var messageEdit: Bool? = nil
+    /// App 1.3: Server kennt die Seite „Heute“ mit dem Freigaben-Postfach (`GET /api/today`)
+    var today: Bool? = nil
+    /// App 1.3: Server kann Chats stummschalten (`PUT /api/chats/{id}/mute`). Die App erkennt das auch am Feld
+    /// `mute` im Scoop-JSON; das Health-Feld braucht vor allem der Demo-Modus.
+    var mute: Bool? = nil
+    /// App 1.3: Ruhezeiten (`/api/settings/quiet-hours`)
+    var quietHours: Bool? = nil
+    /// App 1.3: höchste lesbare Formatversion von Scoop-Vorlagen (`/api/templates/…`)
+    var templates: Int? = nil
 }
 
 nonisolated struct Usage: Codable, Sendable {
@@ -1416,9 +1541,11 @@ nonisolated struct LiveVoiceInfo: Codable, Sendable, Equatable {
     var idleSeconds: Double?
     var pricePerMinuteUsd: Double?
 
-    static let unavailable = LiveVoiceInfo(available: false, reason: "Der Server kennt den Live-Sprechmodus noch nicht.",
-                                           model: nil, defaultVoice: nil, voices: [], maxSeconds: nil, idleSeconds: nil,
-                                           pricePerMinuteUsd: nil)
+    static var unavailable: LiveVoiceInfo {
+        LiveVoiceInfo(available: false, reason: String(localized: "Der Server kennt den Live-Sprechmodus noch nicht."),
+                      model: nil, defaultVoice: nil, voices: [], maxSeconds: nil, idleSeconds: nil,
+                      pricePerMinuteUsd: nil)
+    }
 }
 
 /// Stimme eines Scoops (Feld `voice`): `live:<name>` (optional `|<Geräte-ID>` als Rückfall) = OpenAI-Live-Stimme,
@@ -1511,13 +1638,13 @@ nonisolated enum BotModel: String, CaseIterable, Identifiable, Sendable {
 
     var hint: String {
         switch self {
-        case .haiku: "Schnell & günstig"
-        case .sonnet: "Stärker"
-        case .opus: "Am stärksten, teuer"
-        case .luna: "Schnell & sehr günstig"
-        case .terra: "Ausgewogen & günstig"
-        case .sol: "Stark, Allrounder"
-        case .astra: "Am stärksten, teuer"
+        case .haiku: String(localized: "Schnell & günstig")
+        case .sonnet: String(localized: "Stärker")
+        case .opus: String(localized: "Am stärksten, teuer")
+        case .luna: String(localized: "Schnell & sehr günstig")
+        case .terra: String(localized: "Ausgewogen & günstig")
+        case .sol: String(localized: "Stark, Allrounder")
+        case .astra: String(localized: "Am stärksten, teuer")
         }
     }
 
@@ -1555,6 +1682,8 @@ nonisolated enum BotModel: String, CaseIterable, Identifiable, Sendable {
 nonisolated enum ServerEvent: Sendable {
     case messageCreated(Message)
     case messageUpdated(Message)
+    /// App 1.3: Nachricht entfernt (Antwort auf die alte Fassung einer bearbeiteten Nachricht)
+    case messageDeleted(id: String, chatId: String)
     case botCreated(Bot)
     case botUpdated(Bot)
     case botDeleted(id: String)
@@ -1585,6 +1714,7 @@ nonisolated struct ServerEventEnvelope: Decodable, Sendable {
 
     private enum Keys: String, CodingKey { case type, data }
     private struct IDOnly: Decodable { var id: String }
+    private struct MessageRef: Decodable { var id: String; var botId: String }
     private struct Typing: Decodable { var botId: String; var chatId: String?; var typing: Bool }
 
     init(from decoder: Decoder) throws {
@@ -1593,6 +1723,9 @@ nonisolated struct ServerEventEnvelope: Decodable, Sendable {
         switch type {
         case "message.created": event = .messageCreated(try c.decode(Message.self, forKey: .data))
         case "message.updated": event = .messageUpdated(try c.decode(Message.self, forKey: .data))
+        case "message.deleted":
+            let ref = try c.decode(MessageRef.self, forKey: .data)
+            event = .messageDeleted(id: ref.id, chatId: ref.botId)
         case "bot.created": event = .botCreated(try c.decode(Bot.self, forKey: .data))
         case "bot.updated": event = .botUpdated(try c.decode(Bot.self, forKey: .data))
         case "bot.deleted": event = .botDeleted(id: try c.decode(IDOnly.self, forKey: .data).id)

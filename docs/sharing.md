@@ -40,6 +40,9 @@ Ein geteilter Scoop arbeitet mit den Konten des Admins. Darum gilt:
 - **Freigaben** (Mail senden, Anruf, Tresor, kritische Aktionen), die in Gast-Läufen entstehen, landen **immer beim
   Admin**. Gäste sehen nur „Wartet auf Freigabe durch <Admin>“.
 - **Tresor** und **Passwörter** sind für Gäste nie sichtbar. Gast-Läufe bekommen keine Tresor-Werkzeuge.
+- **Bilder** (ab 1.39): Bilder erstellt der Server nur über das ChatGPT-Abo des Admins. Gast-Läufe gehen nie über
+  sein Abo (docs/abos.md), darum gibt es in Gast-Läufen keine Bildwerkzeuge und kein eingebautes Bildwerkzeug von
+  Codex. Bilder, die der Scoop in Läufen des Admins erstellt hat, sehen Gäste wie andere Dateien des Chats.
 - **Gedächtnis**: Der Scoop hat ein gemeinsames Gedächtnis. Die Systemanweisung sagt ihm, wer gerade schreibt
   (Name + Rolle), und dass er Privates des Admins nicht an Gäste weitergibt.
 - **Budget**: Tageslimit pro Gast in $ (Standard 2 $), danach antwortet der Scoop dem Gast „Tageslimit erreicht“.
@@ -206,14 +209,18 @@ Dieselben Pfade und JSON-Formate wie beim Admin, damit die App ihren Client wied
 | `POST /api/computer/takeover|release|input?bot=<id>` | Rechner `control` | |
 | `POST /api/shared/devices` | 1 Share | `{"apns_token", "platform": "ios"|"macos", "name"?}` → `{"ok": true, "push_enabled"}`. Getrennt von `/api/devices` (Admin). |
 | `DELETE /api/shared/devices` | 1 Share | `{"apns_token"}` → `{"ok": true}` (z. B. beim Austreten/Abmelden) |
+| `PUT /api/chats/{id}/mute` | read | Stummschalten **pro Gast** (ändert nicht die Stummschaltung des Admins), siehe [ruhe.md](ruhe.md) |
+| `GET`/`PATCH /api/settings/quiet-hours` | 1 Share | Ruhezeit **pro Gast** auf diesem Server |
 | WebSocket `/api/ws?token=` | 1 Share | gefiltert, s. u. |
 
 Freigaben entscheiden (`POST /api/approvals/…`), Scoop löschen/zurücksetzen, Gruppen, Tresor, Apps, Rechner-
-Verwaltung, Einstellungen, Live-Aktivitäten, `/api/health`, `/api/usage` u. a. bleiben **nur Admin**.
+Verwaltung, Einstellungen, Live-Aktivitäten, `/api/health`, `/api/usage` u. a. bleiben **nur Admin**. Das gilt auch für
+Scoop-Vorlagen ([vorlagen.md](vorlagen.md)): Gäste können einen geteilten Scoop nicht exportieren und nichts importieren.
 
 **Gast-Ansicht eines Scoops:** `{"id", "name", "label", "mascot", "avatar", "character", "voice", "created_at", "busy",
 "unread" (pro Gast), "last_message", "pinned": false, "section": null, "primary": false,
-"computer_node" (nur bei Rechner view/control), "access": {"share_id", "role", "computer", "owner_id", "owner_name", "server_name"}}`.
+"computer_node" (nur bei Rechner view/control), "access": {"share_id", "role", "computer", "owner_id", "owner_name", "server_name"},
+"mute" (Stummschaltung des Gasts)}`.
 Kein `model`, keine Teilen-Daten, keine Werkzeug-Freigaben.
 
 **Gast-Ansicht der Nachrichten:** wie beim Admin, aber

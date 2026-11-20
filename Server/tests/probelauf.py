@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import os
 import shutil
 import signal
@@ -894,7 +895,189 @@ def f_codex_cu(c: Ctx) -> str:
     return "Karte „Computer Use: Safari bedienen“, Sperre im Hub, Zeilen, Rechte fehlen → Hinweis und alter Weg, VM unverändert"
 
 
+@flow("20", "Bilder übers ChatGPT-Abo: bild_erstellen/bild_bearbeiten im Chat und in Aufgaben, ChatGPT-Scoop mit "
+            "eingebautem Bildwerkzeug, ohne Abo ein Satz statt Werkzeug",
+      offline_only="Fake-Codex mit Bild-Items (echte Messung: docs/bilder.md)")
+def f_images(c: Ctx) -> str:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import base64
+    import io
+    from types import SimpleNamespace as NS
+    import fake_codex_cu as fc
+    from PIL import Image
+    from aisbot import abos, bilder, engine_abo
+    svc = PROBE.service
+
+    def cfg(**kv) -> None:
+        p = c.tmp / "config.json"
+        d = json.loads(p.read_text())
+        d.update(kv)
+        p.write_text(json.dumps(d))
+
+    def script(colour: str):
+        def run(client, items):
+            buf = io.BytesIO()
+            Image.new("RGB", (64, 64), colour).save(buf, "PNG")
+            yield fc.started(NS(type="imageGeneration", id="exec-p", status="in_progress"))
+            yield fc.completed(NS(type="imageGeneration", id="exec-p", status="completed", saved_path=None, failure=None,
+                                  result=base64.b64encode(buf.getvalue()).decode(), revised_prompt="probe",
+                                  transparent_background=False))
+            yield from fc.done("Fertig.")
+        return run
+
+    restore = fc.install()
+    saved_run = svc.codex_abo.run
+    cfg(images=True)
+    try:
+        # 1. Claude-Scoop: erstellen, dann das Ergebnis bearbeiten (Werkzeuge über den echten Bildlauf)
+        fc.FakeCodex.script = script("red")
+        n0 = len(fc.FakeCodex.instances)
+        before = c.ids(c.helfer)
+        c.say(c.helfer, "Mal mir einen Apfel [probe:bild]")
+        c.bot_reply(c.helfer, before, what="Antwort nach dem Bild")
+        c.idle()
+        ev = [m for m in c.new(c.helfer, before) if m["role"] == "event" and (m.get("meta") or {}).get("file_id")]
+        check(len(ev) == 2 and ev[0]["text"].startswith("Bild erstellt:") and ev[1]["text"].startswith("Bild bearbeitet:"),
+              f"Karten „Bild erstellt/bearbeitet“ fehlen: {[m['text'] for m in ev]}")
+        out = FAKE.tool_results.get("bild_erstellen", "")
+        check('"type": "image"' in out, "bild_erstellen gibt das Bild nicht an den Scoop zurück")
+        names = {f["name"] for f in c.get(f"/api/chats/{c.helfer}/files")}
+        check("Probe-Bild Apfel.png" in names, f"Bild nicht in der Bibliothek: {sorted(names)[:6]}")
+        ws = list(c.workspace.glob("Probe-Helfer/Dateien/Probe-Bild Apfel*.png"))
+        check(ws, "Bild nicht im Arbeitsordner (Dateien/)")
+        runs = fc.FakeCodex.instances[n0:]
+        check(len(runs) == 2 and not any(o.startswith("mcp_servers.") for i in runs for o in i.overrides),
+              f"Bildläufe: {len(runs)} statt 2 oder mit MCP-Servern")
+        # 2. Aufgabe: Werkzeug über /mcp/task, Bild im Arbeitsordner der Aufgabe
+        fc.FakeCodex.script = script("blue")
+        t = c.post("/api/tasks", {"chat_id": c.helfer, "prompt": "Bild für den Bericht [probe:bild]", "title": "Probe: Bild"})
+        t = c.wait_task(t["id"])
+        check("bild_erstellen" in FAKE.task_tools.get(t["id"], []), "Aufgabe ohne bild_erstellen")
+        check("bilder/" in FAKE.task_results.get((t["id"], "bild_erstellen"), ""), "Pfad im Arbeitsordner der Aufgabe fehlt")
+        check(len(t.get("files") or []) >= 1, "Bild nicht bei der Aufgabe vermerkt")
+        c.idle()
+        c.post(f"/api/tasks/{t['id']}/accept")
+        # 3. ChatGPT-Scoop übers Abo: eingebautes Bildwerkzeug, Bild landet im Chat
+        bid = c.shared.get("gpt_bot")
+        if not bid:
+            bid = c.shared["gpt_bot"] = c.post("/api/bots", {"name": "Probe-Codi", "model": "gpt-6-luna", "mascot": {
+                "shape": "bean", "color": "#7C5CFF", "eyes": "dots", "accessory": "none"}})["id"]
+            c.idle()
+        _abo_mode(c, "openai", "abo")
+        svc.codex_abo.run = engine_abo.CodexChatEngine.run.__get__(svc.codex_abo)
+        fc.FakeCodex.script = script("orange")
+        before = c.ids(bid)
+        c.say(bid, "Mal mir eine Orange.")
+        c.bot_reply(bid, before, what="Antwort des ChatGPT-Scoops")
+        c.idle()
+        cx = fc.FakeCodex.instances[-1]
+        check("features.image_generation=true" in cx.overrides, "Codex-Chat ohne eingebautes Bildwerkzeug")
+        ev = [m for m in c.new(bid, before) if m["role"] == "event" and (m.get("meta") or {}).get("file_id")]
+        check(ev and ev[0]["text"].startswith("Bild erstellt:"), "Bild des ChatGPT-Scoops nicht im Chat")
+        _abo_mode(c, "openai", "api")
+        # 4. Ohne ChatGPT-Abo: keine Werkzeuge, ein Satz in der Systemanweisung
+        abos.set_status_for_tests("openai", {"installed": True, "logged_in": False, "subscription": False})
+        tools, _ = tool_sets_now(c, c.helfer)
+        check(not tools & set(bilder.IMAGE_TOOLS), "ohne Abo trotzdem Bildwerkzeuge")
+        check("ChatGPT verbinden" in FAKE.__dict__.get("last_system", ""), "ohne Abo kein Hinweis in der Systemanweisung")
+    finally:
+        restore()
+        svc.codex_abo.run = saved_run
+        svc.codex_abo.close_all()
+        cfg(images=None)
+        abos.set_status_for_tests("openai", {"installed": True, "logged_in": True, "subscription": True, "plan": "probe"})
+    return "Claude-Scoop erstellt und bearbeitet, Aufgabe mit Bild in bilder/, ChatGPT-Scoop mit eingebautem Werkzeug, ohne Abo Hinweis"
+
+
+def tool_sets_now(c: Ctx, bid: str) -> tuple[set[str], str]:
+    before = c.ids(bid)
+    c.say(bid, "Werkzeug-Check [probe:chat]")
+    c.bot_reply(bid, before)
+    c.idle()
+    return set(FAKE.chat_tools.get(bid) or ()), FAKE.__dict__.get("last_system", "")
+
+
 # -- Ausführen und Ausgabe -------------------------------------------------------------------------------------------------
+# Typische deutsche Wörter in Texten, die der Server selbst erzeugt (Ablauf 21). Texte des Fake-Modells sind bewusst
+# englisch oder neutral, damit ein Treffer wirklich vom Server kommt.
+GERMAN = re.compile(r"[äöüÄÖÜß]|\b(und|nicht|der|die|das|ist|wird|mit|für|bitte|Aufgabe|Freigabe|Erinnerung|Routine angelegt|"
+                    r"fertig|angelegt|gestartet|gespeichert|Fehler|gefunden|Scoop arbeitet)\b")
+
+
+@flow("21", "Englisch: Sprache setzen → Antworten, Ereignisse, Aufgabe, Freigabe-Karte, Fehler auf Englisch, Prompt mit "
+            "Sprachvorgabe; zurück auf Deutsch → wieder deutsch",
+      offline_only="nur offline: liest Systemprompts im Prozess")
+def f_english(c: Ctx) -> str:
+    def german(text: str, what: str) -> None:
+        hit = GERMAN.search(text or "")
+        check(not hit, f"{what} enthält Deutsch („{hit.group(0) if hit else ''}“): {text[:160]!r}")
+
+    r = c.http.patch("/api/settings/language", headers=c.H, json={"language": "en"})
+    check(r.status_code == 200 and r.json()["language"] == "en" and r.json()["stored"] == "en",
+          f"Sprache setzen: {r.status_code} {r.text[:120]}")
+    try:
+        h = c.get("/api/health")
+        check(h.get("languages") == ["de", "en"] and h.get("language") == "en", f"Health: {h.get('languages')} {h.get('language')}")
+        err = c.http.get("/api/bots/b_gibtsnicht", headers=c.H)
+        check(err.status_code == 404, f"unbekannter Scoop: {err.status_code}")
+        german(err.json()["error"], "Fehlermeldung")
+        # Chat: Sprachvorgabe im Systemprompt, Antwort kommt an
+        before = c.ids(c.helfer)
+        c.say(c.helfer, "Hello there [probe:chat]")
+        c.bot_reply(c.helfer, before)
+        check("Language:" in FAKE.last_system and "in English" in FAKE.last_system, "Sprachvorgabe fehlt im Systemprompt des Chats")
+        # Ereigniszeilen aus Werkzeugen (Routine anlegen, Datei speichern) auf Englisch
+        before = c.ids(c.helfer)
+        c.say(c.helfer, "Please set it up [probe:routine-anlegen]")
+        ev = wait(lambda: next((m for m in c.new(c.helfer, before) if m["role"] == "event"), None), c.chat_timeout,
+                  "Ereignis „Routine created“")
+        check(ev["text"].startswith("Routine created: "), f"Ereignis: {ev['text'][:80]!r}")
+        c.idle()
+        rid = next((r["id"] for r in c.get(f"/api/bots/{c.helfer}/routines") if r["title"] == "Probe-Routine"), None)
+        if rid:
+            c.http.delete(f"/api/routines/{rid}", headers=c.H)
+        # Aufgabe: Sprachvorgabe im Prompt der Aufgabe, Statuszeilen und Ereignis auf Englisch
+        t = c.post("/api/tasks", {"chat_id": c.helfer, "prompt": "Write a short report [probe:standard]", "title": "English probe"})
+        check("Language:" in PROBE.tasks._system(PROBE.tasks.row(t["id"]), "x"), "Sprachvorgabe fehlt im Prompt der Aufgabe")
+        before = c.ids(c.helfer)
+        t = c.wait_task(t["id"])
+        for line in t.get("lines") or []:
+            german(line, "Statuszeile der Aufgabe")
+        check(any(line.startswith("Progress: ") for line in t.get("lines") or []), f"Zeilen: {t.get('lines')}")
+        ev = wait(lambda: next((m for m in c.new(c.helfer, before) if m["role"] == "event"
+                                and (m.get("meta") or {}).get("task_id") == t["id"]
+                                and m["text"].startswith(("Task done", "Aufgabe fertig"))), None), c.chat_timeout,
+                  "Ereignis „Task done“")
+        check(ev["text"].startswith("Task done: "), f"Ereignis der Aufgabe: {ev['text'][:80]!r}")
+        for m in c.new(c.helfer, before):
+            if m["role"] == "event":
+                german(m["text"].replace("Zwischenstand.md", ""), "Ereignis der Aufgabe")
+        c.idle()
+        c.post(f"/api/tasks/{t['id']}/accept")
+        # Freigabe-Karte aus einer Aufgabe: Rahmen der Karte und Entscheidung auf Englisch
+        before = c.ids(c.helfer)
+        t = c.post("/api/tasks", {"chat_id": c.helfer, "prompt": "Send it [probe:freigabe]", "title": "English approval"})
+        card = c.pending_approval(c.helfer, before)
+        c.post(f"/api/approvals/{card['meta']['approval_id']}", {"decision": "decline"})
+        t = c.wait_task(t["id"])
+        after = [m for m in c.new(c.helfer, before) if m["role"] in ("event", "approval", "status")]
+        for m in after:
+            german(m["text"].replace("Probe-Wochenbericht senden", "").replace("Nur ein Test", ""), f"{m['role']}-Nachricht")
+        c.idle()
+        # Seite „Heute“ und Board antworten ohne deutsche Beschriftungen des Servers
+        today = c.get("/api/today")
+        for item in today.get("running") or []:
+            german(item.get("line") or "", "Heute: laufende Zeile")
+    finally:
+        r = c.http.patch("/api/settings/language", headers=c.H, json={"language": None})
+    check(r.status_code == 200 and r.json()["stored"] is None and r.json()["language"] == "de", f"zurück: {r.text[:120]}")
+    err = c.http.get("/api/bots/b_gibtsnicht", headers=c.H).json()["error"]
+    check(err == "Bot nicht gefunden", f"nach dem Zurückstellen nicht wieder deutsch: {err!r}")
+    en = c.http.get("/api/bots/b_gibtsnicht", headers={**c.H, "Accept-Language": "en-US,en;q=0.9"}).json()["error"]
+    german(en, "Fehlermeldung nach Accept-Language")
+    return "Chat, Ereignisse, Aufgabe, Freigabe, Fehler und Kopfzeile englisch; Deutsch danach unverändert"
+
+
 def run_flows(c: Ctx, only: set[str] | None) -> list[tuple[str, str, str, str, float]]:
     rows = []
     for nr, title, fn, offline_only in FLOWS:
@@ -1159,6 +1342,8 @@ class FakeAI:
         last = msgs[-1]["content"] if msgs else []
         text = "\n".join(b.get("text", "") for b in last if isinstance(b, dict) and b.get("type") == "text")
         self.chat_tools[holder] = set(extra)
+        sysp = kw.get("system")
+        self.last_system = sysp if isinstance(sysp, str) else "\n".join(b.get("text", "") for b in sysp or [])
 
         def use(name: str, args: dict) -> str:
             if name not in extra:
@@ -1182,6 +1367,14 @@ class FakeAI:
         elif "Deine Routine" in text and "[probe:routine]" in text:
             use("aufgabe_starten", {"titel": "Routine-Bericht", "auftrag": "Routine-Bericht schreiben [probe:standard]"})
             final = "Läuft als Aufgabe."
+        elif "[probe:bild]" in text:  # Ablauf 20: erstellen, dann das Ergebnis bearbeiten
+            import re
+            out = use("bild_erstellen", {"beschreibung": "Probe-Bild Apfel", "format": "1:1"})
+            fid = re.search(r"\((f_[\w-]+),", out)
+            if not fid:
+                raise Fail(f"bild_erstellen ohne Bibliotheks-ID: {out[:200]}")
+            use("bild_bearbeiten", {"bilder": [fid.group(1)], "anweisung": "Apfel grün"})
+            final = "Bild fertig."
         elif "[probe:datei-speichern]" in text:
             use("datei_speichern", {"name": "Probe-Notiz.md", "inhalt": "# Probe-Notiz\n"})
             final = "Gespeichert."
@@ -1292,6 +1485,9 @@ class FakeAI:
             if allowed:
                 raise RuntimeError("git push ohne Freigabe erlaubt")
             return "Warte auf die Freigabe.", "end"
+        if "[probe:bild]" in prompt:  # Ablauf 20
+            call("bild_erstellen", {"beschreibung": "Probe-Bild für den Bericht"})
+            return "Bild erstellt.", "end"
         if "[probe:composio]" in prompt:
             call("app_werkzeug_suchen", {"suche": "notion datenbank abfragen"})
             call("app_werkzeug_nutzen", {"name": "composio__COMPOSIO_MULTI_EXECUTE_TOOL",

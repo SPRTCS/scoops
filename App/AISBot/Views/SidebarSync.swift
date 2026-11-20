@@ -264,7 +264,7 @@ struct SidebarRevealButton: View {
     var body: some View {
         Button { store.setSidebarHidden(false) } label: {
             Image(systemName: "sidebar.left")
-                .font(.system(size: 13, weight: .medium))
+                .appFont(13, weight: .medium)
                 .foregroundStyle(theme.textPrimary)
                 .frame(width: Self.size, height: Self.size)
                 .contentShape(Circle())

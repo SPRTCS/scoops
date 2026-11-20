@@ -154,7 +154,7 @@ final class WatchBridge: NSObject, WCSessionDelegate {
               let server = creds.servers.first(where: { $0.id == serverID }),
               let method = message[WatchLink.methodKey] as? String, ["GET", "POST"].contains(method),
               let path = message[WatchLink.pathKey] as? String, WatchLink.isRelayablePath(path) else {
-            return [WatchLink.statusKey: 400, WatchLink.errorKey: "Ungültige Anfrage"]
+            return [WatchLink.statusKey: 400, WatchLink.errorKey: String(localized: "Ungültige Anfrage")]
         }
         let bearer: String
         if server.usesAccount {
@@ -173,6 +173,8 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             req.httpMethod = method
             req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
             req.setValue("application/json", forHTTPHeaderField: "Accept")
+            // Fehler und Hinweise des Servers in der Sprache der App (docs/sprache.md)
+            req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
             if let body = message[WatchLink.bodyKey] as? Data {
                 req.httpBody = body
                 req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -181,7 +183,7 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                 return [WatchLink.statusKey: (response as? HTTPURLResponse)?.statusCode ?? 0, WatchLink.dataKey: data]
             }
         }
-        return [WatchLink.statusKey: 0, WatchLink.errorKey: "Server nicht erreichbar"]
+        return [WatchLink.statusKey: 0, WatchLink.errorKey: String(localized: "Server nicht erreichbar")]
     }
 
     // MARK: WCSessionDelegate

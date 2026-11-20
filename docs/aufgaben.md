@@ -22,6 +22,10 @@ bleibt frei, der Fortschritt erscheint als Schrittkarte. Code: `Server/src/aisbo
   iPhone: Spalten per Segment; iPad/Mac nebeneinander mit Drag & Drop (Geplant → In Arbeit = starten, Zu prüfen →
   Abgeschlossen = abnehmen, → Archiv, Archiv → zurück), sonst Knöpfe und Kontextmenü. Live über `task.updated`, als
   Rückfall alle 20 s neu laden, solange das Board offen ist.
+- **Suche im Board (App 1.3):** Suchfeld im Kopf (Mac: ⌘F, solange das Board offen ist; Esc leert). Gefiltert wird nach
+  Titel, Beschreibung, Routine und Scoop (bei Gruppen auch dem Gruppennamen), zusammen mit dem Scoop-Filter, im Board
+  und im Archiv; die Zähler an Spalten und Reitern folgen. Ohne Treffer: „Keine Aufgabe passt zu …“ mit Hinweis auf
+  Treffer im anderen Reiter. Die Suche läuft in der App über die geladenen Aufgaben, der Server bleibt unverändert.
 - **Laufzustand und Abnahme getrennt:** `state` (scheduled/queued/running/waiting/done/failed/stopped/limit) und `review`
   (`review` → `done` → `archived`). Jede beendete Aufgabe kommt nach „Zu prüfen“, auch Fehler/Stopp/Limit (deutlich
   markiert, „Fortsetzen“). „Nacharbeiten“ mit Hinweis setzt im selben Arbeitsordner fort. Aufgaben von vor 1.22 gelten
@@ -114,6 +118,10 @@ Der Server stellt sie unter `POST /mcp/task` bereit (MCP Streamable HTTP, nur JS
 danach. Claude bekommt es im `mcp_servers`-Header, Codex über `bearer_token_env_var` und mit
 `default_tools_approval_mode = "approve"` (ab 1.30; mit „auto“ blockte Codex jedes Werkzeug wegen der Richtlinie „never“). Werkzeuge:
 
+- Bilder (ab 1.39, nur mit ChatGPT-Abo): `bild_erstellen`, `bild_bearbeiten` – eigener Codex-Lauf, Ergebnis in der
+  Bibliothek, unter `bilder/` im Arbeitsordner der Aufgabe und im Scoop-Ordner (`docs/bilder.md`). Codex-Aufgaben haben
+  das eingebaute Bildwerkzeug von Codex aus (`features.image_generation=false`), damit nie über den API-Schlüssel
+  gemalt wird.
 - Bibliothek: `datei_aus_bibliothek`, `datei_in_bibliothek`, `dateien_auflisten`, `datei_speichern`, `link_merken`,
   `datei_vom_rechner`, `datei_auf_rechner`
 - Verbundene Apps (Composio, Team App, Atrium …): `app_werkzeug_suchen`, `app_werkzeug_nutzen` (Mails senden blockt

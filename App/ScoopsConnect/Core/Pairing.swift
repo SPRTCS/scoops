@@ -20,12 +20,12 @@ nonisolated enum Pairing {
 
         var errorDescription: String? {
             switch self {
-            case .invalidURL: "Die Server-Adresse ist ungültig."
-            case .invalidCode: "Der Code ist ungültig oder abgelaufen. Erzeuge in AIS Scoops einen neuen."
-            case .rateLimited: "Zu viele Versuche. Bitte eine Minute warten."
-            case .server(let code): "Der Server hat mit Fehler \(code) geantwortet."
-            case .badResponse: "Die Antwort des Servers war unvollständig."
-            case .network(let msg): "Server nicht erreichbar: \(msg)"
+            case .invalidURL: String(localized: "Die Server-Adresse ist ungültig.")
+            case .invalidCode: String(localized: "Der Code ist ungültig oder abgelaufen. Erzeuge in AIS Scoops einen neuen.")
+            case .rateLimited: String(localized: "Zu viele Versuche. Bitte eine Minute warten.")
+            case .server(let code): String(localized: "Der Server hat mit Fehler \(String(code)) geantwortet.")
+            case .badResponse: String(localized: "Die Antwort des Servers war unvollständig.")
+            case .network(let msg): String(localized: "Server nicht erreichbar: \(msg)")
             }
         }
     }
@@ -75,6 +75,7 @@ nonisolated enum Pairing {
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
         let body: JSONValue = .object([
             "code": .string(normalizeCode(code)), "name": .string(name), "mode": .string(mode),
             "os": .string(os), "app_version": .string(appVersion), "device_id": .string(deviceID),

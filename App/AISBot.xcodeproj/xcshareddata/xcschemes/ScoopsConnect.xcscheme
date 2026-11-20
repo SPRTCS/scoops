@@ -50,6 +50,17 @@
                ReferencedContainer = "container:AISBot.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "CDE6EFAAC9524DBD0FD58F0F"
+               BuildableName = "ScoopsConnectRenderTests.xctest"
+               BlueprintName = "ScoopsConnectRenderTests"
+               ReferencedContainer = "container:AISBot.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

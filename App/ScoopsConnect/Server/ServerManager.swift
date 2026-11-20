@@ -55,8 +55,14 @@ final class ServerManager {
         var isOldAISBot: Bool
 
         var summary: String {
-            let who = pid.map { "„\(name)“ (PID \($0))" } ?? "ein anderes Programm"
-            return "Port \(port) ist belegt durch \(who)\(path.map { ", \($0)" } ?? ""). Der Server läuft deshalb auf Port \(newPort)."
+            let program = name.isEmpty ? String(localized: "unbekannt", comment: "Unbekannter Wert (Programmname, Zustand von Tailscale)") : name
+            if let pid, let path {
+                return String(localized: "Port \(String(port)) ist belegt durch „\(program)“ (PID \(String(pid))), \(path). Der Server läuft deshalb auf Port \(String(newPort)).")
+            }
+            if let pid {
+                return String(localized: "Port \(String(port)) ist belegt durch „\(program)“ (PID \(String(pid))). Der Server läuft deshalb auf Port \(String(newPort)).")
+            }
+            return String(localized: "Port \(String(port)) ist belegt durch ein anderes Programm. Der Server läuft deshalb auf Port \(String(newPort)).")
         }
     }
 
@@ -135,9 +141,9 @@ final class ServerManager {
     var pushError: String? { status?["push"]?["error"]?.string }
     var pushSummary: String {
         switch pushMode {
-        case "relay": return "Aktiv (über AIS Scoops Cloud)"
-        case "direct": return "Aktiv (eigener Push-Schlüssel)"
-        default: return linked ? "Aus" : "Aus – erst mit Konto verbinden"
+        case "relay": return String(localized: "Aktiv (über AIS Scoops Cloud)", comment: "Mitteilungen")
+        case "direct": return String(localized: "Aktiv (eigener Push-Schlüssel)", comment: "Mitteilungen")
+        default: return linked ? String(localized: "Aus", comment: "Mitteilungen") : String(localized: "Aus – erst mit Konto verbinden", comment: "Mitteilungen")
         }
     }
 
@@ -166,7 +172,7 @@ final class ServerManager {
             }
             if !Self.waitUntilFree(p, seconds: occupant == nil ? 5 : 1) {
                 let newPort = Self.freePort(startingAt: p + 1)
-                var o = occupant ?? PortOccupant(port: p, newPort: newPort, pid: nil, name: "unbekannt", path: nil,
+                var o = occupant ?? PortOccupant(port: p, newPort: newPort, pid: nil, name: "", path: nil,
                                                  isOldAISBot: false)
                 o.newPort = newPort
                 o.isOldAISBot = o.isOldAISBot || OldAISBotAgent.isInstalled
@@ -203,10 +209,10 @@ final class ServerManager {
         let out = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         p.waitUntilExit()
         var pid: Int32?
-        var name = "unbekannt"
+        var name = ""  // leer = unbekannt (Anzeige in `summary`)
         for line in out.split(separator: "\n") {
             if line.hasPrefix("p"), pid == nil { pid = Int32(line.dropFirst()) }
-            else if line.hasPrefix("c"), name == "unbekannt" { name = String(line.dropFirst()) }
+            else if line.hasPrefix("c"), name.isEmpty { name = String(line.dropFirst()) }
         }
         guard let pid else { return nil }
         var buf = [CChar](repeating: 0, count: Int(MAXPATHLEN))
@@ -280,7 +286,7 @@ final class ServerManager {
     func start() {
         guard !setup.offline else { return }
         guard isAvailable else {
-            phase = .failed("Der Server fehlt in dieser App. Bitte AIS Scoops Server neu herunterladen und installieren.")
+            phase = .failed(String(localized: "Der Server fehlt in dieser App. Bitte AIS Scoops Server neu herunterladen und installieren."))
             return
         }
         wantRunning = true
@@ -288,7 +294,7 @@ final class ServerManager {
         do {
             try prepareConfig()
         } catch {
-            phase = .failed("Datenordner nicht beschreibbar: \(error.localizedDescription)")
+            phase = .failed(String(localized: "Datenordner nicht beschreibbar: \(error.localizedDescription)"))
             return
         }
         spawn()
@@ -315,7 +321,9 @@ final class ServerManager {
         Task {
             for _ in 0..<70 where old?.isRunning == true { try? await Task.sleep(for: .milliseconds(100)) }
             guard wantRunning, process == nil else { return }
-            do { try prepareConfig() } catch { phase = .failed("Datenordner nicht beschreibbar: \(error.localizedDescription)") }
+            do { try prepareConfig() } catch {
+                phase = .failed(String(localized: "Datenordner nicht beschreibbar: \(error.localizedDescription)"))
+            }
             spawn()
             startPolling()
         }
@@ -429,7 +437,7 @@ final class ServerManager {
             lastError = nil
             try? "\(p.processIdentifier)".write(to: pidURL, atomically: true, encoding: .utf8)
         } catch {
-            phase = .failed("Server ließ sich nicht starten: \(error.localizedDescription)")
+            phase = .failed(String(localized: "Server ließ sich nicht starten: \(error.localizedDescription)"))
         }
     }
 
@@ -442,7 +450,7 @@ final class ServerManager {
         crashes.removeAll { Date().timeIntervalSince($0) > 120 }
         let tail = Self.logTail(logURL, lines: 3)
         if crashes.count >= 5 {
-            phase = .failed("Der Server stürzt immer wieder ab (Code \(code)). Details im Protokoll.")
+            phase = .failed(String(localized: "Der Server stürzt immer wieder ab (Code \(String(code))). Details im Protokoll."))
             lastError = tail
             return
         }
@@ -497,19 +505,27 @@ final class ServerManager {
         var errorDescription: String? { message }
     }
 
-    private func request(_ method: String, _ path: String, body: [String: Any]? = nil) async throws -> JSONValue {
-        if setup.offline { throw APIError(message: "Vorschau: keine Verbindung zum Server") }
+    /// Anfrage an den eigenen Server. Texte in Antworten (z. B. Fehlermeldungen) kommen in der Sprache der App
+    /// (`Accept-Language`, docs/sprache-serverapp.md).
+    func urlRequest(_ method: String, _ path: String, body: [String: Any]? = nil) throws -> URLRequest {
         var req = URLRequest(url: baseURL.appending(path: path))
         req.httpMethod = method
+        req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
+        return req
+    }
+
+    private func request(_ method: String, _ path: String, body: [String: Any]? = nil) async throws -> JSONValue {
+        if setup.offline { throw APIError(message: String(localized: "Vorschau: keine Verbindung zum Server")) }
+        let req = try urlRequest(method, path, body: body)
         let (data, resp) = try await session.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         let json = JSONValue.decode(data) ?? .null
         guard (200..<300).contains(code) else {
-            throw APIError(message: json["error"]?.string ?? "Server antwortet mit Fehler \(code)")
+            throw APIError(message: json["error"]?.string ?? String(localized: "Server antwortet mit Fehler \(String(code))"))
         }
         return json
     }
@@ -526,9 +542,30 @@ final class ServerManager {
         status = try await request("PATCH", "api/setup/config", body: values)
     }
 
+    // MARK: Sprache des Inhabers (docs/sprache.md, docs/sprache-serverapp.md)
+
+    /// Auf dem Server gespeicherte Sprache des Inhabers (`nil` = noch keine, dann gilt Deutsch bzw. die Kopfzeile)
+    var storedLanguage: String? { server?["language"]?.string }
+    /// Sprachen, die der Server kann (leer bei Servern vor 1.3)
+    var serverLanguages: [String] { (server?["languages"]?.array ?? []).compactMap(\.string) }
+
+    /// Hat der Inhaber noch keine Sprache, übernimmt der Server die Sprache dieser App, damit Mitteilungen, Routinen
+    /// und Aufgaben im Hintergrund dieselbe Sprache sprechen. Eine einmal gesetzte Sprache (z. B. aus AIS Scoops auf dem
+    /// iPhone) bleibt unangetastet. Deutsch ist ohnehin Standard: dafür keine Anfrage, damit sich nichts ändert.
+    func adoptAppLanguageIfUnset() async {
+        if let code = languageToAdopt { try? await patchConfig(["language": code]) }
+    }
+
+    /// Sprache, die `adoptAppLanguageIfUnset()` setzen würde (nil = nichts zu tun)
+    var languageToAdopt: String? {
+        let code = AppLanguage.code
+        guard status != nil, code != "de", storedLanguage == nil, serverLanguages.contains(code) else { return nil }
+        return code
+    }
+
     func nodePairCode() async throws -> String {
         let r = try await request("POST", "api/setup/node-pair")
-        guard let code = r["code"]?.string else { throw APIError(message: "Kein Kopplungscode erhalten") }
+        guard let code = r["code"]?.string else { throw APIError(message: String(localized: "Kein Kopplungscode erhalten")) }
         return code
     }
 
@@ -571,11 +608,14 @@ final class ServerManager {
 
     #if DEBUG
     /// Nur für Renderings des Assistenten (`-rendersetup`, `setup.offline`): Zustand setzen, ohne Server.
-    func applyPreview(phase: Phase, port: Int, status: JSONValue?) {
+    func applyPreview(phase: Phase, port: Int, status: JSONValue?, portConflict: PortOccupant? = nil,
+                      lastError: String? = nil) {
         guard setup.offline else { return }
         self.phase = phase
         self.port = port
         self.status = status
+        self.portConflict = portConflict
+        self.lastError = lastError
         abosStatus = status?["server"]?["abos"]
     }
     #endif
@@ -584,10 +624,10 @@ final class ServerManager {
 
     var statusTitle: String {
         switch phase {
-        case .stopped: return "Server gestoppt"
-        case .starting: return "Server startet …"
-        case .running: return "Server läuft"
-        case .failed: return "Server-Fehler"
+        case .stopped: return String(localized: "Server gestoppt")
+        case .starting: return String(localized: "Server startet …")
+        case .running: return String(localized: "Server läuft")
+        case .failed: return String(localized: "Server-Fehler")
         }
     }
 

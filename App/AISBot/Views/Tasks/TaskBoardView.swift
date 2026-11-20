@@ -8,6 +8,7 @@ struct TaskBoardView: View {
 
     @Environment(AppStore.self) private var store
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
@@ -15,7 +16,10 @@ struct TaskBoardView: View {
     private enum Tab: String, CaseIterable, Identifiable {
         case board, archive
         var id: String { rawValue }
-        var title: String { self == .board ? "Board" : "Archiv" }
+        var title: String {
+            self == .board ? String(localized: "Board", comment: "Reiter: Aufgaben-Board")
+                : String(localized: "Archiv", comment: "Reiter im Board")
+        }
     }
 
     @State private var tab: Tab = .board
@@ -29,6 +33,7 @@ struct TaskBoardView: View {
     @State private var rejectNote = ""
     /// Rückfrage vor „Alle abhaken“ (Zu prüfen) bzw. „Alle archivieren“ (Abgeschlossen)
     @State private var bulkColumn: TaskColumn?
+    @FocusState private var searchFocused: Bool
 
     private var board: TaskBoardStore { store.taskBoard }
 
@@ -47,6 +52,8 @@ struct TaskBoardView: View {
                 unavailable(note)
             } else if !board.loaded && board.loading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if board.isSearching && searchHits == 0 {
+                searchEmpty
             } else if tab == .archive {
                 archive
             } else if isCompact {
@@ -56,6 +63,8 @@ struct TaskBoardView: View {
             }
         }
         .background(theme.background.ignoresSafeArea())
+        // ⌘F („Aufgaben durchsuchen“ im Menü): Suchfeld des Boards fokussieren
+        .onChange(of: board.searchFocusRequest) { searchFocused = true }
         .task {
             // Live über Ereignisse; als Rückfall alle 20 s nachladen, solange das Board sichtbar ist
             await board.load()
@@ -80,7 +89,11 @@ struct TaskBoardView: View {
             Button("Zurück in Arbeit") { reject(task) }
             Button("Abbrechen", role: .cancel) {}
         } message: { task in
-            Text("\(store.bot(task.botId)?.name ?? "Der Scoop") arbeitet „\(task.title)“ nach. Schreib dazu, was fehlt oder anders sein soll.")
+            if let name = store.bot(task.botId)?.name {
+                Text("\(name) arbeitet „\(task.title)“ nach. Schreib dazu, was fehlt oder anders sein soll.")
+            } else {
+                Text("Der Scoop arbeitet „\(task.title)“ nach. Schreib dazu, was fehlt oder anders sein soll.")
+            }
         }
     }
 
@@ -97,8 +110,8 @@ struct TaskBoardView: View {
 
     private func bulkQuestion(_ column: TaskColumn) -> String {
         let n = bulkTargets(column).count
-        let what = n == 1 ? "1 Aufgabe" : "\(n) Aufgaben"
-        return column == .review ? "\(what) als abgeschlossen markieren?" : "\(what) archivieren?"
+        return column == .review ? String(localized: "\(n) Aufgaben als abgeschlossen markieren?")
+            : String(localized: "\(n) Aufgaben archivieren?")
     }
 
     private func runBulk(_ column: TaskColumn) {
@@ -113,8 +126,8 @@ struct TaskBoardView: View {
             let review = column == .review
             Button { bulkColumn = column } label: {
                 Label(review ? "Alle abhaken" : "Alle archivieren", systemImage: review ? "checkmark.circle" : "archivebox")
-                    .font(.system(size: 12, weight: .semibold))
-                    .lineLimit(1)
+                    .appFont(12, weight: .semibold)
+                    .adaptiveLineLimit(1)
                     .padding(.horizontal, 9).padding(.vertical, 4)
                     .foregroundStyle(review ? theme.success : theme.textSecondary)
                     .background((review ? theme.success : theme.textSecondary).opacity(0.12), in: Capsule())
@@ -141,7 +154,7 @@ struct TaskBoardView: View {
         rejectNote = ""
         rejecting = nil
         let message = note.isEmpty
-            ? "Das Ergebnis passt so noch nicht. Prüf es kritisch gegen den Auftrag, verbessere es und schreib einen neuen Abschlussbericht."
+            ? String(localized: "Das Ergebnis passt so noch nicht. Prüf es kritisch gegen den Auftrag, verbessere es und schreib einen neuen Abschlussbericht.")
             : note
         Task { await board.perform(task.id, .rework, message: message) }
     }
@@ -159,8 +172,8 @@ struct TaskBoardView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Image(systemName: "checklist").font(.system(size: 17, weight: .semibold)).foregroundStyle(theme.textSecondary)
-                Text("Aufgaben").font(.system(size: 20, weight: .bold)).foregroundStyle(theme.textPrimary)
+                Image(systemName: "checklist").appFont(17, weight: .semibold).foregroundStyle(theme.textSecondary)
+                Text("Aufgaben").appFont(20, weight: .bold).foregroundStyle(theme.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                 if board.loading && board.loaded { ProgressView().controlSize(.small) }
                 Spacer(minLength: 8)
@@ -181,11 +194,104 @@ struct TaskBoardView: View {
                 .layoutPriority(1)
                 filterMenu
                 Spacer(minLength: 0)
+                // Breit: Suche rechts in derselben Zeile; schmal (iPhone) in einer eigenen Zeile darunter
+                if !isCompact { searchField.frame(minWidth: 150, maxWidth: 260).layoutPriority(2) }
             }
+            if isCompact { searchField }
         }
+        // Dichte Bedienelemente: wachsen bis zur größten normalen Stufe mit, darüber nicht weiter
+        .dynamicTypeSize(...AppFont.controlCap)
         .padding(.horizontal, isCompact ? 16 : 22)
         .padding(.top, isCompact ? 14 : 18)
         .padding(.bottom, 12)
+    }
+
+    // MARK: Suche
+
+    /// Suche nach Titel, Beschreibung und Scoop; gilt zusammen mit dem Scoop-Filter in Board und Archiv.
+    private var searchField: some View {
+        @Bindable var board = board
+        return HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass").appFont(13).foregroundStyle(theme.textTertiary)
+            TextField("Aufgaben durchsuchen", text: $board.searchText)
+                .textFieldStyle(.plain)
+                .appFont(13.5)
+                .foregroundStyle(theme.textPrimary)
+                .focused($searchFocused)
+                .autocorrectionDisabled()
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
+                #endif
+                // Esc leert zuerst die Suche; ist sie leer, schließt Esc wie gewohnt das Board
+                .onKeyPress(.escape) {
+                    guard !board.searchText.isEmpty else { return .ignored }
+                    board.searchText = ""
+                    return .handled
+                }
+            if !board.searchText.isEmpty {
+                Button { board.searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill").appFont(13).foregroundStyle(theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Suche leeren")
+            }
+        }
+        .padding(.horizontal, 11).padding(.vertical, 6)
+        .background(theme.surfaceRaised, in: Capsule())
+        .overlay(Capsule().strokeBorder(searchFocused ? theme.accent.opacity(0.6) : theme.surfaceBorder))
+        .help("Aufgaben durchsuchen (⌘F)")
+    }
+
+    /// Treffer der Suche in der aktuellen Ansicht (Board: alle Spalten, Archiv: das Archiv)
+    private var searchHits: Int {
+        tab == .archive ? board.count(.archived) : TaskColumn.board.reduce(0) { $0 + board.count($1) }
+    }
+
+    private var searchEmptyText: String {
+        let query = board.searchQuery
+        return String(localized: "Keine Aufgabe passt zu „\(query)“.")
+    }
+
+    /// Leerer Text einer Spalte: bei der Suche der Hinweis auf den Suchbegriff
+    private func emptyText(_ column: TaskColumn) -> String {
+        board.isSearching ? searchEmptyText : column.emptyText
+    }
+
+    /// Kein Treffer in der ganzen Ansicht: ein Hinweis statt lauter leerer Spalten
+    private var searchEmpty: some View {
+        let elsewhere = tab == .archive ? TaskColumn.board.reduce(0) { $0 + board.count($1) } : board.count(.archived)
+        return VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass").appFont(34).foregroundStyle(theme.textTertiary)
+            Text(searchEmptyText)
+                .appFont(16, weight: .semibold)
+                .foregroundStyle(theme.textPrimary)
+                .multilineTextAlignment(.center)
+            Group {
+                if elsewhere > 0 {
+                    Text(tab == .archive ? String(localized: "Im Board gibt es \(elsewhere) Treffer.")
+                                         : String(localized: "Im Archiv gibt es \(elsewhere) Treffer."))
+                } else if board.filterBotID != nil, let bot = store.bot(board.filterBotID) {
+                    Text("Gesucht wird nur bei \(bot.name). Wähl „Alle Scoops“, um überall zu suchen.")
+                } else {
+                    Text("Gesucht wird in Titel, Beschreibung und Scoop.")
+                }
+            }
+            .font(.callout)
+            .foregroundStyle(theme.textSecondary)
+            .multilineTextAlignment(.center)
+            AdaptiveButtonRow(spacing: 10) {
+                Button("Suche leeren") { board.searchText = "" }
+                    .buttonStyle(PillButtonStyle(kind: .secondary))
+                if elsewhere > 0 {
+                    Button(tab == .archive ? "Zum Board" : "Zum Archiv") { tab = tab == .archive ? .board : .archive }
+                        .buttonStyle(PillButtonStyle(kind: .secondary))
+                }
+            }
+            .padding(.top, 2)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var newButton: some View {
@@ -221,9 +327,9 @@ struct TaskBoardView: View {
                     Image(systemName: "line.3.horizontal.decrease.circle")
                     Text("Alle Scoops")
                 }
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                Image(systemName: "chevron.down").appFont(9, weight: .bold)
             }
-            .font(.system(size: 13.5, weight: .medium))
+            .appFont(13.5, weight: .medium)
             .foregroundStyle(theme.textPrimary)
             .padding(.horizontal, 12).padding(.vertical, 6)
             .background(theme.surfaceRaised, in: Capsule())
@@ -237,7 +343,7 @@ struct TaskBoardView: View {
 
     private func unavailable(_ note: String) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "checklist").font(.system(size: 36)).foregroundStyle(theme.textTertiary)
+            Image(systemName: "checklist").appFont(36).foregroundStyle(theme.textTertiary)
             Text(note).font(.callout).foregroundStyle(theme.textSecondary).multilineTextAlignment(.center)
         }
         .padding(24)
@@ -251,7 +357,8 @@ struct TaskBoardView: View {
             HStack(alignment: .top, spacing: 14) {
                 ForEach(TaskColumn.board) { column in
                     columnView(column)
-                        .frame(width: 300)
+                        // Große Schrift: breitere Spalten (höchstens 440 pt), sonst brechen Titel Wort für Wort um
+                        .frame(width: min(440, AppFont.scaled(300, relativeTo: .footnote, in: dynamicTypeSize)))
                         .frame(maxHeight: .infinity, alignment: .top)
                 }
             }
@@ -267,10 +374,10 @@ struct TaskBoardView: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
                 HStack(spacing: 7) {
-                    Image(systemName: column.symbol).font(.system(size: 13, weight: .semibold))
-                    Text(column.title).font(.system(size: 14, weight: .semibold)).lineLimit(1)
+                    Image(systemName: column.symbol).appFont(13, weight: .semibold)
+                    Text(column.title).appFont(14, weight: .semibold).adaptiveLineLimit(1)
                     Text("\(items.count)")
-                        .font(.system(size: 12, weight: .semibold)).monospacedDigit()
+                        .appFont(12, weight: .semibold).monospacedDigit()
                         .padding(.horizontal, 7).padding(.vertical, 1)
                         .background(theme.hover, in: Capsule())
                 }
@@ -278,10 +385,10 @@ struct TaskBoardView: View {
                 .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 0)
                 if column == .planned || column == .open {
-                    let label = column == .open ? "Aufgabe sammeln" : "Aufgabe planen"
+                    let label = column == .open ? String(localized: "Aufgabe sammeln") : String(localized: "Aufgabe planen")
                     Button { form = TaskFormRequest(scheduled: column == .planned, backlog: column == .open) } label: {
-                        Image(systemName: "plus").font(.system(size: 13, weight: .semibold))
-                            .frame(width: 26, height: 26).contentShape(Rectangle())
+                        Image(systemName: "plus").appFont(13, weight: .semibold)
+                            .scaledFrame(26).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help(label)
@@ -299,8 +406,9 @@ struct TaskBoardView: View {
             ScrollView {
                 LazyVStack(spacing: 10) {
                     if items.isEmpty {
-                        Text(column.emptyText)
-                            .font(.system(size: 12.5))
+                        // Bei der Suche kurz: Der Suchbegriff steht im Feld, und meist haben andere Spalten Treffer
+                        Text(board.isSearching ? String(localized: "Kein Treffer") : column.emptyText)
+                            .appFont(12.5)
                             .foregroundStyle(theme.textTertiary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(12)
@@ -352,12 +460,12 @@ struct TaskBoardView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            list(board.tasks(in: compactColumn), empty: compactColumn.emptyText)
+            list(board.tasks(in: compactColumn), empty: emptyText(compactColumn))
         }
     }
 
     private var archive: some View {
-        list(board.tasks(in: .archived), empty: TaskColumn.archived.emptyText, grid: !isCompact)
+        list(board.tasks(in: .archived), empty: emptyText(.archived), grid: !isCompact)
     }
 
     private func list(_ items: [BotTask], empty: String, grid: Bool = false) -> some View {
@@ -429,12 +537,14 @@ extension TaskColumn {
     /// Kurz fürs Segment auf dem iPhone
     var shortTitle: String {
         switch self {
-        case .open: "Offen"
-        case .planned: "Geplant"
-        case .active: "Läuft"
-        case .review: "Prüfen"
-        case .done: "Fertig"
-        case .archived: "Archiv"
+        case .open: String(localized: "Offen", comment: "Aufgabe/Spalte im Board: noch nicht gestartet")
+        // Eigener Schlüssel: Im schmalen Segment passt „Scheduled“ nicht, englisch dort „Planned“
+        case .planned: String(localized: "board.short.planned", defaultValue: "Geplant",
+                              comment: "Kurzer Spaltentitel im Board (iPhone-Segment): geplante Aufgaben, englisch „Planned“")
+        case .active: String(localized: "Läuft", comment: "Kurzer Spaltentitel im Board: laufende Aufgaben")
+        case .review: String(localized: "Prüfen", comment: "Kurzer Spaltentitel im Board: zu prüfende Aufgaben")
+        case .done: String(localized: "Fertig", comment: "Kurzer Spaltentitel im Board: abgenommene Aufgaben")
+        case .archived: String(localized: "Archiv", comment: "Reiter im Board")
         }
     }
 }
@@ -477,7 +587,7 @@ struct TaskCardView: View {
 
     /// Abhaken/Ablehnen (Zu prüfen), Fortsetzen (Problem), Starten/Planen (Offen)
     private var actions: some View {
-        HStack(spacing: 8) {
+        AdaptiveButtonRow(spacing: 8) {
             if let onAccept { TaskCardButton(title: "Abhaken", icon: "checkmark", tint: theme.success, prominent: true, action: onAccept) }
             if let onReject { TaskCardButton(title: "Ablehnen", icon: "arrow.uturn.backward", tint: theme.warning, action: onReject) }
             if let onResume { TaskCardButton(title: "Fortsetzen", icon: "arrow.clockwise", tint: theme.accent, prominent: true, action: onResume) }
@@ -499,14 +609,14 @@ struct TaskCardView: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(task.title)
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .appFont(14.5, weight: .semibold)
                         .foregroundStyle(theme.textPrimary)
-                        .lineLimit(3)
+                        .adaptiveLineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .appFont(12)
                         .foregroundStyle(theme.textSecondary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                     if task.isRoutine { TaskRoutineBadge(title: task.routineTitle) }
                     if TaskAccessBadge.shows(task.access), let access = task.access { TaskAccessBadge(access: access) }
                 }
@@ -515,9 +625,9 @@ struct TaskCardView: View {
             stateRow
             if task.isActive, let note = task.note, !note.isEmpty {
                 Text(note)
-                    .font(.system(size: 12))
+                    .appFont(12)
                     .foregroundStyle(theme.textSecondary)
-                    .lineLimit(2)
+                    .adaptiveLineLimit(2)
             }
             TaskFacts(task: task, size: 11.5)
         }
@@ -527,21 +637,30 @@ struct TaskCardView: View {
 
     private var subtitle: String {
         var parts: [String] = [bot?.name ?? "Scoop"]
-        if ChatGroup.isGroupID(task.chatId) { parts.append("in \(store.chatName(task.chatId))") }
+        if ChatGroup.isGroupID(task.chatId) {
+            let group = store.chatName(task.chatId)
+            parts.append(String(localized: "in \(group)", comment: "Ort einer Freigabe: in einer Gruppe"))
+        }
         return parts.joined(separator: " · ")
     }
 
     private var stateColor: Color { TaskStyle.color(for: task, theme: theme) }
 
+    /// Termin einer geplanten Aufgabe („Startet gleich · Heute 10:05“)
+    private var scheduleText: String {
+        guard let at = task.scheduledAt else { return String(localized: "Ohne Termin") }
+        let when = Formatting.dayTime(at)
+        return task.isOverdue ? String(localized: "Startet gleich · \(when)") : when
+    }
+
     @ViewBuilder private var stateRow: some View {
         if task.isOpen {
             Label("Noch nicht freigegeben", systemImage: "tray")
-                .font(.system(size: 12, weight: .medium))
+                .appFont(12, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
         } else if task.isScheduled {
-            Label(task.scheduledAt.map { (task.isOverdue ? "Startet gleich · " : "") + Formatting.dayTime($0) } ?? "Ohne Termin",
-                  systemImage: "calendar.badge.clock")
-                .font(.system(size: 12, weight: .medium))
+            Label(scheduleText, systemImage: "calendar.badge.clock")
+                .appFont(12, weight: .medium)
                 .foregroundStyle(theme.accent)
         } else if task.isActive || task.isProblem {
             HStack(spacing: 5) {
@@ -549,7 +668,7 @@ struct TaskCardView: View {
                     .symbolEffect(.rotate, isActive: task.state == "running")
                 Text(task.stateLabel)
             }
-            .font(.system(size: 12, weight: .semibold))
+            .appFont(12, weight: .semibold)
             .foregroundStyle(stateColor)
         }
     }
@@ -568,10 +687,10 @@ struct TaskFacts: View {
             }
             if let s = task.activeSeconds, s > 0 { fact("timer", Formatting.duration(s)) }
             if let c = task.costUsd, c > 0 || !task.isNotStarted { fact("dollarsign.circle", Formatting.usd(c)) }
-            if let n = task.steps, n > 0 { fact("list.bullet", n == 1 ? "1 Schritt" : "\(n) Schritte") }
+            if let n = task.steps, n > 0 { fact("list.bullet", String(localized: "\(n) Schritte", comment: "Anzahl Schritte einer Aufgabe")) }
             if !task.isScheduled, let d = task.displayDate { fact("clock", Formatting.dayTime(d)) }
         }
-        .font(.system(size: size))
+        .appFont(size)
         .foregroundStyle(theme.textTertiary)
     }
 
@@ -580,7 +699,7 @@ struct TaskFacts: View {
             Image(systemName: icon).imageScale(.small)
             Text(text).monospacedDigit()
         }
-        .lineLimit(1)
+        .adaptiveLineLimit(1)
     }
 }
 
@@ -690,20 +809,20 @@ struct TaskRoutineBadge: View {
 
     var body: some View {
         let mode = ComposerMode.routine
-        Label(title.map { "Routine · \($0)" } ?? "Routine", systemImage: mode.icon)
-            .font(.system(size: 11.5, weight: .semibold))
-            .lineLimit(1)
+        Label(title.map { name in String(localized: "Routine · \(name)") } ?? String(localized: "Routine"), systemImage: mode.icon)
+            .appFont(11.5, weight: .semibold)
+            .adaptiveLineLimit(1)
             .foregroundStyle(mode.color)
             .padding(.horizontal, 7).padding(.vertical, 2)
             .background(mode.color.opacity(0.13), in: Capsule())
             .padding(.top, 3)
-            .accessibilityLabel(title.map { "Aus der Routine \($0)" } ?? "Aus einer Routine")
+            .accessibilityLabel(title.map { name in String(localized: "Aus der Routine \(name)") } ?? String(localized: "Aus einer Routine"))
     }
 }
 
 /// Kleiner Knopf auf einer Board-Karte (gleich breit nebeneinander).
 struct TaskCardButton: View {
-    let title: String
+    let title: LocalizedStringKey
     let icon: String
     let tint: Color
     var prominent = false
@@ -713,9 +832,9 @@ struct TaskCardButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: icon)
-                .font(.system(size: 12.5, weight: .semibold))
+                .appFont(12.5, weight: .semibold)
                 .labelStyle(.titleAndIcon)
-                .lineLimit(1)
+                .adaptiveLineLimit(1)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7)
                 .foregroundStyle(tint)
@@ -742,7 +861,7 @@ struct TaskBoardCircleButton: View {
                 .overlay(alignment: .topTrailing) {
                     if attention > 0 {
                         Text("\(min(attention, 99))")
-                            .font(.system(size: 9.5, weight: .bold)).monospacedDigit()
+                            .appFont(9.5, weight: .bold).monospacedDigit()
                             .foregroundStyle(.white)
                             .padding(.horizontal, 4).frame(minWidth: 15, minHeight: 15)
                             .background(ComposerMode.task.color, in: Capsule())

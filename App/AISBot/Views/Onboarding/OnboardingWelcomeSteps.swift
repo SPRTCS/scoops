@@ -84,7 +84,7 @@ struct OnboardingWelcomeStep: View {
             HStack(alignment: .bottom, spacing: 14) {
                 ScoopFigureView(figure: .blauWolke, size: 84)
                 Image(systemName: "desktopcomputer")
-                    .font(.system(size: 64, weight: .light))
+                    .appFont(64, weight: .light)
                     .foregroundStyle(theme.textSecondary)
                     .padding(.bottom, 6)
                 ScoopFigureView(figure: .gelbBarett, size: 74)

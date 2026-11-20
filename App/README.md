@@ -653,6 +653,134 @@ Push-Mitteilungen zeigen wie bei Messengern das Maskottchen des schreibenden Sco
 - **Builds:** macOS und iOS-Simulator ohne Warnungen in den geänderten Dateien (`ChatView.swift`, `MockService.swift`).
 - **Screenshots:** `iphone-nacht-chat-oeffnen-ungelesen.png` (Theo, 4 ungelesen, Duo zugeklappt), `iphone-nacht-chat-oeffnen-unten.png` (Theo nach Kaltstart mit Ladezeit), `mac-nacht-chat-pille-knapp-vorher.png` und `mac-nacht-chat-pille-nachher.png` (Ausschnitt Pille).
 
+## App 1.3
+
+Überblick: [`../docs/neu-in-1.3.md`](../docs/neu-in-1.3.md). Pakete: Suche und Chat-Komfort, Seite „Heute“,
+Systemintegration, Stummschalten/Ruhezeiten/Vorlagen, Bilder über das ChatGPT-Abo, mitwachsende Schrift, Englisch
+(Abschnitt „Sprachen“ unten). `MARKETING_VERSION` 1.3 für alle App-Targets (die Server-App hat ihre eigene Version).
+Server-Seite: [`../docs/API.md`](../docs/API.md) (Abschnitt „App 1.3“).
+
+- **Fähigkeiten des Servers** aus `/api/health`: `store.capabilities` (Suche, Bearbeiten), `store.today.available`
+  (Heute), `store.serverHealth` (`mute`, `quiet_hours`, `templates`). Der Demo-Server meldet alle; mit `-mock -oldserver`
+  keines (wie ein Server vor 1.3). Gäste: Felder aus `/api/shared/me`.
+- **Tastenkürzel (Mac, iPad mit Tastatur):** ⌘N Neuer Scoop, ⇧⌘N Neue Gruppe (im Aufgaben-Board: Neue Aufgabe), ⌘O Scoop
+  aus Vorlage, ⌘F Suche im sichtbaren Bereich (Chat, Aufgaben-Board, sonst Seitenleiste), ⇧⌘F Scoops und Nachrichten,
+  ⌘K Befehlspalette, ⌘I Profil, nur Mac: ⇧⌘H Heute, ⌃⌘S Seitenleiste. In Ansichten: ⌘R (Heute, Nutzung), ⌘G/⇧⌘G
+  (Suche im Chat).
+- **iPhone-Chat-Kopf:** Lupe, „Aufgaben“, „…“ (Neu, Apps verbinden, Befehle). Chatliste: Suchfeld immer sichtbar, darunter
+  „Heute“, dann angeheftete Scoops und Bereiche.
+- **Einstellungen:** Konto, Apps verbinden, Erscheinungsbild, App-Symbol, Chat (Link-Vorschauen), Mitteilungen
+  (Ruhezeiten), Haupt-Scoop, …
+- **Bilder** ([`../docs/bilder.md`](../docs/bilder.md)): Ereignisse „Bild erstellt/bearbeitet“ mit Bilddatei zeigt
+  `ImageFileCard` (`Views/Chat/Attachments.swift`) als Vorschau; Demo: Lios Chat und Bibliothek (`f_lio_post`).
+- **Schriftgröße** (Dynamic Type): Texte auf iPhone und iPad folgen der Systemeinstellung, siehe Abschnitt
+  „Schriftgröße (Dynamic Type)“ weiter unten.
+- **Mac ohne passendes Profil:** `xcodebuild -scheme AISBot -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`
+  prüft wenigstens das Kompilieren (auch für `WatchLogicTests`).
+
+### Suche und Chat-Komfort
+
+Server-Seite, Verhalten und Demo-Argumente stehen in [`docs/suche-chat.md`](../docs/suche-chat.md). Code: `AISBot/Search/`.
+
+| Datei | Inhalt |
+|---|---|
+| `SearchModels.swift` | `SearchHit`, `MessageWindow`, Protokoll `ChatComfortService` (APIClient und MockService), `ServerCapabilities`, lokale Suche als Rückfall |
+| `AppStore+Suche.swift` | Suche über eigenen Server und Gast-Server, `ensureMessageLoaded`/`openSearchHit`, Ausschnitte (`detachedChats`), Bearbeiten (`editAction`, `startEditing`, `submitEdit`) |
+| `MessageSearchViews.swift` | `MessageSearchModel` (entprellt, verwirft alte Antworten), Treffer in der Seitenleiste |
+| `ChatFindBar.swift` | Suche im Chat, Zum-Ende-Knopf, „Neuere Nachrichten laden“ |
+| `MessageEditing.swift` | Chip „Nachricht bearbeiten“, Kennzeichen „Bearbeitet“ |
+| `LinkPreviews.swift` | `LinkFinder`, `LinkPreviewStore` (LinkPresentation, Zwischenspeicher), Karte, Abschnitt „Chat“ der Einstellungen |
+| `ComfortDemo.swift` | Demo-Daten (`-longchat`, `-incoming`) |
+
+- **Verlauf als Ausschnitt:** Springt man zu einer Fundstelle weit vor dem Ende, ersetzt `ensureMessageLoaded` den
+  Verlauf durch den Ausschnitt um die Nachricht und merkt den Chat in `detachedChats`. Solange gilt: `upsert` hängt
+  nichts Neues an, `loadLatestMessages` tut nichts, `send` kehrt erst ans Ende zurück (`returnToLatest`). Das hält den
+  Verlauf lückenlos, ohne dass der Chat zwei getrennte Stücke kennen muss.
+- **Scrollen:** `ChatView.followNewMessage` ersetzt das unbedingte Nachrücken. Am Ende (oder bei eigener Nachricht) wie
+  bisher; hochgescrollt (`awayFromEnd`, ab 260 pt) zählt nur der Knopf. Als „hochgescrollt“ gilt nur eine Bewegung
+  (`onScrollPhaseChange` ≠ idle), nie wachsender Inhalt. Unter dem Finger wird nicht gescrollt, sondern nach dem
+  Loslassen nachgeholt. Beim Nachladen im Ausschnitt hält `loadNewer` die bisher letzte Nachricht unten fest, weil die
+  Verankerung am Ende sonst mit dem neuen Inhalt mitwandert.
+- **Ältere Server:** `store.capabilities` kommt aus `/api/health`. Bei Gast-Servern merkt sich die App nach einem
+  404/405, dass Suche bzw. Bearbeiten dort fehlen.
+
+### Seite „Heute“, Board-Suche, Bibliothek
+
+**Seite „Heute“ mit Freigaben-Postfach** ([`../docs/heute.md`](../docs/heute.md), API „Seite Heute“). Code in
+`AISBot/Views/Today/`: `TodayStore` (@Observable, hängt als `store.today` am `AppStore`), `TodayView` (Seite),
+`TodayRows` (Zeilen und der Eintrag `TodaySidebarRow`), `TodayModels` (Antwort von `GET /api/today`), `TodayMock`
+(Demodaten). Der `AppStore` gibt Ereignisse an zwei Stellen weiter: `upsert` (Freigabe-Karten, Statuszeilen) und
+`applyToday` (`Store/AppStore+Heute.swift`: Scoops, Gruppen, Aufgaben, Routinen). Die Freigaben zeigt `MessageRow`,
+also exakt die Karten des Verlaufs.
+
+- iPad/Mac: `RootView.placeholder` zeigt `TodayView`, solange kein Chat gewählt ist. iPhone: `store.showToday` legt die
+  Seite im Stapel über die Chatliste; ein Chat von dort liegt darüber (`compactChat(overToday:)`).
+- Zähler = offene Freigaben + Rückfragen von Aufgaben (`TodayStore.waitingCount`), auch aus stummen Chats. `AppBadge`
+  zählt weiter Chats mit Ungelesenem (ohne stumme Chats, siehe unten).
+- Ältere Server (Health ohne `today`) und reine Gast-Verbindungen: `store.today.available == false`, alles wie bisher.
+- Startargumente: `-heute` (Seite öffnen), `-heuteleer` (Demo ohne Inhalt), `-aufgaben` (Board öffnen).
+
+**Suche im Aufgaben-Board.** `TaskBoardStore.searchText` filtert `tasks(in:)` nach Titel, Beschreibung, Routine und Scoop
+(Wörter einzeln, ohne Groß-/Kleinschreibung und Umlaute, wie `Fuzzy` in der Befehlspalette), zusammen mit dem
+Scoop-Filter in allen Spalten und im Archiv. ⌘F fokussiert das Feld, solange das Board offen ist (Menü „Aufgaben
+durchsuchen“), sonst wie bisher die Suche der Seitenleiste.
+
+**Bibliothek.** `LibraryList` hat ab acht Dateien eine Leiste (`Views/Profile/LibraryFilter.swift`): Suche nach
+Dateiname, Filter nach Typ (Bilder, PDFs, Dokumente, Tabellen, Präsentationen, Code, Links, Sonstiges; nur vorkommende,
+mit Anzahl) und Sortierung (Neueste, Älteste, Name, Größe). Darunter bleibt die Leiste verborgen. Die Wahl hält
+`LibraryChoices`, solange die App läuft: Sortierung für alle Bibliotheken, Suche und Typ je Chat. Gilt für Scoops und
+Gruppen.
+
+### Systemintegration
+
+Teilen-Menü, Kurzbefehle und Siri, Controls und Spotlight. Verhalten, Ablage, Signierung und Tests stehen in [`../docs/system.md`](../docs/system.md). Kurz:
+
+- **Teilen-Menü „An Scoop senden“:** Target `AISBotShare` (`AISBotShare/`), iPhone, iPad und Mac. Sendet Text, Links, Bilder, PDFs und andere Dateien als normale Nachricht mit Anhängen. Ist der Server nicht erreichbar, bleibt die Sendung in der App-Gruppe liegen (`ShareOutbox`) und die App sendet sie beim nächsten Öffnen nach (`ShareOutboxSender`, Hinweis „Geteiltes für … wartet“). Auf dem Mac sendet immer die App.
+- **Kurzbefehle und Siri:** `AISBot/System/ScoopActionIntents.swift` („Scoop fragen“, „Nachricht an Scoop senden“, „Aufgabe anlegen“, `ScoopShortcuts`) und `Shared/Intents/OpenIntents.swift` („Sprechmodus starten“, „Chat öffnen“).
+- **Controls:** `AISBotWidgets/ScoopControls.swift` („Sprechmodus“, „Scoop öffnen“, „Neue Nachricht“) für Kontrollzentrum, Sperrbildschirm und Action-Button.
+- **Spotlight:** `SpotlightIndexer` indexiert Scoops und Gruppen (Name, Rolle, Bild), keine Nachrichten.
+- **Verzeichnis für Erweiterungen:** `SystemSync` schreibt `system-directory.json` in die App-Gruppe (Chats samt Server, ohne Zugangsdaten). Token und Sitzung liegen im Schlüsselbund, auf iPhone und iPad in der Zugriffsgruppe `$(AppIdentifierPrefix)com.ais.aisbot.shared` (`SharedKeychain`, mit Umzug älterer Einträge beim Start).
+- **Tiefe Links:** `DeepLink` und `DeepLinkRouter` (`aisbot://chat/<id>`, `…?compose=1`, `aisbot://voice[/<id>]`, `aisbot://today`, `aisbot://outbox`), auch beim Kaltstart und ohne Verbindung (vorgemerkt). Die Seite „Heute“ hängt sich über `DeepLinkRouter.shared.openToday` ein.
+- **Startargumente (Debug/Demo):** `-mock -shareofflinedemo` (Teilen-Erweiterung behandelt den Server als nicht erreichbar), `-keychainselftest` (prüft den Umzug der Schlüsselbund-Einträge, Ausgabe in der Konsole).
+- **Tests:** `WatchLogicTests/SystemLinkTests.swift` (Links, Verzeichnis, Ablage).
+
+### Stummschalten, Ruhezeiten und Scoop-Vorlagen
+
+Server-Seite und Verhalten: [../docs/ruhe.md](../docs/ruhe.md), [../docs/vorlagen.md](../docs/vorlagen.md).
+
+**Stummschalten** (`AISBot/Ruhe/`, Modell `Shared/Models/Ruhe.swift`)
+- `Bot.mute` / `ChatGroup.mute` (`ChatMute`) kommen vom Server. Fehlt das Feld (älterer Server), blendet `AppStore.canMute`
+  die Menüpunkte aus.
+- `MuteMenu` hängt in den Kontextmenüs der Seitenleiste (Zeilen, angeheftete Scoops, „Mit mir geteilt“), `MuteProfileSection`
+  im Profil von Scoops und Gruppen. Stumme Chats: `MutedBadge` (durchgestrichene Glocke) und grauer `UnreadDot(muted:)`.
+- `AppStore.setMute` zeigt den neuen Stand sofort und nimmt ihn zurück, falls der Server ablehnt. Bei geteilten Scoops geht
+  der Aufruf an den Server des Admins und gilt nur für mich.
+- Stumme Chats zählen nicht in `unreadChatCount` (App-Symbol).
+
+**Ruhezeiten**
+- Einstellungen → „Mitteilungen“ (`NotificationSettingsSection`) → `QuietHoursSheet`. Jede Änderung wird sofort gespeichert
+  (`AppStore.saveQuietHours`), immer mit der Zeitzone dieses Geräts.
+- `RuheStore` hält eine Kopie auf dem Gerät (UserDefaults `quietHours`): für lokale Mitteilungen
+  (`NotificationManager.notifyIfNeeded`) und um die Ruhezeit an die Server von Admins geteilter Scoops weiterzugeben
+  (`syncQuietHours(toGuest:)`, beim Speichern und bei jedem Verbinden).
+- Stille Mitteilungen (`interruption-level: passive`) zeigt `willPresent` auch bei geöffneter App ohne Banner und Ton.
+
+**Scoop-Vorlagen** (`AISBot/Templates/`)
+- `ScoopTemplate` ist das Dateiformat (`.scoop`, `UTType.scoopTemplate`, exportiert in `project.yml` samt Dokumenttyp).
+- Export: `TemplateExportView` (Profil → Verwalten, Kontextmenü). Die Datei entsteht in der App aus genau dem, was in der
+  Vorschau eingeschaltet ist; „Teilen“ über `ShareLink`, „Sichern unter“ über `fileExporter` (Mac-Sandbox:
+  `files.user-selected.read-write`).
+- Import: `TemplateImportView`. Einstiege: „Aus Vorlage …“ im Blatt „Neuer Scoop“ (`TemplatePickerButton`), Menü
+  Ablage → „Scoop aus Vorlage …“ (⌘O), `onOpenURL` mit einer Datei (`AppStore.openTemplateFile`), Ablegen im Fenster
+  (`TemplateHost`). Die App prüft nur grob (`ScoopTemplate.precheck`), streng prüft der Server.
+- Ältere Server (`/api/health` ohne `templates`): Export und Import sind ausgeblendet; eine geöffnete Datei zeigt den
+  Hinweis, den Server zu aktualisieren.
+
+**Demo-Modus:** `-mutedemo` (stumme Chats), `-settings -quiethours`, `-templatedemo` (Import-Vorschau),
+`-select b_mila -templateexport` (Export-Vorschau). Demo-Logik in `MockService+Ruhe.swift` und `MockService+Templates.swift`.
+
+**Tests:** `WatchLogicTests/RuheTests.swift` (Ruhezeit-Rechnung wie auf dem Server, Dauer beim Stummschalten).
+
 ## Theme-Tokens
 
 Alle Farben kommen aus `Theme` (`Shared/Theme/Theme.swift`), Views nutzen nur `@Environment(\.theme)`. Umschalten unter Einstellungen → Erscheinungsbild. **Nacht** ist Standard, **Hell** ist Nacht invertiert: neutrales Weiß ohne warmen Stich (früher „Papier“; gespeicherte Wahl `papier` wird automatisch zu `hell`).
@@ -675,6 +803,97 @@ Alle Farben kommen aus `Theme` (`Shared/Theme/Theme.swift`), Views nutzen nur `@
 Widgets folgen dem System-Erscheinungsbild (dunkel = Nacht, hell = Hell).
 
 Ausnahmen mit festen Farben: die Maskottchen selbst (Farbe kommt aus den Bot-Daten, Accessoires haben eigene Materialfarben), der erfundene Demo-Bildschirm (`MockScreenView`) und die Hintergründe der Widget-Vorschaubilder.
+
+## Schriftgröße (Dynamic Type)
+
+Seit App 1.3 folgt die App auf iPhone und iPad der Schriftgröße des Systems (Einstellungen → Anzeige & Helligkeit →
+Textgröße bzw. Bedienungshilfen → Größerer Text). Bei der Standardgröße („Groß“) sieht alles aus wie mit festen Größen;
+auf dem Mac und der Uhr bleiben die Größen fest. Umsetzung: `Shared/Theme/AppFont.swift` und `Shared/Theme/AppLayout.swift`.
+
+**Regeln für neuen Code**
+- Text und Symbole neben Text: `.appFont(15, weight: .semibold)` statt `.font(.system(size: 15, weight: .semibold))`. Die
+  Zahl ist die Größe bei Standardgröße; sie wächst wie der nächstliegende Textstil (11 → `.caption2`, 12 → `.caption`,
+  13 → `.footnote`, 15 → `.subheadline`, 16 → `.callout`, 17 → `.body`, 20 → `.title3`, 22 → `.title2`, 28 → `.title`,
+  ab 31 → `.largeTitle`), auf Wunsch mit `relativeTo:` fest vorgegeben.
+- Wo ein `Font`-Wert gebraucht wird (Text-Interpolation, `AttributedString`, Markdown): `Font.app(13.5, design: .monospaced,
+  in: dynamicTypeSize)` mit `@Environment(\.dynamicTypeSize)`.
+- Fest bleiben nur Dekoration, Figuren und aus der Geometrie abgeleitete Größen (Maskottchen, Avatare, Initialen,
+  Symbole in Kreisknöpfen fester Größe, Bildschirm-Vorschau): `.font(.fixed(size * 0.44))`.
+- Maße neben Text wachsen mit: `.scaledFrame(26)` (Symbolkreise), `.scaledFrame(width: 22)` (Symbolspalten),
+  `.scaledMinFrame(minHeight:)`, `@AppMetric private var h: CGFloat = 44`.
+- `lineLimit` in Inhalten: `.adaptiveLineLimit(1)` (bei Standardgröße 1, darüber 2, bei Bedienungshilfen-Größen 3; `accessibility: .max`
+  für unbegrenzt). Vorschauen (Zitate, Zeilen in Listen) bewusst knapp halten.
+- Zeilen, die bei großer Schrift nicht passen: `AdaptiveButtonRow` (Knöpfe nebeneinander, sonst untereinander),
+  `AdaptiveRow` (Bedienelement ab AX1 unter den Text), `AdaptiveStack` (HStack → VStack ab einer Stufe), `FlowRow`.
+- Dichte Bedienelemente (Symbolleisten, Fußzeilen von Blättern, runde Knöpfe, Reiter, Kapseln mit fester Höhe) wachsen bis
+  zur größten normalen Stufe und werden dann gedeckelt: `.dynamicTypeSize(...AppFont.controlCap)` (`.xxxLarge`),
+  sehr enge Stellen `...AppFont.compactCap` (`.xxLarge`). Inhalte (Nachrichten, Karten, Einstellungen) nie deckeln.
+
+**Prüfen:** `App/scripts/check-fonts.sh` meldet neue feste Größen (Ausnahmen: `AppFont.swift`, `Shared/Widget/`,
+`AssetRenderer`, `MascotStyleSheet`); dieselbe Prüfung läuft in `WatchLogicTests/FontRuleTests.swift`. Im Simulator die
+Textgröße umstellen (T3-Gerätewerkzeuge: `settings text-size accessibility-extra-large`) oder in Debug-Builds mit dem
+Startargument `-dynamictype <stufe>` (`xSmall` … `xxxLarge`, `ax1` … `ax5`), das die Stufe an der Wurzel der App setzt.
+
+Widgets (`Shared/Widget/`, `AISBotWidgets`) und die Uhr behalten ihre festen Größen: feste Flächen, die Größe bestimmt
+dort das System.
+
+## Sprachen (Deutsch und Englisch)
+
+Seit App 1.3 spricht die App Deutsch und Englisch, in allen Targets außer der Server-App (die hat eigene Catalogs,
+`docs/sprache-serverapp.md`). **Deutsch ist Quellsprache und Rückfall** für alle anderen Systemsprachen: Der deutsche
+Text im Code ist der Schlüssel, auf einem deutschen Gerät bleibt jeder Text wie vor 1.3. Welche Sprache gilt, entscheidet
+das System (Gerät bzw. „Sprache“ pro App). Vertrag mit dem Server und Glossar: `docs/sprache.md`, Einzelheiten zur App:
+`docs/sprache-app.md`.
+
+| Datei | Inhalt |
+|---|---|
+| `Shared/Localization/Localizable.xcstrings` | **ein** Catalog für alle Texte aus `AISBot`, `Shared`, Widgets, Teilen- und Mitteilungs-Erweiterung, Uhr und Komplikationen; liegt in jedem dieser Targets |
+| `*/InfoPlist.xcstrings` (je Target, App: `AISBot/Resources/`) | Berechtigungstexte, Anzeigenamen, Dateityp „Scoop-Vorlage“ |
+| `AISBot/Resources/AppShortcuts.xcstrings` | Siri-Sätze der Kurzbefehle (deutsche Sätze im Code, englische als `stringSet`) |
+| `Shared/Support/AppLanguage.swift` | `AppLanguage.code` (de/en), `Locale.app`, `Accept-Language`, Sprache für Diktat und Stimme, `demoText` |
+| `AISBot/Networking/APIClient+Sprache.swift` | Sprache der Person auf dem Server (`/api/settings/language`) |
+| `scripts/strings.py` | Catalog abgleichen, Übersetzungen einspielen, prüfen |
+
+**Regeln für neuen Code**
+- Literale in SwiftUI (`Text`, `Button`, `Label`, `Toggle`, `TextField`, `.navigationTitle`, `.help`, `.accessibilityLabel`,
+  `.alert` …) und in `GroupedSection`/`GroupedLabelRow`/`SheetHeader`/`CircleIconButton` werden von selbst übersetzt.
+  Achtung: Steht neben dem Literal ein `String`-Argument (z. B. `footer: someString`), wählt Swift den `String`-Init, und
+  das Literal bleibt deutsch – dann `String(localized:)` schreiben. Mehrzeilige Ternäre (`cond ? "A" : "B"` über zwei
+  Zeilen) meldet der Compiler nur zur Hälfte: beide Zweige mit `String(localized:)`.
+- Texte als `String` (Enum-Titel, Fehlermeldungen, Statuszeilen, Mitteilungen, Standardwerte wie `?? "Unbekannt"`):
+  `String(localized: "…", comment: "…")`; eigene Hilfsfunktionen nehmen `LocalizedStringKey` oder
+  `LocalizedStringResource`. Ganze Sätze, keine Stücke; Zahlen über die Mehrzahl des Catalogs (`"\(n) Aufgaben"`).
+- **Zahlen in `String(localized:)`:** Zählwerte als `Int`, aber Ports, IDs, Jahreszahlen und Codes als Text
+  (`\(String(port))`), sonst „Port 8.787“. Nie `Double`/`Date` direkt einsetzen, vorher formatieren.
+- Formate (Datum, Uhrzeit, Beträge, Aufzählungen, relative Zeit) mit `Locale.app` bzw. `Formatting`, nie
+  `Locale(identifier: "de_DE")` für Sichtbares. Wo das Deutsche sonst anders aussähe: `if AppLanguage.isGerman`.
+- Gleiches deutsches Wort, andere Bedeutung: eigener Schlüssel mit `defaultValue`
+  (`String(localized: "alarm.stop", defaultValue: "Aus")`).
+- Nicht übersetzen: Protokollzeilen, Schlüssel und Werte für den Server, Rückgaben an das Modell
+  (`AppleBridgeError`), Produktnamen. Einzelne Zeilen markiert `// nicht übersetzen: <Grund>`.
+- Keine Texte vergleichen oder aus Servertexten lesen: Merkmale wie `meta.welcome`, `meta.skill_id`,
+  `APIError.fromServer` nehmen.
+- **Demo-Inhalte** (`-mock`, Uhr `-demo`) stehen nicht im Catalog, sondern zweisprachig im Code:
+  `demoText("deutsch", en: "english")` bzw. `AppLanguage.isGerman ? … : …` für Werte (Währung, Orte).
+
+**Ablauf bei neuen Texten**
+
+```sh
+cd App
+python3 scripts/strings.py build      # iOS, macOS (ohne Signierung), watchOS nach $TMPDIR/scoops-strings
+python3 scripts/strings.py sync       # neue Schlüssel in den Catalog, nicht mehr benutzte als veraltet
+python3 scripts/strings.py todo > neu.json   # Vorlage; Englisch eintragen, dann:
+python3 scripts/strings.py apply neu.json
+python3 scripts/strings.py check      # Exit 1 bei Fehlern
+```
+
+Alternativ Xcode öffnen (synchronisiert den Catalog beim Bauen) und Englisch dort eintragen. `check` schlägt fehl, wenn
+ein Eintrag kein Englisch hat, im Zustand „neu“, „zu prüfen“ oder „veraltet“ steht, Platzhalter abweichen oder im
+Englischen Umlaute stehen, und wenn ein deutsch aussehendes Literal im Quelltext nicht im Catalog landet (die
+Ausnahmeliste mit Gründen steht in `EXEMPT_FILES`/`EXEMPT_LINE` im Skript).
+
+**Englisch im Simulator:** Startargumente `-AppleLanguages "(en)" -AppleLocale en_US` (mit `-mock` für die englische
+Demo). UI-Test `EnglishUITests` läuft den Demo-Modus auf Englisch durch.
 
 ## Maskottchen (Scoops)
 

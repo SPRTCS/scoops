@@ -22,15 +22,15 @@ struct FullDiskAccessRow: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        GroupedLabelRow(icon: "lock.trianglebadge.exclamationmark", iconColor: theme.warning, title: "Festplattenvollzugriff fehlt",
+        GroupedLabelRow(icon: "lock.trianglebadge.exclamationmark", iconColor: theme.warning,
+                        title: String(localized: "Festplattenvollzugriff fehlt"),
                         subtitle: Self.hint(status))
             .accessibilityElement(children: .combine)
     }
 
     static func hint(_ s: FullDiskAccessStatus) -> String {
         let who = s.process ?? "AIS Scoops Server"
-        return "Auf dem Server-Mac: Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff → „\(who)“ "
-            + "einschalten (fehlt er, mit „+“ hinzufügen). Dann fragt macOS nicht bei jedem Ordner neu."
+        return String(localized: "Auf dem Server-Mac: Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff → „\(who)“ einschalten (fehlt er, mit „+“ hinzufügen). Dann fragt macOS nicht bei jedem Ordner neu.")
     }
 }
 
@@ -46,7 +46,7 @@ struct ComputerAccessSection: View {
     private var access: ScoopAccess { bot.computerAccess ?? ScoopAccess() }
 
     var body: some View {
-        GroupedSection("Rechner-Zugriff", footer: footer, dividerInset: 50) {
+        GroupedSection(String(localized: "Rechner-Zugriff"), footer: footer, dividerInset: 50) {
             modeMenu
             scopeMenu
             if access.accessScope == .projects {
@@ -54,7 +54,7 @@ struct ComputerAccessSection: View {
                     GroupedLabelRow(icon: "folder.fill", iconColor: theme.textSecondary, title: (folder as NSString).lastPathComponent,
                                     subtitle: folder) {
                         Button { remove(folder) } label: {
-                            Image(systemName: "minus.circle.fill").font(.system(size: 17)).foregroundStyle(theme.danger)
+                            Image(systemName: "minus.circle.fill").appFont(17).foregroundStyle(theme.danger)
                         }
                         .buttonStyle(.plain)
                         .disabled(access.folders.count <= 1)
@@ -82,7 +82,7 @@ struct ComputerAccessSection: View {
             fullDisk = (try? await service.workspace())?.fullDiskAccess
         }
         .sheet(isPresented: $showPicker) {
-            WorkspacePickerSheet(title: "Projektordner wählen", chooseTitle: "Diesen Ordner freigeben",
+            WorkspacePickerSheet(title: String(localized: "Projektordner wählen"), chooseTitle: String(localized: "Diesen Ordner freigeben"),
                                  startPath: access.folders.last ?? "~", onChoose: { path in add(path) })
                 .environment(\.theme, theme).environment(store).preferredColorScheme(theme.preferredScheme)
         }
@@ -121,12 +121,11 @@ struct ComputerAccessSection: View {
     }
 
     private var chevrons: some View {
-        Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.textTertiary)
+        Image(systemName: "chevron.up.chevron.down").appFont(11, weight: .semibold).foregroundStyle(theme.textTertiary)
     }
 
     private var footer: String {
-        "Gilt im Chat und für Aufgaben (dort pro Aufgabe änderbar). Mails, Posten, Anrufe und Käufe fragen immer mit einer "
-            + "Karte. \(bot.name) kann den Bereich nie selbst erweitern."
+        String(localized: "Gilt im Chat und für Aufgaben (dort pro Aufgabe änderbar). Mails, Posten, Anrufe und Käufe fragen immer mit einer Karte. \(bot.name) kann den Bereich nie selbst erweitern.")
     }
 
     private func set(mode: AccessMode) {
@@ -179,13 +178,13 @@ struct TaskScopeMenu: View {
     var body: some View {
         Menu {
             Button { choice = nil } label: {
-                let title = "Wie Scoop (\(botAccess.scopeText))"
+                let title = String(localized: "Wie Scoop (\(botAccess.scopeText))")
                 if choice == nil { Label(title, systemImage: "checkmark") } else { Text(title) }
             }
             Divider()
             option(.workspace, nil)
             if botAccess.accessScope == .projects, !botAccess.folders.isEmpty {
-                option(.projects, botAccess.folders, title: "Projektordner des Scoops")
+                option(.projects, botAccess.folders, title: String(localized: "Projektordner des Scoops"))
             }
             Button { showFolders = true } label: { Label("Projektordner wählen …", systemImage: AccessScope.projects.icon) }
             option(.home, nil)
@@ -194,11 +193,11 @@ struct TaskScopeMenu: View {
                 TaskPillLabel(icon: effectiveScope.icon, text: pillText, active: choice != nil)
             } else {
                 HStack(spacing: 4) {
-                    Text(choice == nil ? "Wie Scoop" : effectiveScope.text(folders: effectiveFolders))
-                        .lineLimit(1)
-                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
+                    Text(choice == nil ? String(localized: "Wie Scoop") : effectiveScope.text(folders: effectiveFolders))
+                        .adaptiveLineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down").appFont(10, weight: .semibold)
                 }
-                .font(.system(size: 14.5))
+                .appFont(14.5)
                 .foregroundStyle(theme.textSecondary)
             }
         }
@@ -206,7 +205,7 @@ struct TaskScopeMenu: View {
         .buttonStyle(.plain)
         .fixedSize()
         .help("Wo die Aufgabe am Mac arbeiten darf")
-        .accessibilityLabel("Bereich: \(choice == nil ? "wie Scoop, " : "")\(effectiveScope.text(folders: effectiveFolders))")
+        .accessibilityLabel(accessibilityText)
         .sheet(isPresented: $showFolders) {
             ProjectFoldersSheet(initial: effectiveScope == .projects ? effectiveFolders : []) { folders in
                 choice = TaskAccessChoice(scope: AccessScope.projects.rawValue, folders: folders)
@@ -215,14 +214,19 @@ struct TaskScopeMenu: View {
         }
     }
 
+    private var accessibilityText: String {
+        let scope = effectiveScope.text(folders: effectiveFolders)
+        return choice == nil ? String(localized: "Bereich: wie Scoop, \(scope)") : String(localized: "Bereich: \(scope)")
+    }
+
     /// Kurz für die Pille: „Arbeitsordner“, Ordnername bei einem Projektordner, „2 Ordner“, „Überall“
     private var pillText: String {
         switch effectiveScope {
-        case .workspace: return "Arbeitsordner"
-        case .home: return "Überall"
+        case .workspace: return String(localized: "Arbeitsordner")
+        case .home: return String(localized: "Überall")
         case .projects:
             let f = effectiveFolders
-            return f.count == 1 ? (f[0] as NSString).lastPathComponent : "\(f.count) Ordner"
+            return f.count == 1 ? (f[0] as NSString).lastPathComponent : String(localized: "\(f.count) Ordner")
         }
     }
 
@@ -256,7 +260,7 @@ struct ProjectFoldersSheet: View {
                             GroupedLabelRow(icon: "folder.fill", iconColor: theme.textSecondary,
                                             title: (folder as NSString).lastPathComponent, subtitle: folder) {
                                 Button { folders.removeAll { $0 == folder } } label: {
-                                    Image(systemName: "minus.circle.fill").font(.system(size: 17)).foregroundStyle(theme.danger)
+                                    Image(systemName: "minus.circle.fill").appFont(17).foregroundStyle(theme.danger)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("\(folder) entfernen")
@@ -289,7 +293,7 @@ struct ProjectFoldersSheet: View {
             if folders.isEmpty { showPicker = true }
         }
         .sheet(isPresented: $showPicker) {
-            WorkspacePickerSheet(title: "Projektordner wählen", chooseTitle: "Diesen Ordner nehmen",
+            WorkspacePickerSheet(title: String(localized: "Projektordner wählen"), chooseTitle: String(localized: "Diesen Ordner nehmen"),
                                  startPath: folders.last ?? "~", onChoose: { path in
                 if !folders.contains(path) { folders.append(path) }
             })
@@ -312,8 +316,8 @@ struct TaskAccessBadge: View {
 
     var body: some View {
         Label(access.scopeText, systemImage: access.accessScope.icon)
-            .font(.system(size: 11.5, weight: .semibold))
-            .lineLimit(1)
+            .appFont(11.5, weight: .semibold)
+            .adaptiveLineLimit(1)
             .foregroundStyle(theme.textSecondary)
             .padding(.horizontal, 7).padding(.vertical, 2)
             .background(theme.hover, in: Capsule())
@@ -336,18 +340,19 @@ struct TaskAccessDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Label("\(access.accessMode.title) · \(access.scopeText)", systemImage: access.accessMode.icon)
-                .font(.system(size: 13, weight: .medium))
+                .appFont(13, weight: .medium)
                 .foregroundStyle(theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if access.accessScope == .projects, let folders = access.folders, !folders.isEmpty {
                 Text(folders.joined(separator: "\n"))
-                    .font(.system(size: 11.5))
+                    .appFont(11.5)
                     .foregroundStyle(theme.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Rechner-Zugriff: \(access.accessMode.title), \(access.scopeText)"
-                            + (access.custom == true ? ", nur für diese Aufgabe" : ""))
+        .accessibilityLabel(access.custom == true
+                            ? String(localized: "Rechner-Zugriff: \(access.accessMode.title), \(access.scopeText), nur für diese Aufgabe")
+                            : String(localized: "Rechner-Zugriff: \(access.accessMode.title), \(access.scopeText)"))
     }
 }

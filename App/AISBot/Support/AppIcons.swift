@@ -15,19 +15,22 @@ enum AppIconVariant: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .gelb, .blickGelb: "Gelb"
-        case .lila, .blickLila: "Lila"
-        case .blau, .blickBlau: "Blau"
-        case .pink, .blickPink: "Pink"
-        case .hell, .blickHell: "Hell"
+        case .gelb, .blickGelb: String(localized: "Gelb", comment: "Farbe des App-Symbols")
+        case .lila, .blickLila: String(localized: "Lila", comment: "Farbe des App-Symbols")
+        case .blau, .blickBlau: String(localized: "Blau", comment: "Farbe des App-Symbols")
+        case .pink, .blickPink: String(localized: "Pink", comment: "Farbe des App-Symbols")
+        case .hell, .blickHell: String(localized: "Hell", comment: "Farbe des App-Symbols: helle Variante")
         }
     }
 
     /// Reihen der Auswahl: oben die runde Serie, unten die lässige
-    static let series: [(title: String, variants: [AppIconVariant])] = [
-        ("Rund", [.gelb, .lila, .blau, .pink, .hell]),
-        ("Lässig", [.blickGelb, .blickLila, .blickBlau, .blickPink, .blickHell]),
-    ]
+    static var series: [(title: String, variants: [AppIconVariant])] {
+        [
+            (String(localized: "Rund", comment: "Serie der App-Symbole: runde Form"), [.gelb, .lila, .blau, .pink, .hell]),
+            (String(localized: "Lässig", comment: "Serie der App-Symbole: lässiger Blick zur Seite"),
+             [.blickGelb, .blickLila, .blickBlau, .blickPink, .blickHell]),
+        ]
+    }
 
     /// Name des alternativen Symbols im Asset-Katalog (nil = Haupt-Symbol).
     var alternateName: String? {
@@ -210,7 +213,7 @@ enum AppIconSwitcher {
             try await UIApplication.shared.setAlternateIconName(variant.alternateName)
             return nil
         } catch {
-            return "Das App-Symbol konnte nicht geändert werden."
+            return String(localized: "Das App-Symbol konnte nicht geändert werden.")
         }
         #else
         UserDefaults.standard.set(variant.rawValue, forKey: key)
@@ -245,7 +248,7 @@ struct AppIconPicker: View {
             ForEach(AppIconVariant.series, id: \.title) { row in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(row.title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .appFont(12, weight: .semibold)
                         .foregroundStyle(theme.textSecondary)
                         .accessibilityAddTraits(.isHeader)
                     HStack(alignment: .top, spacing: 0) {
@@ -257,7 +260,7 @@ struct AppIconPicker: View {
                 }
             }
             if let error {
-                Text(error).font(.system(size: 12)).foregroundStyle(theme.danger)
+                Text(error).appFont(12).foregroundStyle(theme.danger)
             }
         }
         .groupedRow(vertical: 14)
@@ -277,13 +280,14 @@ struct AppIconPicker: View {
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(selected == v ? theme.accent : .clear, lineWidth: 2.5))
                 Text(v.displayName)
-                    .font(.system(size: 12, weight: selected == v ? .semibold : .regular))
+                    .appFont(12, weight: selected == v ? .semibold : .regular)
                     .foregroundStyle(selected == v ? theme.textPrimary : theme.textSecondary)
-                    .lineLimit(1)
+                    .adaptiveLineLimit(1)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("App-Symbol \(v.displayName)\(v.rawValue.hasPrefix("blick") ? ", lässig" : "")")
+        .accessibilityLabel(v.rawValue.hasPrefix("blick") ? String(localized: "App-Symbol \(v.displayName), lässig")
+                                                          : String(localized: "App-Symbol \(v.displayName)"))
         .accessibilityAddTraits(selected == v ? .isSelected : [])
     }
 }

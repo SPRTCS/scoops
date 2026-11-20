@@ -90,7 +90,7 @@ private struct AlarmRemaining: View {
             Text(Duration.seconds(max(0, p.totalCountdownDuration - p.previouslyElapsedDuration))
                 .formatted(.time(pattern: .minuteSecond)))
         case .alert(let a):
-            Text(String(format: "%02d:%02d", a.time.hour, a.time.minute))
+            Text(AlarmText.clock(hour: a.time.hour, minute: a.time.minute))
         @unknown default:
             Text("")
         }
@@ -106,11 +106,20 @@ private enum AlarmText {
         a.metadata?.kind == "timer" ? "timer" : "alarm.fill"
     }
 
+    /// Weckzeit: Deutsch wie bisher „07:30“, sonst im Format der App-Sprache („7:30 AM“)
+    static func clock(hour: Int, minute: Int) -> String {
+        if AppLanguage.isGerman { return String(format: "%02d:%02d", hour, minute) }
+        guard let date = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) else {
+            return String(format: "%02d:%02d", hour, minute)
+        }
+        return date.formatted(.dateTime.hour().minute().locale(.app))
+    }
+
     static func subtitle(_ s: AlarmPresentationState) -> String {
         switch s.mode {
-        case .countdown: "Timer läuft"
-        case .paused: "Pausiert"
-        case .alert: "Wecker"
+        case .countdown: String(localized: "Timer läuft")
+        case .paused: String(localized: "Pausiert", comment: "Zustand: angehalten (Rechner, Timer)")
+        case .alert: String(localized: "Wecker")
         @unknown default: ""
         }
     }

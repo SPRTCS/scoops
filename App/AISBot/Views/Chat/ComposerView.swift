@@ -15,6 +15,7 @@ struct ComposerView: View {
     let attachments: AttachmentQueue
     @Environment(AppStore.self) private var store
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var focused: Bool
     @State private var showPhotos = false
     @State private var photoItems: [PhotosPickerItem] = []
@@ -42,20 +43,38 @@ struct ComposerView: View {
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var busy: Bool { store.isBusy(chatID) }
     private var hasContent: Bool { !trimmed.isEmpty || !attachments.fileIDs.isEmpty }
-    private var canSend: Bool { (hasContent || mode?.sendsEmpty == true) && !attachments.isUploading }
+    /// Eigene Nachricht wird gerade bearbeitet (App 1.3): Senden ersetzt ihren Text
+    private var editing: ComposerDraft.EditTarget? { store.composerDraft(chatID).editing }
+    private var canSend: Bool {
+        if editing != nil { return !trimmed.isEmpty }
+        return (hasContent || mode?.sendsEmpty == true) && !attachments.isUploading
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !mentionSuggestions.isEmpty { mentionList }
             if !attachments.isEmpty { AttachmentChips(queue: attachments) }
             if refining { RefiningHint() }
-            if let replyTo {
+            if let editing {
+                EditComposerBar(target: editing) { store.cancelEditing(chatID: chatID) }
+            } else if let replyTo {
                 ReplyComposerBar(ref: replyTo, chatID: chatID) { self.replyTo = nil }
             }
             inputRow
         }
         .animation(.snappy(duration: 0.18), value: mode)
         .animation(.snappy(duration: 0.22), value: replyTo?.id)
+        .animation(.snappy(duration: 0.22), value: editing?.messageID)
+        // „Bearbeiten“ gewählt: Modus-Chip weg (die Nachricht behält ihre Art), Eingabefeld fokussieren
+        .onChange(of: editing?.messageID) { _, id in
+            guard id != nil else { return }
+            mode = nil
+            focused = true
+        }
+        #if os(iOS)
+        // „Erneut senden …“ aus dem Kontextmenü: Text steht im Feld, Tastatur zeigen
+        .onChange(of: store.composerFocusRequest) { focused = true }
+        #endif
         // Antwort gewählt (Wischen, Kontextmenü): Eingabefeld fokussieren, auch auf dem iPhone
         .onChange(of: replyTo?.id) { _, id in if id != nil { focused = true } }
         .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
@@ -96,6 +115,8 @@ struct ComposerView: View {
     private var inputRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             plusMenu
+                // Runde Knöpfe: wachsen bis zur größten normalen Stufe mit (der Text im Feld weiter)
+                .dynamicTypeSize(...AppFont.controlCap)
                 .padding(.bottom, 1)
 
             // Modus-Chip (und bei Aufgaben Start/Modell) als eigene Zeile im Eingabefeld, Text darunter in voller
@@ -107,9 +128,9 @@ struct ComposerView: View {
                     .padding(.top, 4)
                     .transition(.scale(scale: 0.9, anchor: .leading).combined(with: .opacity))
             }
-            TextField(mode?.placeholder ?? "Nachricht an \(store.chatName(chatID))", text: $text, axis: .vertical)
+            TextField(mode?.placeholder ?? String(localized: "Nachricht an \(store.chatName(chatID))"), text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
-                .font(.system(size: 15))
+                .appFont(15)
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(1...8)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -141,7 +162,11 @@ struct ComposerView: View {
                 }
                 .onKeyPress(.escape, phases: .down) { _ in
                     guard !mentionSuggestions.isEmpty else {
-                        // Esc bricht eine Antwort ab
+                        // Esc bricht das Bearbeiten bzw. eine Antwort ab
+                        if editing != nil {
+                            store.cancelEditing(chatID: chatID)
+                            return .handled
+                        }
                         guard replyTo != nil else { return .ignored }
                         replyTo = nil
                         return .handled
@@ -166,6 +191,7 @@ struct ComposerView: View {
             .animation(.snappy(duration: 0.18), value: mode)
 
             trailingButtons
+                .dynamicTypeSize(...AppFont.controlCap)
                 .padding(.bottom, 1)
         }
         .padding(.leading, 7)
@@ -193,9 +219,9 @@ struct ComposerView: View {
     private var plusMenu: some View {
         Button { showPlus.toggle() } label: {
             Image(systemName: "plus")
-                .font(.system(size: 15, weight: .medium))
+                .appFont(15, weight: .medium)
                 .foregroundStyle(theme.textSecondary)
-                .frame(width: 30, height: 30)
+                .scaledFrame(30)
                 .background(theme.hover, in: Circle())
                 .rotationEffect(.degrees(showPlus ? 45 : 0))
                 .contentShape(Circle())
@@ -231,8 +257,8 @@ struct ComposerView: View {
 
     private var plusItems: [PlusMenuCard.Item] {
         [
-            .init(title: "Dateien anhängen", icon: "paperclip") { showFiles = true },
-            .init(title: "Fotos anhängen", icon: "photo.on.rectangle") { showPhotos = true },
+            .init(title: String(localized: "Dateien anhängen"), icon: "paperclip") { showFiles = true },
+            .init(title: String(localized: "Fotos anhängen"), icon: "photo.on.rectangle") { showPhotos = true },
         ] + ComposerMode.allCases.filter { $0 != .task || !isGroup }.map { m in
             .init(title: m.menuTitle, icon: m.icon, group: 1, tint: m.color) { choose(m) }
         }
@@ -243,8 +269,9 @@ struct ComposerView: View {
         if dictation.isRecording {
             roundButton("stop.fill", fill: theme.danger, icon: .white, help: "Diktat beenden") { stopDictation() }
         } else if canSend {
-            roundButton("arrow.up", fill: theme.sendButton, icon: theme.sendButtonIcon, help: "Senden (Return)", action: send)
-                .accessibilityLabel("Senden")
+            roundButton(editing == nil ? "arrow.up" : "checkmark", fill: theme.sendButton, icon: theme.sendButtonIcon,
+                        help: editing == nil ? "Senden (Return)" : "Änderung senden (Return)", action: send)
+                .accessibilityLabel(editing == nil ? "Senden" : "Änderung senden")
         } else if hasContent && attachments.isUploading {
             ProgressView().controlSize(.small).frame(width: 30, height: 30)
         } else if busy {
@@ -256,9 +283,9 @@ struct ComposerView: View {
             HStack(spacing: 4) {
                 Button { startDictation() } label: {
                     Image(systemName: "mic")
-                        .font(.system(size: 15, weight: .medium))
+                        .appFont(15, weight: .medium)
                         .foregroundStyle(theme.textSecondary)
-                        .frame(width: 30, height: 30)
+                        .scaledFrame(30)
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -275,13 +302,13 @@ struct ComposerView: View {
         }
     }
 
-    private func roundButton(_ symbol: String, fill: Color, icon: Color, help: String,
+    private func roundButton(_ symbol: String, fill: Color, icon: Color, help: LocalizedStringKey,
                              action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: symbol == "stop.fill" ? 11 : 14, weight: .bold))
+                .appFont(symbol == "stop.fill" ? 11 : 14, weight: .bold)
                 .foregroundStyle(icon)
-                .frame(width: 30, height: 30)
+                .scaledFrame(30)
                 .background(fill, in: Circle())
         }
         .buttonStyle(.plain)
@@ -290,6 +317,10 @@ struct ComposerView: View {
     }
 
     // MARK: Erwähnungen
+
+    /// Erwähnung aller („@alle“ bzw. „@all“): Schlüsselwort, das der Server in beiden Sprachen erkennt
+    /// (`@alle`/`@all`/`@everyone`), deshalb nicht im String Catalog.
+    private static var everyone: String { AppLanguage.isGerman ? "alle" : "all" }  // nicht übersetzen: Schlüsselwort für den Server
 
     /// Aktuelles „@…“-Wort am Ende des Textes (beliebig viele Erwähnungen pro Nachricht).
     private var mentionQuery: String? {
@@ -324,7 +355,7 @@ struct ComposerView: View {
         // Per Esc geschlossen: erst beim nächsten „@“ wieder anzeigen
         if let dismissed = mentionDismissedAt, dismissed == mentionAnchor { return [] }
         // Geteilter Scoop: auch Personen („@Johanna“ = nur an sie, der Scoop antwortet nicht)
-        let names = store.members(of: chatID).map(\.name) + store.people(in: chatID) + ["alle"]
+        let names = store.members(of: chatID).map(\.name) + store.people(in: chatID) + [Self.everyone]
         let hits = q.isEmpty ? names : names.filter { $0.lowercased().hasPrefix(q.lowercased()) }
         // Vollständig getippte Erwähnung nicht mehr vorschlagen
         if hits.count == 1, hits[0].lowercased() == q.lowercased() { return [] }
@@ -355,21 +386,21 @@ struct ComposerView: View {
                     HStack(spacing: 8) {
                         if let bot = store.members(of: chatID).first(where: { $0.name == name }) {
                             MascotView(mascot: bot.mascot, size: 24, seed: bot.id, animated: false)
-                        } else if name != "alle" {
+                        } else if name != Self.everyone {
                             // Person im geteilten Scoop
                             PersonAvatar(name: name, size: 24)
                         } else {
                             Image(systemName: "person.3.fill")
-                                .font(.system(size: 12))
+                                .appFont(12)
                                 .foregroundStyle(theme.accent)
-                                .frame(width: 24, height: 24)
+                                .scaledFrame(24)
                         }
-                        Text("@\(name)").font(.system(size: 14, weight: .medium)).foregroundStyle(theme.textPrimary)
-                        if name == "alle" {
-                            Text(isGroup ? "alle Scoops der Gruppe" : "alle im Chat").font(.system(size: 12))
+                        Text("@\(name)").appFont(14, weight: .medium).foregroundStyle(theme.textPrimary)
+                        if name == Self.everyone {
+                            Text(isGroup ? "alle Scoops der Gruppe" : "alle im Chat").appFont(12)
                                 .foregroundStyle(theme.textTertiary)
                         } else if !isGroup, store.members(of: chatID).first(where: { $0.name == name }) == nil {
-                            Text("nur an diese Person").font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                            Text("nur an diese Person").appFont(12).foregroundStyle(theme.textTertiary)
                         }
                         Spacer()
                         #if os(macOS)
@@ -389,7 +420,8 @@ struct ComposerView: View {
             }
         }
         .padding(6)
-        .frame(maxWidth: 300)
+        // Große Schrift: Liste darf breiter werden (Namen und Hinweis „nur an …“ nicht abschneiden)
+        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? 560 : 300)
         .themedCard(theme, radius: 14, fill: theme.surfaceRaised)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
@@ -442,6 +474,13 @@ struct ComposerView: View {
 
     private func send() {
         guard canSend else { return }
+        if editing != nil {
+            // Bearbeiten: Text der Nachricht ersetzen (Anhänge im Feld bleiben für die nächste Nachricht liegen)
+            let value = trimmed
+            dictation.stop()
+            Task { await store.submitEdit(chatID: chatID, text: value) }
+            return
+        }
         let value = mode?.compose(trimmed) ?? trimmed
         let options = mode == .task ? TaskOptions(model: taskModel, scheduledAt: taskBacklog ? nil : taskDate,
                                                   backlog: taskBacklog ? true : nil, access: taskAccess) : nil
@@ -498,13 +537,19 @@ struct ComposerView: View {
             let stamp = Date().formatted(.dateTime.year().month(.twoDigits).day(.twoDigits).hour().minute().second())
                 .replacingOccurrences(of: ":", with: "-").replacingOccurrences(of: " ", with: "_")
                 .replacingOccurrences(of: ".", with: "-").replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ",", with: "")
-            let name = "Foto-\(stamp)\(items.count > 1 ? "-\(idx + 1)" : "").\(ext)"
+            let base = String(localized: "Foto", comment: "Dateiname (Anfang) eines angehängten Fotos")
+            let name = "\(base)-\(stamp)\(items.count > 1 ? "-\(idx + 1)" : "").\(ext)"
             attachments.add(data: data, name: name, mime: type.preferredMIMEType ?? "image/jpeg", chatID: chatID, store: store)
         }
         photoItems = []
     }
 
     #if os(macOS)
+    /// Dateiname eines aus der Zwischenablage eingefügten Bildes
+    private static var pastedImageName: String {
+        String(localized: "Eingefügtes Bild", comment: "Dateiname (ohne Endung) eines eingefügten Bildes") + ".png"
+    }
+
     /// Bild aus der Zwischenablage anhängen. Gibt false zurück, wenn dort nur Text liegt.
     private func pasteImageIfAvailable() -> Bool {
         let pb = NSPasteboard.general
@@ -514,12 +559,12 @@ struct ComposerView: View {
             return true
         }
         if let png = pb.data(forType: .png) {
-            attachments.add(data: png, name: "Eingefügtes Bild.png", mime: "image/png", chatID: chatID, store: store)
+            attachments.add(data: png, name: Self.pastedImageName, mime: "image/png", chatID: chatID, store: store)
             return true
         }
         if let tiff = pb.data(forType: .tiff), let rep = NSBitmapImageRep(data: tiff),
            let png = rep.representation(using: .png, properties: [:]) {
-            attachments.add(data: png, name: "Eingefügtes Bild.png", mime: "image/png", chatID: chatID, store: store)
+            attachments.add(data: png, name: Self.pastedImageName, mime: "image/png", chatID: chatID, store: store)
             return true
         }
         return false
@@ -537,14 +582,14 @@ struct RefiningHint: View {
             let t = ctx.date.timeIntervalSinceReferenceDate
             let phase = (t.truncatingRemainder(dividingBy: 1.6)) / 1.6
             Label("Wird genau erkannt …", systemImage: "waveform")
-                .font(.system(size: 12, weight: .medium))
+                .appFont(12, weight: .medium)
                 .foregroundStyle(theme.textSecondary)
                 .overlay {
                     LinearGradient(stops: [.init(color: .clear, location: max(0, phase - 0.2)),
                                            .init(color: theme.textPrimary.opacity(0.9), location: phase),
                                            .init(color: .clear, location: min(1, phase + 0.2))],
                                    startPoint: .leading, endPoint: .trailing)
-                        .mask(Label("Wird genau erkannt …", systemImage: "waveform").font(.system(size: 12, weight: .medium)))
+                        .mask(Label("Wird genau erkannt …", systemImage: "waveform").appFont(12, weight: .medium))
                 }
         }
         .padding(.leading, 10)
@@ -568,6 +613,7 @@ struct PlusMenuCard: View {
     let items: [Item]
     var onSelect: (Item) -> Void
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -579,11 +625,11 @@ struct PlusMenuCard: View {
                 Button { onSelect(item) } label: {
                     HStack(spacing: 12) {
                         Image(systemName: item.icon)
-                            .font(.system(size: 16, weight: item.tint == nil ? .regular : .semibold))
+                            .appFont(16, weight: item.tint == nil ? .regular : .semibold)
                             .foregroundStyle(item.tint ?? theme.textSecondary)
-                            .frame(width: 22)
+                            .scaledFrame(width: 22)
                         Text(item.title)
-                            .font(.system(size: 16))
+                            .appFont(16)
                             .foregroundStyle(theme.textPrimary)
                         Spacer(minLength: 0)
                     }
@@ -595,7 +641,8 @@ struct PlusMenuCard: View {
             }
         }
         .padding(6)
-        .frame(width: 270)
+        // Große Schrift: breitere Karte, damit Einträge wie „Erinnerung“ nicht mitten im Wort umbrechen
+        .frame(width: min(420, AppFont.scaled(270, relativeTo: .subheadline, in: dynamicTypeSize)))
         #if os(macOS)
         .background(theme.surfaceRaised)
         #endif

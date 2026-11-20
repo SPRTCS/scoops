@@ -42,7 +42,11 @@ final class LiveVoiceSession {
 
     @ObservationIgnored private let audio = LiveAudioIO()
     @ObservationIgnored private var task: URLSessionWebSocketTask?
-    @ObservationIgnored private let urlSession = URLSession(configuration: .default)
+    @ObservationIgnored private let urlSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.httpAdditionalHeaders = ["Accept-Language": AppLanguage.acceptLanguage]
+        return URLSession(configuration: config)
+    }()
     @ObservationIgnored private var receiveTask: Task<Void, Never>?
     @ObservationIgnored private var meterTask: Task<Void, Never>?
     @ObservationIgnored private var captionID = 0
@@ -60,7 +64,7 @@ final class LiveVoiceSession {
         let allowed = await Self.micPermission()
         awaitingPermission = false
         guard allowed else {
-            state = .failed("Bitte erlaube den Zugriff aufs Mikrofon in den Einstellungen.")
+            state = .failed(String(localized: "Bitte erlaube den Zugriff aufs Mikrofon in den Einstellungen."))
             return
         }
         let t = urlSession.webSocketTask(with: request)
@@ -72,7 +76,7 @@ final class LiveVoiceSession {
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(15))
             guard let self, self.task === t, !self.gotReady, self.state == .connecting else { return }
-            self.fail("Live-Verbindung kommt nicht zustande.")
+            self.fail(String(localized: "Live-Verbindung kommt nicht zustande."))
         }
     }
 
@@ -132,9 +136,9 @@ final class LiveVoiceSession {
             } catch {
                 guard task === t else { return }
                 if case .live = state {
-                    finish(.ended("Verbindung unterbrochen."))
+                    finish(.ended(String(localized: "Verbindung unterbrochen.")))
                 } else if !gotReady {
-                    fail("Live ist gerade nicht erreichbar.")
+                    fail(String(localized: "Live ist gerade nicht erreichbar."))
                 }
                 return
             }
@@ -167,9 +171,9 @@ final class LiveVoiceSession {
             if let s = obj["seconds"] as? Double { seconds = s }
             if let c = obj["cost_usd"] as? Double { costUsd = c }
         case "end":
-            finish(.ended((obj["message"] as? String) ?? "Gespräch beendet."))
+            finish(.ended((obj["message"] as? String) ?? String(localized: "Gespräch beendet.")))
         case "error":
-            let message = (obj["message"] as? String) ?? "Live ist gerade nicht verfügbar."
+            let message = (obj["message"] as? String) ?? String(localized: "Live ist gerade nicht verfügbar.")
             if !gotReady || (obj["fallback"] as? Bool) == true { fail(message) } else { finish(.ended(message)) }
         default:
             break

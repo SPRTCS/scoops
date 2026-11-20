@@ -38,7 +38,7 @@ final class AttachmentQueue {
         var item = Item(name: name, mime: mime, size: data.count)
         if mime.hasPrefix("image/") { item.thumbnail = PlatformImage(data: data) }
         guard data.count <= Self.maxBytes else {
-            item.failed = "Größer als 25 MB"
+            item.failed = String(localized: "Größer als 25 MB")
             items.append(item)
             return
         }
@@ -145,7 +145,7 @@ struct AttachmentChips: View {
                     Image(platformImage: img).resizable().aspectRatio(contentMode: .fill)
                 } else {
                     Image(systemName: LibraryFile.symbol(forMime: item.mime, name: item.name))
-                        .font(.system(size: 15))
+                        .appFont(15)
                         .foregroundStyle(theme.textSecondary)
                 }
             }
@@ -153,9 +153,9 @@ struct AttachmentChips: View {
             .background(theme.surface)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.name).font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textPrimary).lineLimit(1)
+                Text(item.name).appFont(12.5, weight: .medium).foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
                 if let failed = item.failed {
-                    Text(failed).font(.system(size: 11)).foregroundStyle(theme.danger).lineLimit(1)
+                    Text(failed).appFont(11).foregroundStyle(theme.danger).adaptiveLineLimit(1)
                 } else if item.file == nil {
                     ProgressView(value: item.progress)
                         .progressViewStyle(.linear)
@@ -163,7 +163,7 @@ struct AttachmentChips: View {
                         .frame(width: 90)
                 } else {
                     Text(ByteCountFormatter.string(fromByteCount: Int64(item.size), countStyle: .file))
-                        .font(.system(size: 11)).foregroundStyle(theme.textTertiary)
+                        .appFont(11).foregroundStyle(theme.textTertiary)
                 }
             }
             .frame(maxWidth: 150, alignment: .leading)
@@ -171,9 +171,9 @@ struct AttachmentChips: View {
                 withAnimation(.snappy(duration: 0.2)) { queue.remove(item.id, store: store) }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .appFont(9, weight: .bold)
                     .foregroundStyle(theme.textSecondary)
-                    .frame(width: 18, height: 18)
+                    .scaledFrame(18)
                     .background(theme.hover, in: Circle())
             }
             .buttonStyle(.plain)
@@ -194,7 +194,7 @@ extension LibraryFile {
 
 // MARK: - Dateien im Verlauf
 
-/// Kompakte Dateikarte (Ereignis mit `meta.file_id`).
+/// Kompakte Dateikarte (Ereignis mit `meta.file_id`). Bilder (z. B. von einem Scoop erstellt) als Vorschau.
 struct FileCard: View {
     let fileID: String
     let fallbackText: String
@@ -202,29 +202,37 @@ struct FileCard: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
+        if let file = store.file(fileID), file.isImage {
+            ImageFileCard(file: file, subtitle: subtitle(file))
+        } else {
+            plainCard
+        }
+    }
+
+    private var plainCard: some View {
         let file = store.file(fileID)
-        Button {
+        return Button {
             if let file { store.open(file) }
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: file?.symbolName ?? "doc")
-                    .font(.system(size: 17))
+                    .appFont(17)
                     .foregroundStyle(theme.accent)
-                    .frame(width: 38, height: 38)
+                    .scaledFrame(38)
                     .background(theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(file?.name ?? fallbackText)
-                        .font(.system(size: 13.5, weight: .medium))
+                        .appFont(13.5, weight: .medium)
                         .foregroundStyle(theme.textPrimary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                     Text(subtitle(file))
-                        .font(.system(size: 11.5))
+                        .appFont(11.5)
                         .foregroundStyle(theme.textSecondary)
-                        .lineLimit(1)
+                        .adaptiveLineLimit(1)
                 }
                 Spacer(minLength: 4)
                 Image(systemName: "arrow.up.forward.square")
-                    .font(.system(size: 13))
+                    .appFont(13)
                     .foregroundStyle(theme.textTertiary)
             }
             .padding(10)
@@ -241,8 +249,67 @@ struct FileCard: View {
         guard let file else { return fallbackText }
         var parts: [String] = []
         if let size = file.sizeText { parts.append(size) }
-        if let author = store.bot(file.authorId) { parts.append("von \(author.name)") } else { parts.append("von dir") }
+        if let author = store.bot(file.authorId) {
+            parts.append(String(localized: "von \(author.name)", comment: "Datei im Verlauf: erstellt von einem Scoop"))
+        } else {
+            parts.append(String(localized: "von dir", comment: "Datei im Verlauf: von dir hochgeladen"))
+        }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// Bild aus der Bibliothek groß im Verlauf (Server 1.39: Bilder, die ein Scoop erstellt oder bearbeitet hat).
+/// Antippen öffnet es in der Vorschau; Seitenverhältnis wie das Bild, höchstens 300 Punkte hoch.
+struct ImageFileCard: View {
+    let file: LibraryFile
+    let subtitle: String
+    @Environment(AppStore.self) private var store
+    @Environment(\.theme) private var theme
+    @State private var image: PlatformImage?
+
+    private var frame: CGSize {
+        let width: CGFloat = 260
+        guard let size = image?.size, size.width > 0, size.height > 0 else { return CGSize(width: width, height: 195) }
+        let height = min(300, max(110, width * size.height / size.width))
+        return CGSize(width: min(width, height * size.width / size.height), height: height)
+    }
+
+    var body: some View {
+        Button { store.open(file) } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                ZStack {
+                    theme.surface
+                    if let image {
+                        Image(platformImage: image).resizable().aspectRatio(contentMode: .fit)
+                    } else {
+                        Image(systemName: "photo").appFont(22).foregroundStyle(theme.textTertiary)
+                    }
+                }
+                .frame(width: frame.width, height: frame.height)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(theme.textTertiary.opacity(0.15)))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(file.name)
+                        .appFont(12.5, weight: .medium)
+                        .foregroundStyle(theme.textPrimary)
+                        .adaptiveLineLimit(1)
+                    Text(subtitle)
+                        .appFont(11)
+                        .foregroundStyle(theme.textSecondary)
+                        .adaptiveLineLimit(1)
+                }
+                .padding(.horizontal, 4)
+            }
+            .frame(width: frame.width, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("Bild \(file.name) öffnen")
+        .task(id: file.id) {
+            guard image == nil, let url = await store.download(file), let data = try? Data(contentsOf: url) else { return }
+            image = PlatformImage(data: data)
+        }
     }
 }
 
@@ -266,9 +333,9 @@ struct MessageAttachments: View {
                             HStack(spacing: 6) {
                                 Image(systemName: file.symbolName).foregroundStyle(theme.accent)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(file.name).font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textPrimary).lineLimit(1)
+                                    Text(file.name).appFont(12.5, weight: .medium).foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
                                     if let s = file.sizeText {
-                                        Text(s).font(.system(size: 11)).foregroundStyle(theme.textTertiary)
+                                        Text(s).appFont(11).foregroundStyle(theme.textTertiary)
                                     }
                                 }
                             }
@@ -281,7 +348,7 @@ struct MessageAttachments: View {
                     .accessibilityLabel("Anhang \(file.name) öffnen")
                 } else {
                     Label("Anhang", systemImage: "paperclip")
-                        .font(.system(size: 12))
+                        .appFont(12)
                         .foregroundStyle(theme.textTertiary)
                         .padding(8)
                         .background(theme.userBubble.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))

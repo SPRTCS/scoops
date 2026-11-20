@@ -1,0 +1,213 @@
+{
+  "sourceLanguage" : "de",
+  "strings" : {
+    "${applicationName} Sprechmodus" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "${applicationName} voice mode"
+            ]
+          }
+        }
+      }
+    },
+    "Aufgabe anlegen in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Create a task in ${applicationName}",
+              "New task in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Frag ${scoop} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Ask ${scoop} in ${applicationName}",
+              "Ask ${scoop} with ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Frag einen Scoop in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Ask a Scoop in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Frage ${scoop} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Ask ${scoop} a question in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Leg eine Aufgabe für ${scoop} in ${applicationName} an" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Create a task for ${scoop} in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Nachricht senden mit ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Send a message with ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Neue Aufgabe für ${scoop} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "New task for ${scoop} in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Schreib ${chat} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Message ${chat} in ${applicationName}",
+              "Text ${chat} in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Scoop fragen mit ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Ask a Scoop with ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Sende eine Nachricht an ${chat} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Send a message to ${chat} in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Sprich mit ${scoop} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Talk to ${scoop} in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Starte den Sprechmodus in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Start voice mode in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Starte den Sprechmodus mit ${scoop} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Start voice mode with ${scoop} in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Öffne ${chat} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Open ${chat} in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Öffne den Chat mit ${chat} in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Open the chat with ${chat} in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Öffne einen Chat in ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Open a chat in ${applicationName}"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

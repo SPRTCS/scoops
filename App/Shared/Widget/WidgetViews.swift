@@ -41,7 +41,7 @@ struct ScoopSmallView: View {
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(theme.accent)
                     .lineLimit(1)
-                    Text(bot.statusLine ?? "Arbeitet …")
+                    Text(bot.statusLine ?? String(localized: "Arbeitet …"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(theme.textSecondary)
                         .lineLimit(2)
@@ -49,7 +49,7 @@ struct ScoopSmallView: View {
                     if let label = bot.label, !label.isEmpty {
                         Text(label).font(.system(size: 11.5, weight: .medium)).foregroundStyle(theme.textTertiary).lineLimit(1)
                     }
-                    Text(bot.lastMessagePreview ?? "Noch keine Nachrichten")
+                    Text(bot.lastMessagePreview ?? String(localized: "Noch keine Nachrichten"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(theme.textSecondary)
                         .lineLimit(2)
@@ -95,7 +95,7 @@ struct ScoopGridView: View {
                 WidgetBrand(theme: theme)
                 Spacer()
                 if busy > 0 {
-                    Text(busy == 1 ? "1 arbeitet" : "\(busy) arbeiten")
+                    Text("\(busy) arbeiten")
                         .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(theme.accent)
                 }
             }
@@ -177,7 +177,7 @@ struct ScoopGridView: View {
                         Text(at, style: .time).font(.system(size: 10.5)).foregroundStyle(theme.textTertiary)
                     }
                 }
-                Text(bot.busy ? (bot.statusLine ?? "Arbeitet …") : (bot.lastMessagePreview ?? ""))
+                Text(bot.busy ? (bot.statusLine ?? String(localized: "Arbeitet …")) : (bot.lastMessagePreview ?? ""))
                     .font(.system(size: 12))
                     .foregroundStyle(theme.textSecondary)
                     .lineLimit(3)
@@ -218,7 +218,7 @@ struct ScoopCountAccessoryView: View {
                     .font(.system(size: 18, weight: .bold, design: .rounded))
             }
         }
-        .accessibilityLabel(busyCount == 1 ? "1 Scoop arbeitet" : "\(busyCount) Scoops arbeiten")
+        .accessibilityLabel("\(busyCount) Scoops arbeiten")
     }
 }
 
@@ -238,7 +238,7 @@ struct ScoopStatusAccessoryView: View {
                     .font(.caption)
                     Text(bot.statusLine ?? "").font(.caption2).lineLimit(1)
                 } else {
-                    Text(bot.lastMessagePreview ?? "Ruht").font(.caption).lineLimit(2)
+                    Text(bot.lastMessagePreview ?? String(localized: "Ruht", comment: "Scoop arbeitet gerade nicht")).font(.caption).lineLimit(2)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -269,7 +269,8 @@ struct ScoopAvatarAccessoryView: View {
                 }
             }
             .widgetURL(bot.deepLink)
-            .accessibilityLabel(bot.busy ? "\(bot.name) arbeitet" : (bot.unread > 0 ? "\(bot.name), neue Nachricht" : bot.name))
+            .accessibilityLabel(bot.busy ? String(localized: "\(bot.name) arbeitet")
+                                : (bot.unread > 0 ? String(localized: "\(bot.name), neue Nachricht") : bot.name))
         } else {
             ZStack {
                 AccessoryWidgetBackground()

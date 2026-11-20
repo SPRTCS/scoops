@@ -16,6 +16,7 @@ import time
 
 import httpx
 
+from .i18n import tx
 from .profile import user_name
 
 # Senden, Antworten, Weiterleiten von Mails läuft nur über die Mail-Karte (Freigabe durch Arman).
@@ -194,7 +195,7 @@ class MCPStdioServer:
             while True:
                 line = self.proc.stdout.readline()
                 if not line:
-                    box["error"] = "Prozess beendet"
+                    box["error"] = tx("Prozess beendet")
                     break
                 try:
                     msg = json.loads(line)
@@ -208,7 +209,7 @@ class MCPStdioServer:
         threading.Thread(target=read, daemon=True).start()
         if not done.wait(timeout):
             self.proc.kill()
-            raise RuntimeError(f"{self.name}: keine Antwort nach {int(timeout)} s")
+            raise RuntimeError(tx("{name}: keine Antwort nach {seconds} s", name=self.name, seconds=int(timeout)))
         if "error" in box:
             raise RuntimeError(f"{self.name}: {box['error']}")
         msg = box["msg"]

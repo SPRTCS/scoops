@@ -26,21 +26,21 @@ struct AppleConnectionsSection: View {
                     ForEach(status.services) { s in serviceRow(s, status: status) }
                     if status.nodes.count > 1 { nodePicker(status) }
                 } else if let errorText {
-                    Text(errorText).font(.system(size: 13.5)).foregroundStyle(theme.warning)
+                    Text(errorText).appFont(13.5).foregroundStyle(theme.warning)
                         .fixedSize(horizontal: false, vertical: true)
                         .groupedRow()
                 } else {
                     ProgressView().frame(maxWidth: .infinity).groupedRow()
                 }
             }
-            GroupedSection("Über dein iPhone", footer: deviceFooter, dividerInset: 62) {
+            GroupedSection(String(localized: "Über dein iPhone"), footer: deviceFooter, dividerInset: 62) {
                 if let status, let services = status.deviceServices {
                     ForEach(services) { s in deviceRow(s, status: status) }
                     if let loc = services.first(where: { $0.id == "location" }), showsAlwaysRow(loc) { alwaysRow }
                     if (status.devices?.count ?? 0) > 1 { devicePicker(status) }
                 } else if status != nil {
                     Text("Dein Server kennt Home, Wecker und Standort noch nicht. Bitte AIS Scoops Server aktualisieren (ab Version 1.18).")
-                        .font(.system(size: 13.5)).foregroundStyle(theme.warning)
+                        .appFont(13.5).foregroundStyle(theme.warning)
                         .fixedSize(horizontal: false, vertical: true)
                         .groupedRow()
                 } else if errorText == nil {
@@ -49,7 +49,7 @@ struct AppleConnectionsSection: View {
             }
         }
         .task { await poll() }
-        .confirmationDialog(confirmOff.map { "\($0.name) für die Scoops ausschalten?" } ?? "",
+        .confirmationDialog(confirmOff.map { s in String(localized: "\(s.name) für die Scoops ausschalten?") } ?? "",
                             isPresented: Binding(get: { confirmOff != nil }, set: { if !$0 { confirmOff = nil } }),
                             titleVisibility: .visible) {
             Button("Ausschalten", role: .destructive) {
@@ -65,10 +65,12 @@ struct AppleConnectionsSection: View {
     private var footer: String? {
         guard let status else { return nil }
         guard let name = status.nodeName else {
-            return "Läuft über einen Mac mit AIS Scoops Server. Gerade ist keiner verbunden."
+            return String(localized: "Läuft über einen Mac mit AIS Scoops Server. Gerade ist keiner verbunden.")
         }
-        let state = status.nodeOnline ? "" : " (gerade offline)"
-        return "Läuft über „\(name)“\(state). Änderungen erscheinen per iCloud sofort auf deinem iPhone. Löschen nur mit deiner Freigabe."
+        if !status.nodeOnline {
+            return String(localized: "Läuft über „\(name)“ (gerade offline). Änderungen erscheinen per iCloud sofort auf deinem iPhone. Löschen nur mit deiner Freigabe.")
+        }
+        return String(localized: "Läuft über „\(name)“. Änderungen erscheinen per iCloud sofort auf deinem iPhone. Löschen nur mit deiner Freigabe.")
     }
 
     // MARK: Zeilen
@@ -77,12 +79,12 @@ struct AppleConnectionsSection: View {
         HStack(alignment: .center, spacing: 12) {
             AppleServiceIcon(service: s.id)
             VStack(alignment: .leading, spacing: 2) {
-                Text(s.name).font(.system(size: 15, weight: .medium)).foregroundStyle(theme.textPrimary)
-                Text(subtitle(s.id)).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                Text(s.name).appFont(15, weight: .medium).foregroundStyle(theme.textPrimary)
+                Text(subtitle(s.id)).appFont(12.5).foregroundStyle(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let hint = hint(s) {
                     Label(hint, systemImage: s.status == "offline" ? "wifi.slash" : "desktopcomputer")
-                        .font(.system(size: 12, weight: .medium))
+                        .appFont(12, weight: .medium)
                         .foregroundStyle(theme.warning)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 2)
@@ -109,26 +111,27 @@ struct AppleConnectionsSection: View {
 
     private func subtitle(_ id: String) -> String {
         switch id {
-        case "reminders": "Lesen, anlegen, ändern und abhaken"
-        case "calendar": "Termine lesen und eintragen"
-        case "home": "Licht, Steckdosen, Heizung und Szenen schalten"
-        case "alarms": "Wecker und Timer stellen"
-        case "location": "Standort abfragen und Orte merken"
-        default: "Nummern, Mailadressen und Geburtstage nachschlagen"
+        case "reminders": String(localized: "Lesen, anlegen, ändern und abhaken")
+        case "calendar": String(localized: "Termine lesen und eintragen")
+        case "home": String(localized: "Licht, Steckdosen, Heizung und Szenen schalten")
+        case "alarms": String(localized: "Wecker und Timer stellen")
+        case "location": String(localized: "Standort abfragen und Orte merken")
+        default: String(localized: "Nummern, Mailadressen und Geburtstage nachschlagen")
         }
     }
 
     /// Hinweis nur, wenn der Nutzer etwas tun muss (eingeschaltet, aber nicht bereit) oder der Mac fehlt.
     private func hint(_ s: AppleServiceStatus) -> String? {
         switch s.status {
-        case "needs_permission": s.enabled ? "Auf dem Mac in AIS Scoops Server freigeben" : nil
+        case "needs_permission": s.enabled ? String(localized: "Auf dem Mac in AIS Scoops Server freigeben") : nil
         case "offline", "needs_update", "no_node": s.enabled ? s.hint : nil
         default: nil
         }
     }
 
     private func nodePicker(_ status: AppleStatus) -> some View {
-        Menu {
+        let nodeName = status.nodeName ?? String(localized: "keiner", comment: "Kein Apple-Rechner gewählt")
+        return Menu {
             Picker("Apple-Rechner", selection: Binding(get: { status.nodeChoice }, set: { v in Task { await setNode(v) } })) {
                 Text("Automatisch (Mac des Servers)").tag("auto")
                 ForEach(status.nodes) { n in
@@ -138,13 +141,13 @@ struct AppleConnectionsSection: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "desktopcomputer")
-                    .font(.system(size: 16, weight: .medium))
+                    .appFont(16, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .frame(width: 38)
-                Text("Apple-Rechner").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                Text("Apple-Rechner").appFont(15).foregroundStyle(theme.textPrimary)
                 Spacer(minLength: 8)
-                Text(status.nodeName ?? "keiner").font(.system(size: 14)).foregroundStyle(theme.textSecondary)
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
+                Text(nodeName).appFont(14).foregroundStyle(theme.textSecondary)
+                Image(systemName: "chevron.up.chevron.down").appFont(11, weight: .semibold)
                     .foregroundStyle(theme.textTertiary)
             }
             .groupedRow()
@@ -152,7 +155,7 @@ struct AppleConnectionsSection: View {
         .menuStyle(.button)
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
-        .accessibilityLabel("Apple-Rechner: \(status.nodeName ?? "keiner")")
+        .accessibilityLabel("Apple-Rechner: \(nodeName)")
     }
 
     // MARK: Home, Wecker, Standort (über das iPhone, v1.18)
@@ -174,16 +177,20 @@ struct AppleConnectionsSection: View {
         var parts: [String] = []
         if let device {
             let here = AppleDeviceAgent.isSupported && device.id == agent.deviceID
-            let state = device.online ? "verbunden" : (device.lastSeen.map { "zuletzt gesehen \(Self.relative($0))" } ?? "offline")
-            parts.append(here ? "Läuft über dieses \(device.label) (\(state))." : "Läuft über „\(device.name)“ (\(state)).")
-            parts.append("Ist AIS Scoops im Hintergrund, weckt der Server die App mit einer stillen Mitteilung. Das klappt "
-                         + "nicht immer; dann AIS Scoops auf dem \(device.label) kurz öffnen.")
+            let state = device.online ? String(localized: "verbunden", comment: "Status des iPhones in Klammern")
+                : (device.lastSeen.map { date in
+                    let ago = Self.relative(date)
+                    return String(localized: "zuletzt gesehen \(ago)", comment: "Status des iPhones in Klammern, z. B. „zuletzt gesehen vor 5 Minuten“")
+                } ?? String(localized: "offline", comment: "Status des iPhones in Klammern"))
+            parts.append(here ? String(localized: "Läuft über dieses \(device.label) (\(state)).")
+                         : String(localized: "Läuft über „\(device.name)“ (\(state))."))
+            parts.append(String(localized: "Ist AIS Scoops im Hintergrund, weckt der Server die App mit einer stillen Mitteilung. Das klappt nicht immer; dann AIS Scoops auf dem \(device.label) kurz öffnen."))
         } else {
             parts.append(AppleDeviceAgent.isSupported
-                         ? "Tippe auf „Erlauben“, dann meldet sich dieses \(agent.label) bei deinem Server an."
-                         : "Läuft über die AIS-Scoops-App auf deinem iPhone. Öffne sie dort einmal und erlaube Home, Wecker und Standort.")
+                         ? String(localized: "Tippe auf „Erlauben“, dann meldet sich dieses \(agent.label) bei deinem Server an.")
+                         : String(localized: "Läuft über die AIS-Scoops-App auf deinem iPhone. Öffne sie dort einmal und erlaube Home, Wecker und Standort."))
         }
-        parts.append("Schlösser, Türen, Garagentore und die Alarmanlage nur mit deiner Freigabe.")
+        parts.append(String(localized: "Schlösser, Türen, Garagentore und die Alarmanlage nur mit deiner Freigabe."))
         return parts.joined(separator: " ")
     }
 
@@ -193,12 +200,12 @@ struct AppleConnectionsSection: View {
         return HStack(alignment: .center, spacing: 12) {
             AppleServiceIcon(service: s.id)
             VStack(alignment: .leading, spacing: 2) {
-                Text(s.name).font(.system(size: 15, weight: .medium)).foregroundStyle(theme.textPrimary)
-                Text(subtitle(s.id)).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                Text(s.name).appFont(15, weight: .medium).foregroundStyle(theme.textPrimary)
+                Text(subtitle(s.id)).appFont(12.5).foregroundStyle(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let hint = deviceHint(s, status: status, local: local, perm: perm) {
                     Label(hint, systemImage: local ? "iphone" : "iphone.gen3")
-                        .font(.system(size: 12, weight: .medium))
+                        .appFont(12, weight: .medium)
                         .foregroundStyle(theme.warning)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 2)
@@ -206,7 +213,7 @@ struct AppleConnectionsSection: View {
                 if AppleDeviceAgent.isSupported, !local, let dev = status.device,
                    status.devices?.contains(where: { $0.id == agent.deviceID }) == true {
                     Button("Dieses \(agent.label) nehmen") { Task { await setDevice(agent.deviceID) } }
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .appFont(12.5, weight: .semibold)
                         .buttonStyle(.borderless)
                         .padding(.top, 2)
                         .accessibilityHint("Statt „\(dev.name)“")
@@ -252,12 +259,12 @@ struct AppleConnectionsSection: View {
 
     private func deviceHint(_ s: AppleServiceStatus, status: AppleStatus, local: Bool, perm: String) -> String? {
         if local {
-            if ["denied", "restricted"].contains(perm) { return "In den iOS-Einstellungen für AIS Scoops erlauben" }
-            if let dev = status.device, dev.id != agent.deviceID { return "Läuft gerade über „\(dev.name)“" }
+            if ["denied", "restricted"].contains(perm) { return String(localized: "In den iOS-Einstellungen für AIS Scoops erlauben") }
+            if let dev = status.device, dev.id != agent.deviceID { return String(localized: "Läuft gerade über „\(dev.name)“") }
             return nil
         }
         switch s.status {
-        case "needs_permission": return status.device.map { "Auf „\($0.name)“ in AIS Scoops erlauben" }
+        case "needs_permission": return status.device.map { dev in String(localized: "Auf „\(dev.name)“ in AIS Scoops erlauben") }
         case "unsupported": return s.hint
         default: return nil
         }
@@ -272,14 +279,13 @@ struct AppleConnectionsSection: View {
     private var alwaysRow: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "mappin.and.ellipse")
-                .font(.system(size: 17, weight: .semibold))
+                .appFont(17, weight: .semibold)
                 .foregroundStyle(.blue)
                 .frame(width: 38)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Orte: „Immer“ erlauben").font(.system(size: 14.5, weight: .medium)).foregroundStyle(theme.textPrimary)
-                Text("Damit dich deine Scoops an Orte erinnern („wenn ich im Büro bin …“), auch wenn AIS Scoops geschlossen ist. "
-                     + "Das iPhone meldet nur Betreten und Verlassen, der Standort wird dafür nicht dauernd abgefragt.")
-                    .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                Text("Orte: „Immer“ erlauben").appFont(14.5, weight: .medium).foregroundStyle(theme.textPrimary)
+                Text("Damit dich deine Scoops an Orte erinnern („wenn ich im Büro bin …“), auch wenn AIS Scoops geschlossen ist. Das iPhone meldet nur Betreten und Verlassen, der Standort wird dafür nicht dauernd abgefragt.")
+                    .appFont(12.5).foregroundStyle(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 6)
@@ -301,23 +307,24 @@ struct AppleConnectionsSection: View {
     }
 
     private func devicePicker(_ status: AppleStatus) -> some View {
-        Menu {
+        let deviceName = status.device?.name ?? String(localized: "keins", comment: "Kein Gerät für Home, Wecker und Standort gewählt")
+        return Menu {
             Picker("Gerät", selection: Binding(get: { status.deviceChoice ?? "auto" }, set: { v in Task { await setDevice(v) } })) {
                 Text("Automatisch (zuletzt aktives iPhone)").tag("auto")
                 ForEach(status.devices ?? []) { d in
-                    Text(d.id == agent.deviceID && AppleDeviceAgent.isSupported ? "\(d.name) (dieses Gerät)" : d.name).tag(d.id)
+                    Text(d.id == agent.deviceID && AppleDeviceAgent.isSupported ? String(localized: "\(d.name) (dieses Gerät)") : d.name).tag(d.id)
                 }
             }
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "iphone")
-                    .font(.system(size: 16, weight: .medium))
+                    .appFont(16, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .frame(width: 38)
-                Text("Gerät").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                Text("Gerät").appFont(15).foregroundStyle(theme.textPrimary)
                 Spacer(minLength: 8)
-                Text(status.device?.name ?? "keins").font(.system(size: 14)).foregroundStyle(theme.textSecondary)
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
+                Text(deviceName).appFont(14).foregroundStyle(theme.textSecondary)
+                Image(systemName: "chevron.up.chevron.down").appFont(11, weight: .semibold)
                     .foregroundStyle(theme.textTertiary)
             }
             .groupedRow()
@@ -325,7 +332,7 @@ struct AppleConnectionsSection: View {
         .menuStyle(.button)
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
-        .accessibilityLabel("Gerät für Home, Wecker und Standort: \(status.device?.name ?? "keins")")
+        .accessibilityLabel("Gerät für Home, Wecker und Standort: \(deviceName)")
     }
 
     /// iOS-Abfrage, danach (wenn erteilt) den Dienst beim Server einschalten.
@@ -357,7 +364,7 @@ struct AppleConnectionsSection: View {
 
     private static func relative(_ date: Date) -> String {
         let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "de_DE")
+        f.locale = .app
         f.unitsStyle = .full
         return f.localizedString(for: date, relativeTo: Date())
     }
@@ -379,9 +386,9 @@ struct AppleConnectionsSection: View {
             if s != status { withAnimation(.snappy) { status = s } }
             errorText = nil
         } catch let e as APIError where e.status == 404 {
-            errorText = "Der Server kennt die Apple-Dienste noch nicht. Bitte AIS Scoops Server aktualisieren (ab Version 1.17)."
+            errorText = String(localized: "Der Server kennt die Apple-Dienste noch nicht. Bitte AIS Scoops Server aktualisieren (ab Version 1.17).")
         } catch {
-            if status == nil { errorText = "Status nicht verfügbar: \(error.localizedDescription)" }
+            if status == nil { errorText = String(localized: "Status nicht verfügbar: \(error.localizedDescription)") }
         }
     }
 
@@ -419,33 +426,33 @@ struct AppleServiceIcon: View {
             case "calendar": calendarTile
             case "home":
                 Image(systemName: "house.fill")
-                    .font(.system(size: size * 0.46, weight: .semibold))
+                    .font(.fixed(size * 0.46, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: size, height: size)
                     .background(LinearGradient(colors: [Color(red: 1, green: 0.72, blue: 0.2), Color(red: 1, green: 0.55, blue: 0.1)],
                                                startPoint: .top, endPoint: .bottom), in: tile)
             case "alarms":
                 Image(systemName: "alarm.fill")
-                    .font(.system(size: size * 0.44, weight: .semibold))
+                    .font(.fixed(size * 0.44, weight: .semibold))
                     .foregroundStyle(.orange)
                     .frame(width: size, height: size)
                     .background(Color(white: 0.1), in: tile)
             case "location":
                 Image(systemName: "location.fill")
-                    .font(.system(size: size * 0.42, weight: .semibold))
+                    .font(.fixed(size * 0.42, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: size, height: size)
                     .background(LinearGradient(colors: [Color(red: 0.25, green: 0.6, blue: 1), Color(red: 0.1, green: 0.42, blue: 0.95)],
                                                startPoint: .top, endPoint: .bottom), in: tile)
             case "reminders":
                 Image(systemName: "list.bullet")
-                    .font(.system(size: size * 0.44, weight: .bold))
+                    .font(.fixed(size * 0.44, weight: .bold))
                     .foregroundStyle(.orange)
                     .frame(width: size, height: size)
                     .background(.white, in: tile)
             default:
                 Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: size * 0.55))
+                    .font(.fixed(size * 0.55))
                     .foregroundStyle(.white, Color(white: 0.55))
                     .frame(width: size, height: size)
                     .background(LinearGradient(colors: [Color(white: 0.82), Color(white: 0.68)], startPoint: .top, endPoint: .bottom),
@@ -460,13 +467,12 @@ struct AppleServiceIcon: View {
 
     private var calendarTile: some View {
         let now = Date()
-        let de = Locale(identifier: "de_DE")
         return VStack(spacing: -1) {
-            Text(now.formatted(Date.FormatStyle(locale: de).weekday(.abbreviated)).uppercased().replacingOccurrences(of: ".", with: ""))
-                .font(.system(size: size * 0.22, weight: .semibold))
+            Text(now.formatted(Date.FormatStyle(locale: .app).weekday(.abbreviated)).uppercased().replacingOccurrences(of: ".", with: ""))
+                .font(.fixed(size * 0.22, weight: .semibold))
                 .foregroundStyle(.red)
             Text(now.formatted(.dateTime.day()))
-                .font(.system(size: size * 0.46, weight: .regular))
+                .font(.fixed(size * 0.46, weight: .regular))
                 .foregroundStyle(.black)
                 .monospacedDigit()
         }

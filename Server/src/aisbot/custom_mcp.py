@@ -34,6 +34,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 
+from .i18n import tx
 from .profile import kc
 
 CALLBACK_SCHEME = "aisscoops"
@@ -88,7 +89,7 @@ class KeychainStore:
         cmd = f'add-generic-password -U -s "{self.service}" -a "{self.account}" -w "{blob}"\n'
         r = subprocess.run(["security", "-i"], input=cmd, capture_output=True, text=True)
         if r.returncode != 0 or "error" in (r.stderr or "").lower():
-            raise McpAuthError("Die Zugangsdaten konnten nicht im Schlüsselbund gespeichert werden.")
+            raise McpAuthError(tx("Die Zugangsdaten konnten nicht im Schlüsselbund gespeichert werden."))
 
     def delete(self) -> None:
         subprocess.run(["security", "delete-generic-password", "-s", self.service, "-a", self.account],
@@ -129,9 +130,9 @@ def check_url(url: str) -> str:
     url = (url or "").strip()
     u = urlparse(url)
     if u.scheme not in ("https", "http") or not u.netloc:
-        raise ValueError("Bitte eine vollständige Adresse eingeben, z. B. https://mcp.example.com/mcp")
+        raise ValueError(tx("Bitte eine vollständige Adresse eingeben, z. B. https://mcp.example.com/mcp"))
     if u.scheme == "http" and u.hostname not in ("127.0.0.1", "localhost", "::1") and not (u.hostname or "").endswith(".local"):
-        raise ValueError("Bitte https:// verwenden (http nur für localhost oder .local).")
+        raise ValueError(tx("Bitte https:// verwenden (http nur für localhost oder .local)."))
     return url
 
 
@@ -145,9 +146,9 @@ def detect(url: str, http: httpx.Client) -> dict:
                                                "Accept": "application/json, text/event-stream",
                                                "MCP-Protocol-Version": PROTOCOL})
     except httpx.HTTPError as e:
-        raise ValueError(f"Der Server ist nicht erreichbar: {str(e)[:160]}") from None
+        raise ValueError(tx("Der Server ist nicht erreichbar: {error}", error=str(e)[:160])) from None
     if r.status_code < 400:
-        return {"auth": "none", "detail": "Keine Anmeldung nötig"}
+        return {"auth": "none", "detail": tx("Keine Anmeldung nötig")}
     if r.status_code in (401, 403):
         www = r.headers.get("www-authenticate") or ""
         meta_url = _www_auth_param(www, "resource_metadata")
@@ -155,17 +156,17 @@ def detect(url: str, http: httpx.Client) -> dict:
         prm = _fetch_prm(url, meta_url, http)
         if prm is not None:
             return {"auth": "oauth", "resource_metadata": meta_url, "scope": scope, "prm": prm,
-                    "detail": "Anmeldung über den Anbieter (OAuth)"}
+                    "detail": tx("Anmeldung über den Anbieter (OAuth)")}
         try:
             _as_metadata(_origin(url), http)
-            return {"auth": "oauth", "scope": scope, "prm": {}, "detail": "Anmeldung über den Anbieter (OAuth)"}
+            return {"auth": "oauth", "scope": scope, "prm": {}, "detail": tx("Anmeldung über den Anbieter (OAuth)")}
         except McpAuthError:
-            return {"auth": "token", "detail": "Der Server verlangt ein Token"}
+            return {"auth": "token", "detail": tx("Der Server verlangt ein Token")}
     if r.status_code == 404:
-        raise ValueError("Unter dieser Adresse antwortet kein MCP-Server (HTTP 404). Endet sie auf /mcp?")
+        raise ValueError(tx("Unter dieser Adresse antwortet kein MCP-Server (HTTP 404). Endet sie auf /mcp?"))
     if r.status_code == 405:
-        raise ValueError("Der Server nimmt keine MCP-Anfragen an (HTTP 405). Nur Streamable HTTP wird unterstützt.")
-    raise ValueError(f"Der Server antwortet mit HTTP {r.status_code}.")
+        raise ValueError(tx("Der Server nimmt keine MCP-Anfragen an (HTTP 405). Nur Streamable HTTP wird unterstützt."))
+    raise ValueError(tx("Der Server antwortet mit HTTP {status}.", status=r.status_code))
 
 
 def _fetch_prm(url: str, meta_url: str, http: httpx.Client) -> dict | None:
@@ -206,7 +207,7 @@ def _as_metadata(issuer: str, http: httpx.Client) -> dict:
                     return d
         except (httpx.HTTPError, ValueError):
             continue
-    raise McpAuthError("Der Server nennt keinen Anmelde-Dienst (OAuth-Metadaten fehlen).")
+    raise McpAuthError(tx("Der Server nennt keinen Anmelde-Dienst (OAuth-Metadaten fehlen)."))
 
 
 # -- Token-Funktion für den Hub ------------------------------------------------------------------------------------------
@@ -248,7 +249,7 @@ class CustomMCP:
     def get(self, sid: str) -> dict:
         e = next((e for e in self.entries() if e["id"] == sid), None)
         if not e:
-            raise KeyError("Diesen MCP-Server gibt es nicht (mehr).")
+            raise KeyError(tx("Diesen MCP-Server gibt es nicht (mehr)."))
         return e
 
     def _write(self, entries: list[dict]) -> None:
@@ -265,7 +266,7 @@ class CustomMCP:
                     e.pop(k, None)
                 self._write(entries)
                 return e
-        raise KeyError("Diesen MCP-Server gibt es nicht (mehr).")
+        raise KeyError(tx("Diesen MCP-Server gibt es nicht (mehr)."))
 
     def ids(self) -> set[str]:
         return {e["id"] for e in self.entries()}
@@ -297,11 +298,11 @@ class CustomMCP:
         """Neuer Server. Gibt {server, oauth?} zurück; bei OAuth gleich den Anmelde-Link für die App."""
         kind = str(body.get("kind") or "remote")
         if kind not in KINDS:
-            raise ValueError("Art: remote oder stdio")
+            raise ValueError(tx("Art: remote oder stdio"))
         name = re.sub(r"\s+", " ", str(body.get("name") or "")).strip()[:40]
         entries = self.entries()
         if len(entries) >= MAX_SERVERS:
-            raise ValueError(f"Höchstens {MAX_SERVERS} eigene MCP-Server")
+            raise ValueError(tx("Höchstens {max} eigene MCP-Server", max=MAX_SERVERS))
         entry: dict = {"kind": kind, "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         secret: dict = {}
         detected = None
@@ -309,17 +310,17 @@ class CustomMCP:
             url = check_url(str(body.get("url") or ""))
             auth = str(body.get("auth") or "auto")
             if auth not in AUTHS + ("auto",):
-                raise ValueError("Anmeldung: none, token, oauth oder auto")
+                raise ValueError(tx("Anmeldung: none, token, oauth oder auto"))
             token = str(body.get("token") or "").strip()
             if auth == "auto":
                 detected = detect(url, self.http)
                 auth = "token" if token and detected["auth"] != "none" else detected["auth"]
             if auth == "token":
                 if not token:
-                    raise ValueError("Dieser Server verlangt ein Token. Bitte unter „Token“ eintragen.")
+                    raise ValueError(tx("Dieser Server verlangt ein Token. Bitte unter „Token“ eintragen."))
                 header = str(body.get("header") or "Authorization").strip() or "Authorization"
                 if not HEADER_NAME.match(header):
-                    raise ValueError("Ungültiger Header-Name")
+                    raise ValueError(tx("Ungültiger Header-Name"))
                 entry["header"] = header
                 secret["token"] = token
             if not name:
@@ -336,15 +337,15 @@ class CustomMCP:
                 import shlex
                 args = shlex.split(args)
             if not cmd or not isinstance(cmd, list) or not all(isinstance(x, str) and x for x in cmd + list(args)):
-                raise ValueError("Bitte einen Befehl angeben, z. B. /Applications/Atrium.app/Contents/MacOS/Atrium")
+                raise ValueError(tx("Bitte einen Befehl angeben, z. B. /Applications/Atrium.app/Contents/MacOS/Atrium"))
             prog = os.path.expanduser(cmd[0])
             if not (os.path.isabs(prog) and os.access(prog, os.X_OK)) and not shutil.which(prog):
-                raise ValueError(f"Programm nicht gefunden: {cmd[0]}")
+                raise ValueError(tx("Programm nicht gefunden: {program}", program=cmd[0]))
             env = body.get("env") or {}
             if isinstance(env, list):  # App: [{key, value}] (der JSON-Encoder würde Dict-Schlüssel umschreiben)
                 env = {str(x.get("key") or ""): str(x.get("value") or "") for x in env if isinstance(x, dict)}
             if not isinstance(env, dict) or not all(ENV_NAME.match(str(k)) for k in env):
-                raise ValueError("Umgebungsvariablen: Namen aus Buchstaben, Ziffern und _")
+                raise ValueError(tx("Umgebungsvariablen: Namen aus Buchstaben, Ziffern und _"))
             entry.update(command=[prog] + cmd[1:] + [str(a) for a in args], env_keys=sorted(str(k) for k in env),
                          auth="none")
             if env:
@@ -374,7 +375,7 @@ class CustomMCP:
     def rename(self, sid: str, name: str) -> dict:
         name = re.sub(r"\s+", " ", name or "").strip()[:40]
         if not name:
-            raise ValueError("Bitte einen Namen eingeben.")
+            raise ValueError(tx("Bitte einen Namen eingeben."))
         return self._update(sid, name=name)
 
     def set_token(self, sid: str, token: str, header: str | None = None) -> dict:
@@ -382,12 +383,12 @@ class CustomMCP:
         e = self.get(sid)
         token = (token or "").strip()
         if e["kind"] != "remote":
-            raise ValueError("Nur Remote-Server haben ein Token.")
+            raise ValueError(tx("Nur Remote-Server haben ein Token."))
         if not token:
-            raise ValueError("Bitte ein Token eingeben.")
+            raise ValueError(tx("Bitte ein Token eingeben."))
         header = (header or e.get("header") or "Authorization").strip()
         if not HEADER_NAME.match(header):
-            raise ValueError("Ungültiger Header-Name")
+            raise ValueError(tx("Ungültiger Header-Name"))
         d = {} if e.get("auth") == "oauth" else self._secret(sid)
         d["token"] = token
         self._save_secret(sid, d)
@@ -435,13 +436,13 @@ class CustomMCP:
             srv = hub.servers.get(e["id"]) if hub else None
             tools = list(getattr(srv, "_tools", []) or []) if srv else []
             if e.get("auth") == "oauth" and not self.logged_in(e["id"]):
-                state, err = "login", ("Anmeldung abgelaufen" if self._secret(e["id"]).get("expired") else "Anmeldung nötig")
+                state, err = "login", (tx("Anmeldung abgelaufen") if self._secret(e["id"]).get("expired") else tx("Anmeldung nötig"))
             elif tools:
                 state, err = "ok", None
             elif srv is None:
-                state, err = "error", "Nicht geladen"
+                state, err = "error", tx("Nicht geladen")
             else:
-                state, err = ("error", getattr(srv, "last_error", None) or "Noch keine Werkzeuge geladen")
+                state, err = ("error", getattr(srv, "last_error", None) or tx("Noch keine Werkzeuge geladen"))
             item = {"id": e["id"], "name": e.get("name") or e["id"], "kind": e["kind"], "auth": e.get("auth", "none"),
                     "status": state, "error": err, "tools": len(tools),
                     "write_tools": sum(1 for t in tools if not is_read_only(t)), "created_at": e.get("created_at")}
@@ -471,13 +472,13 @@ class CustomMCP:
         if not disc:
             det = detect(e["url"], self.http)
             if det["auth"] != "oauth":
-                raise McpAuthError("Dieser Server bietet keine Anmeldung über OAuth an.")
+                raise McpAuthError(tx("Dieser Server bietet keine Anmeldung über OAuth an."))
             disc = {"prm": det.get("prm") or {}, "scope": det.get("scope") or ""}
         prm = disc.get("prm") or {}
         issuer = (prm.get("authorization_servers") or [_origin(e["url"])])[0]
         meta = _as_metadata(issuer, self.http)
         if "S256" not in (meta.get("code_challenge_methods_supported") or ["S256"]):
-            raise McpAuthError("Der Server unterstützt die sichere Anmeldung (PKCE S256) nicht.")
+            raise McpAuthError(tx("Der Server unterstützt die sichere Anmeldung (PKCE S256) nicht."))
         scopes = [s for s in (disc.get("scope") or "").split() if s] or list(prm.get("scopes_supported") or [])
         if "offline_access" in (meta.get("scopes_supported") or []) and "offline_access" not in scopes:
             scopes.append("offline_access")
@@ -496,8 +497,8 @@ class CustomMCP:
             return d["client_id"]
         reg = d["as"].get("registration_endpoint")
         if not reg:
-            raise McpAuthError("Dieser Server erlaubt keine automatische Registrierung (Dynamic Client Registration). "
-                               "Nutze stattdessen ein Token.")
+            raise McpAuthError(tx("Dieser Server erlaubt keine automatische Registrierung (Dynamic Client Registration). "
+                                  "Nutze stattdessen ein Token."))
         last = ""
         for redirect in (REDIRECT_URI, LOOPBACK_URI):
             body = {"client_name": CLIENT_NAME, "redirect_uris": [redirect],
@@ -519,12 +520,12 @@ class CustomMCP:
             last = desc or err or str(r.status_code)
             if "redirect" not in f"{err} {desc}".lower():
                 break  # anderer Fehler: nicht mit Loopback wiederholen
-        raise McpAuthError(f"Registrierung beim Server fehlgeschlagen: {last}")
+        raise McpAuthError(tx("Registrierung beim Server fehlgeschlagen: {error}", error=last))
 
     def start(self, sid: str) -> dict:
         e = self.get(sid)
         if e.get("auth") != "oauth":
-            raise ValueError("Dieser Server braucht keine Anmeldung.")
+            raise ValueError(tx("Dieser Server braucht keine Anmeldung."))
         client_id = self._client_id(sid)
         d = self._secret(sid)
         redirect = d.get("redirect_uri") or REDIRECT_URI
@@ -560,17 +561,17 @@ class CustomMCP:
         u = urlparse(callback_url or "")
         q = {k: v[0] for k, v in parse_qs(u.query).items() if v}
         if not self.owns_callback(callback_url):
-            raise ValueError("Unbekannter Rücksprung-Link")
+            raise ValueError(tx("Unbekannter Rücksprung-Link"))
         with self._lock:
             pending = self._pending.pop(q.get("state") or "", None)
         if q.get("error"):
             if q["error"] == "access_denied":
-                raise ValueError("Die Anmeldung wurde abgebrochen.")
-            raise ValueError(f"Der Server hat die Anmeldung abgelehnt: {q.get('error_description') or q['error']}")
+                raise ValueError(tx("Die Anmeldung wurde abgebrochen."))
+            raise ValueError(tx("Der Server hat die Anmeldung abgelehnt: {error}", error=q.get("error_description") or q["error"]))
         if not pending or time.time() - pending["t"] > PENDING_TTL:
-            raise ValueError("Diese Anmeldung ist abgelaufen. Bitte tippe noch einmal auf Anmelden.")
+            raise ValueError(tx("Diese Anmeldung ist abgelaufen. Bitte tippe noch einmal auf Anmelden."))
         if not q.get("code"):
-            raise ValueError("Der Server hat keinen Anmelde-Code geliefert.")
+            raise ValueError(tx("Der Server hat keinen Anmelde-Code geliefert."))
         sid = pending["sid"]
         d = self._oauth_meta(sid)
         tok = self._token_request(sid, {"grant_type": "authorization_code", "code": q["code"],
@@ -588,7 +589,7 @@ class CustomMCP:
         r = self.http.post(d["as"]["token_endpoint"], data=form, headers={"Accept": "application/json"})
         if r.status_code >= 400:
             err, desc = _err_text(r)
-            e = McpAuthError(f"Anmeldung: {desc or err or f'HTTP {r.status_code}'}")
+            e = McpAuthError(tx("Anmeldung: {error}", error=desc or err or f"HTTP {r.status_code}"))
             e.code = err
             raise e
         try:
@@ -596,7 +597,7 @@ class CustomMCP:
         except ValueError:
             tok = {}
         if not tok.get("access_token"):
-            raise McpAuthError("Der Server hat kein Zugangs-Token geliefert.")
+            raise McpAuthError(tx("Der Server hat kein Zugangs-Token geliefert."))
         return tok
 
     @staticmethod
@@ -609,7 +610,7 @@ class CustomMCP:
     def access_token(self, sid: str, force_refresh: bool = False) -> str:
         d = self._secret(sid)
         if d.get("expired"):
-            raise McpAuthError("Die Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu anmelden.")
+            raise McpAuthError(tx("Die Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu anmelden."))
         fresh = lambda x: x.get("access_token") and float(x.get("expires_at") or 0) - time.time() > REFRESH_EARLY  # noqa: E731
         if not force_refresh and fresh(d):
             return d["access_token"]
@@ -622,14 +623,14 @@ class CustomMCP:
                 if d.get("access_token") and not force_refresh:
                     return d["access_token"]  # ohne Refresh-Token: so lange nutzen, bis der Server 401 meldet
                 self._expire(sid, d)
-                raise McpAuthError("Die Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu anmelden.")
+                raise McpAuthError(tx("Die Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu anmelden."))
             try:
                 tok = self._token_request(sid, {"grant_type": "refresh_token", "refresh_token": d["refresh_token"],
                                                 "client_id": d["client_id"], "resource": d.get("resource") or ""})
             except McpAuthError as e:
                 if e.code in ("invalid_grant", "invalid_client", "unauthorized_client"):
                     self._expire(sid, d)
-                    raise McpAuthError("Die Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu anmelden.") from None
+                    raise McpAuthError(tx("Die Anmeldung ist abgelaufen. Bitte in „Apps verbinden“ neu anmelden.")) from None
                 raise
             d.update(self._token_fields(tok))
             self._save_secret(sid, d)  # neues Refresh-Token sofort sichern

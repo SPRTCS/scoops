@@ -21,6 +21,7 @@ from typing import Callable
 import httpx
 
 from .config import UsageBook
+from .i18n import N_, translate, tx
 from .engine import (HANDOFF_HINT, MAX_NUDGES, NUDGE, Engine, ExtraTool, Outcome, announces_action, handoff_due, hands_off,
                      mcp_line, status_line)
 
@@ -39,9 +40,10 @@ _TRANSIENT = (httpx.ConnectError, httpx.ReadError, httpx.WriteError, httpx.Remot
               httpx.ConnectTimeout)
 
 
-COMPUTER_STATUS = {"click": "Klickt", "double_click": "Klickt doppelt", "drag": "Zieht", "move": "Bewegt die Maus",
-                   "scroll": "Scrollt", "keypress": "Drückt Tasten", "type": "Tippt", "wait": "Wartet kurz",
-                   "screenshot": "Schaut auf den Bildschirm"}
+# Statuszeilen der Computer-Aktionen (übersetzt erst bei der Ausgabe, i18n.translate)
+COMPUTER_STATUS = {"click": N_("Klickt"), "double_click": N_("Klickt doppelt"), "drag": N_("Zieht"),
+                   "move": N_("Bewegt die Maus"), "scroll": N_("Scrollt"), "keypress": N_("Drückt Tasten"),
+                   "type": N_("Tippt"), "wait": N_("Wartet kurz"), "screenshot": N_("Schaut auf den Bildschirm")}
 # Serverseitige Compaction der Responses-API (context_management, Typ "compaction"): Ab dieser Eingabegröße fasst
 # OpenAI den Verlauf zu einem verschlüsselten Compaction-Element zusammen, das wir wie jede Ausgabe weiterreichen.
 COMPACT_THRESHOLD = 120_000
@@ -117,7 +119,7 @@ def _key() -> str:
     from .profile import kc, keychain_get
     key = os.environ.get("OPENAI_API_KEY") or keychain_get(kc("openai"), "api-key")
     if not key:
-        raise RuntimeError(f"Kein OpenAI-Schlüssel im Schlüsselbund ({kc('openai')})")
+        raise RuntimeError(tx("Kein OpenAI-Schlüssel im Schlüsselbund ({service})", service=kc("openai")))
     return key
 
 
@@ -225,7 +227,7 @@ class OpenAIEngine:
         def get_computer():
             if state["computer"] is None:
                 if hub.holder and hub.holder != holder:
-                    line("Wartet, bis der Bot-Rechner frei ist")
+                    line(tx("Wartet, bis der Bot-Rechner frei ist"))
                 state["computer"] = hub.acquire(holder, cancel)
                 state["used"] = True
             return state["computer"]
@@ -270,7 +272,7 @@ class OpenAIEngine:
 
         def bildschirm(i: dict) -> str:
             state["used"] = True
-            line("Arbeitet am Bildschirm")
+            line(tx("Arbeitet am Bildschirm"))
             w, h = hub.screen_size()
             from .prompts import base_rules
             sub = self.claude.run(
@@ -291,7 +293,7 @@ class OpenAIEngine:
                                      "Sucht weitere Werkzeuge der verbundenen Apps (Team App, Gmail, Notion …) nach Stichworten.",
                                      "input_schema": {"type": "object", "properties": {"suche": {"type": "string"}},
                                                       "required": ["suche"], "additionalProperties": False}, "strict": True},
-                                    app_suchen, "Sucht das passende Werkzeug"),
+                                    app_suchen, N_("Sucht das passende Werkzeug")),
             "app_werkzeug_nutzen": ({"name": "app_werkzeug_nutzen", "description":
                                      "Führt ein mit app_werkzeug_suchen gefundenes Werkzeug aus. argumente_json = Argumente als JSON-Text.",
                                      "input_schema": {"type": "object", "properties": {"name": {"type": "string"},
@@ -357,17 +359,17 @@ class OpenAIEngine:
                 out = d.get("output", [])
                 inp += out
                 if any("compaction" in str(o.get("type", "")) for o in out):
-                    line("Fasst den bisherigen Verlauf zusammen")
+                    line(tx("Fasst den bisherigen Verlauf zusammen"))
                     _prune_before_compaction(inp)
                 calls = [o for o in out if o.get("type") == "function_call"]
                 handed_off = handed_off or any(hands_off(c.get("name", "")) for c in calls)
                 ccalls = [o for o in out if o.get("type") == "computer_call"]
                 for o in out:
                     if o.get("type") == "web_search_call":
-                        line("Sucht im Web")
+                        line(tx("Sucht im Web"))
                         usage.by_model[model].web_searches += 1
                 if ccalls and not allow_computer:
-                    final_text, stop_reason = "Der Rechner ist in diesem Lauf nicht freigegeben.", "end_turn"
+                    final_text, stop_reason = tx("Der Rechner ist in diesem Lauf nicht freigegeben."), "end_turn"
                     break
                 if ccalls:
                     blocked = self._computer_calls(ccalls, inp, get_computer, line)
@@ -395,7 +397,7 @@ class OpenAIEngine:
                         args = {}
                     try:
                         if name == "eskalieren" and escalation:
-                            line("Holt sich Verstärkung")
+                            line(tx("Holt sich Verstärkung"))
                             model, escalation = escalation, ESCALATE.get(escalation)
                             res = f"Übergeben. Du bist jetzt {model}."
                         elif name in extra:
@@ -408,7 +410,7 @@ class OpenAIEngine:
                         elif name in local:
                             _, fn, st = local[name]
                             if st:
-                                line(st)
+                                line(translate(st))
                             res = fn(args)
                         elif mcp_hub and mcp_hub.owns(name):
                             srv, _, tname = name.partition("__")
@@ -430,11 +432,12 @@ class OpenAIEngine:
                 if checkpoint:
                     checkpoint(inp)
                 if usage.dollars >= budget:
-                    final_text = f"Ich habe abgebrochen, weil die Kostengrenze von {budget:.2f} $ für diese Aufgabe erreicht ist."
+                    final_text = tx("Ich habe abgebrochen, weil die Kostengrenze von {budget:.2f} $ für diese Aufgabe "
+                                    "erreicht ist.", budget=budget)
                     stop_reason = "budget"
                     break
             else:
-                final_text = f"Ich habe nach {max_steps} Schritten abgebrochen."
+                final_text = tx("Ich habe nach {steps} Schritten abgebrochen.", steps=max_steps)
                 stop_reason = "max_steps"
         finally:
             if state["computer"] is not None:
@@ -462,8 +465,8 @@ class OpenAIEngine:
             serious = [ch for ch in checks if ch.get("code") not in ("irrelevant_domain",)]
             if serious:
                 msgs = "; ".join(ch.get("message") or ch.get("code", "") for ch in serious)
-                return ("Ich habe am Bildschirm angehalten, weil OpenAI eine Sicherheitswarnung meldet: "
-                        f"{msgs}. Soll ich trotzdem weitermachen?")
+                return tx("Ich habe am Bildschirm angehalten, weil OpenAI eine Sicherheitswarnung meldet: "
+                          "{warnings}. Soll ich trotzdem weitermachen?", warnings=msgs)
             actions = cc.get("actions") or ([cc["action"]] if cc.get("action") else [])
             try:
                 c = get_computer()
@@ -471,9 +474,10 @@ class OpenAIEngine:
                 problems.append(self._computer_failed(cc, inp, checks, f"Der Rechner ist nicht erreichbar: {e}"))
                 continue
             for a in actions:
-                st = COMPUTER_STATUS.get(a.get("type"), "Arbeitet am Bildschirm")
+                kind = a.get("type")
+                st = translate(COMPUTER_STATUS[kind]) if kind in COMPUTER_STATUS else tx("Arbeitet am Bildschirm")
                 if a.get("type") == "type":
-                    st = f"Tippt „{str(a.get('text', ''))[:30]}“"
+                    st = tx("Tippt „{text}“", text=str(a.get("text", ""))[:30])
                 line(st)
                 try:
                     run_computer_action(c, a)
@@ -506,8 +510,8 @@ class OpenAIEngine:
                     break
                 fails += 1
         if fails >= MAX_SCREEN_FAILS:
-            return ("Der Rechner antwortet gerade nicht (mehrmals kein Bildschirmfoto). "
-                    "Ich habe deshalb angehalten. Sag Bescheid, sobald er wieder erreichbar ist, dann mache ich weiter.")
+            return tx("Der Rechner antwortet gerade nicht (mehrmals kein Bildschirmfoto). "
+                      "Ich habe deshalb angehalten. Sag Bescheid, sobald er wieder erreichbar ist, dann mache ich weiter.")
         # Nur die letzten Bildschirmfotos behalten
         shots = [i for i in inp if isinstance(i, dict) and i.get("type") == "computer_call_output"]
         for old in shots[:-KEEP_SCREENSHOTS]:
@@ -538,7 +542,7 @@ _CITE_MARK = re.compile(r"\s*\ue200.*?\ue201")
 def _domain(url: str) -> str:
     from urllib.parse import urlparse
     host = urlparse(url).netloc.lower()
-    return host[4:] if host.startswith("www.") else host or "Quelle"
+    return host[4:] if host.startswith("www.") else host or tx("Quelle")
 
 
 def _with_citations(content: dict) -> str:
@@ -561,5 +565,5 @@ def _with_citations(content: dict) -> str:
         return "".join(parts)
     text = _CITE_MARK.sub("", text)
     if urls and not any(u in text for u in urls):
-        text += "\n\nQuellen: " + " · ".join(f"[{_domain(u)}]({u})" for u in urls[:8])
+        text += "\n\n" + tx("Quellen: {links}", links=" · ".join(f"[{_domain(u)}]({u})" for u in urls[:8]))
     return text

@@ -6,6 +6,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 
+from .i18n import tx
 from .profile import kc
 
 KEYCHAIN_SERVICE = kc("anthropic")
@@ -24,7 +25,7 @@ def anthropic_api_key() -> str:
     )
     if out.returncode != 0 or not out.stdout.strip():
         raise RuntimeError(
-            f"Kein API-Schlüssel gefunden (Schlüsselbund-Eintrag '{KEYCHAIN_SERVICE}')."
+            tx("Kein API-Schlüssel gefunden (Schlüsselbund-Eintrag '{service}').", service=KEYCHAIN_SERVICE)
         )
     return out.stdout.strip()
 

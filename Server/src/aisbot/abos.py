@@ -28,9 +28,12 @@ import threading
 import time
 from pathlib import Path
 
+from .i18n import N_, translate, tx
+
 PROVIDERS = ("claude", "openai")
 MODES = ("api", "abo", "abo_api")
-MODE_LABEL = {"api": "API-Schlüssel", "abo": "Abo", "abo_api": "Abo, bei Limit API"}
+# Beschriftungen für Server-App und Einstellungen (übersetzt bei der Ausgabe in status())
+MODE_LABEL = {"api": N_("API-Schlüssel"), "abo": N_("Abo"), "abo_api": N_("Abo, bei Limit API")}
 PROVIDER_LABEL = {"claude": "Claude (Claude Code)", "openai": "ChatGPT (Codex)"}
 STATUS_TTL = 60.0  # Login-Status höchstens jede Minute neu abfragen
 # Claude Agent SDK: größte JSON-Zeile von Claude Code (Standard 1 MB). Ein Werkzeug-Ergebnis mit Bildschirmbild einer vollen
@@ -64,8 +67,9 @@ def explain_sdk_error(e: BaseException) -> str:
     von einer „abgebrochenen Bildschirmverbindung“."""
     s = str(e)
     if "maximum buffer size" in s or "Failed to decode JSON" in s:
-        return ("Interner Fehler im Scoops-Server: Eine Nachricht von Claude Code (meist ein Bildschirmbild) war zu groß "
-                f"für die Verbindung ({s[:160]}). Das ist keine abgebrochene Bildschirmverbindung; bitte so melden.")
+        return tx("Interner Fehler im Scoops-Server: Eine Nachricht von Claude Code (meist ein Bildschirmbild) war zu groß "
+                  "für die Verbindung ({error}). Das ist keine abgebrochene Bildschirmverbindung; bitte so melden.",
+                  error=s[:160])
     return s
 
 
@@ -274,7 +278,7 @@ def mode(provider: str, cfg: dict | None = None) -> str:
 def set_mode(provider: str, value: str) -> None:
     from .bots import load_config, save_config
     if provider not in PROVIDERS or value not in MODES:
-        raise ValueError("Anbieter claude/openai, Modus api/abo/abo_api")
+        raise ValueError(tx("Anbieter claude/openai, Modus api/abo/abo_api"))
     cfg = load_config()
     b = dict(cfg.get("billing") or {})
     b[provider] = value
@@ -395,7 +399,7 @@ def status(refresh: bool = False) -> dict:
         lim = limited(p)
         info = _info.get(p)
         out[p] = {
-            "label": PROVIDER_LABEL[p], "mode": mode(p), "mode_label": MODE_LABEL[mode(p)],
+            "label": PROVIDER_LABEL[p], "mode": mode(p), "mode_label": translate(MODE_LABEL[mode(p)]),
             "configured": configured_mode(p), "route": route(p), "api_key": has_api_key(p),
             "installed": bool(st.get("installed")), "logged_in": bool(st.get("logged_in")),
             "subscription": bool(st.get("subscription")), "method": st.get("method") or None,
@@ -404,7 +408,7 @@ def status(refresh: bool = False) -> dict:
             "usage": _public_info(info) if info else None,
             "login_command": login_command(p, shown=True),
         }
-    out["modes"] = [{"id": m, "label": MODE_LABEL[m]} for m in MODES]
+    out["modes"] = [{"id": m, "label": translate(MODE_LABEL[m])} for m in MODES]
     try:  # Computer Use von Codex (Server 1.36, codex_cu.py): Schalter und Zustand; ältere Server haben das Feld nicht
         from . import codex_cu
         out["codex_computer_use"] = codex_cu.status()
@@ -447,22 +451,23 @@ def start_login(provider: str) -> dict:
     """Öffnet ein Terminal-Fenster mit dem Login-Befehl des Programms. Der Nutzer meldet sich dort (bzw. im Browser,
     den das Programm öffnet) selbst an; der Server sieht davon nichts außer dem Status danach."""
     if provider not in PROVIDERS:
-        raise ValueError("Anbieter claude oder openai")
+        raise ValueError(tx("Anbieter claude oder openai"))
     cmd = login_command(provider)
     if not cmd:
-        raise RuntimeError("Programm nicht gefunden (Server-Runtime unvollständig)")
+        raise RuntimeError(tx("Programm nicht gefunden (Server-Runtime unvollständig)"))
     if sys.platform != "darwin" or os.environ.get("AISBOT_NO_TERMINAL") == "1" or (
             os.environ.get("AISBOT_OFFLINE") == "1" and os.environ.get("AISBOT_ABO") != "1"):
         return {"started": False, "command": cmd}  # Tests: nie ein Terminal öffnen
     d = abo_dir()
     d.mkdir(parents=True, exist_ok=True)
     script = d / f"anmelden-{provider}.command"
-    title = "Mit Claude anmelden" if provider == "claude" else "Mit ChatGPT anmelden"
+    title = (tx("Mit Claude anmelden – AIS Scoops nutzt danach dein Abo.") if provider == "claude"
+             else tx("Mit ChatGPT anmelden – AIS Scoops nutzt danach dein Abo."))
     script.write_text("#!/bin/zsh\n"
-                      f"echo '{title} – AIS Scoops nutzt danach dein Abo.'\n"
-                      "echo 'Melde dich im Browser an, der sich gleich öffnet.'\necho\n"
+                      f"echo {shlex.quote(title)}\n"
+                      f"echo {shlex.quote(tx('Melde dich im Browser an, der sich gleich öffnet.'))}\necho\n"
                       f"{cmd}\n"
-                      "echo\necho 'Fertig. Dieses Fenster kannst du schließen.'\n")
+                      f"echo\necho {shlex.quote(tx('Fertig. Dieses Fenster kannst du schließen.'))}\n")
     os.chmod(script, 0o700)
     subprocess.Popen(["/usr/bin/open", "-a", "Terminal", str(script)], stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL)

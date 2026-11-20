@@ -78,7 +78,7 @@ final class WatchAPI {
         let (data, status) = try await perform("GET", "/api/bots/\(botID)/avatar",
                                                query: [URLQueryItem(name: "v", value: String(version)),
                                                        URLQueryItem(name: "size", value: String(size))], body: nil)
-        guard status == 200 else { throw WatchAPIError(status: status, message: "Bild konnte nicht geladen werden.") }
+        guard status == 200 else { throw WatchAPIError(status: status, message: String(localized: "Bild konnte nicht geladen werden.")) }
         return data
     }
 
@@ -97,7 +97,7 @@ final class WatchAPI {
         let (data, status) = try await perform(method, path, query: query, body: body)
         guard (200..<300).contains(status) else {
             let message = (try? decoder.decode(ErrorBody.self, from: data))?.error
-                ?? (status == 401 ? "Anmeldung abgelaufen. Öffne AIS Scoops auf dem iPhone."
+                ?? (status == 401 ? String(localized: "Anmeldung abgelaufen. Öffne AIS Scoops auf dem iPhone.")
                     : HTTPURLResponse.localizedString(forStatusCode: status))
             throw WatchAPIError(status: status, message: message)
         }
@@ -128,15 +128,15 @@ final class WatchAPI {
             lastRoute = .phone
             return (data, status)
         }
-        throw networkError ?? WatchAPIError(status: 0, message: "Server nicht erreichbar.")
+        throw networkError ?? WatchAPIError(status: 0, message: String(localized: "Server nicht erreichbar."))
     }
 
     private func direct(_ method: String, _ path: String, query: [URLQueryItem], body: Data?) async throws -> (Data, Int) {
         guard let bearer = credentials.bearer(for: server), !bearer.isEmpty else {
-            throw WatchAPIError(status: 401, message: "Keine Zugangsdaten. Öffne AIS Scoops auf dem iPhone.")
+            throw WatchAPIError(status: 401, message: String(localized: "Keine Zugangsdaten. Öffne AIS Scoops auf dem iPhone."))
         }
         let bases = workingBase.map { w in [w] + server.baseURLs.filter { $0 != w } } ?? server.baseURLs
-        guard !bases.isEmpty else { throw WatchAPIError(status: 0, message: "Keine Server-Adresse.") }
+        guard !bases.isEmpty else { throw WatchAPIError(status: 0, message: String(localized: "Keine Server-Adresse.")) }
         var lastError: Error?
         for base in bases {
             var comps = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)!
@@ -145,6 +145,8 @@ final class WatchAPI {
             req.httpMethod = method
             req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
             req.setValue("application/json", forHTTPHeaderField: "Accept")
+            // Sprache der App (docs/sprache.md): Fehlermeldungen des Servers in derselben Sprache
+            req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
             if let body {
                 req.httpBody = body
                 req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -157,7 +159,7 @@ final class WatchAPI {
                 lastError = error
             }
         }
-        throw lastError ?? WatchAPIError(status: 0, message: "Server nicht erreichbar.")
+        throw lastError ?? WatchAPIError(status: 0, message: String(localized: "Server nicht erreichbar."))
     }
 
     private static func neverReachedServer(_ error: Error) -> Bool {

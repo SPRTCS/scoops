@@ -12,7 +12,7 @@ extension AppStore {
             let busy = isBusy(b.id)
             return WidgetBot(id: b.id, name: b.name, label: b.label, mascot: b.mascot, pinned: b.pinned,
                              busy: busy,
-                             statusLine: busy ? (running?.meta.lines?.last ?? "Arbeitet …") : nil,
+                             statusLine: busy ? (running?.meta.lines?.last ?? String(localized: "Arbeitet …")) : nil,
                              runStartedAt: busy ? (running?.meta.startedAt ?? running?.createdAt) : nil,
                              runId: busy ? running?.meta.runId : nil,
                              unread: b.unread,

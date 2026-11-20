@@ -58,7 +58,8 @@ final class AlarmBridge {
     }
 
     private func add(_ p: JSONValue) async throws -> JSONValue {
-        let title = p["title"]?.string ?? "Wecker"
+        // Titel ohne Vorgabe des Scoops ist auf dem Gerät sichtbar: in der Sprache der App
+        let title = p["title"]?.string ?? String(localized: "Wecker", comment: "Titel eines Weckers ohne eigenen Namen")
         var record: [String: JSONValue] = ["title": .string(title), "kind": "alarm"]
         let schedule: Alarm.Schedule
         if let time = p["time"]?.string {
@@ -97,7 +98,8 @@ final class AlarmBridge {
                 countdown: .init(title: LocalizedStringResource(stringLiteral: title),
                                  pauseButton: AlarmButton(text: "Pause", textColor: Self.tint, systemImageName: "pause.fill")),
                 paused: .init(title: "Pausiert",
-                              resumeButton: AlarmButton(text: "Weiter", textColor: Self.tint, systemImageName: "play.fill"))),
+                              resumeButton: AlarmButton(text: LocalizedStringResource("alarm.resume", defaultValue: "Weiter", comment: "Knopf am pausierten Timer: fortsetzen"),
+                                                        textColor: Self.tint, systemImageName: "play.fill"))),
             metadata: ScoopAlarmMetadata(title: title, kind: "timer"), tintColor: Self.tint)
         let id = UUID()
         let alarm = try await Self.schedule(id: id, schedule: nil, duration: seconds, attributes: attributes)
@@ -159,7 +161,8 @@ final class AlarmBridge {
     }
 
     private static let tint = Color(red: 0.49, green: 0.36, blue: 1.0)
-    private static let stopButton = AlarmButton(text: "Aus", textColor: .white, systemImageName: "stop.fill")
+    private static let stopButton = AlarmButton(text: LocalizedStringResource("alarm.stop", defaultValue: "Aus", comment: "Knopf am klingelnden Wecker: ausschalten"),
+                                                textColor: .white, systemImageName: "stop.fill")
 
     nonisolated static func weekday(_ name: String) -> Locale.Weekday? {
         switch name.lowercased() {

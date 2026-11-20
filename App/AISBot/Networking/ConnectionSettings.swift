@@ -104,38 +104,13 @@ struct ConnectionSettings: Equatable {
     }
 }
 
-/// Minimaler Schlüsselbund-Zugriff (generisches Passwort).
+/// Minimaler Schlüsselbund-Zugriff (generisches Passwort). Die Einträge liegen in der gemeinsamen Zugriffsgruppe
+/// für App und Teilen-Erweiterung (`SharedKeychain`, docs/system.md); Einträge älterer Versionen werden weiter
+/// gefunden und beim Start umgezogen.
 enum Keychain {
-    private static let service = "com.ais.aisbot"
+    static func read(account: String) -> String? { SharedKeychain.read(account: account) }
 
-    private static func baseQuery(account: String) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: service,
-         kSecAttrAccount as String: account]
-    }
+    static func write(_ value: String, account: String) { SharedKeychain.write(value, account: account) }
 
-    static func read(account: String) -> String? {
-        var q = baseQuery(account: account)
-        q[kSecReturnData as String] = true
-        q[kSecMatchLimit as String] = kSecMatchLimitOne
-        var out: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    static func write(_ value: String, account: String) {
-        let data = Data(value.utf8)
-        let q = baseQuery(account: account)
-        let status = SecItemUpdate(q as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if status == errSecItemNotFound {
-            var add = q
-            add[kSecValueData as String] = data
-            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(add as CFDictionary, nil)
-        }
-    }
-
-    static func delete(account: String) {
-        SecItemDelete(baseQuery(account: account) as CFDictionary)
-    }
+    static func delete(account: String) { SharedKeychain.delete(account: account) }
 }

@@ -24,9 +24,11 @@ from typing import Callable
 from . import apple_device
 from .apple_device import AppleDevices, AppleDeviceError
 from .computer import ComputerError
+from . import i18n
+from .i18n import N_, tx
 
 SERVICES = ("reminders", "calendar", "contacts")
-LABEL = {"reminders": "Erinnerungen", "calendar": "Kalender", "contacts": "Kontakte"}
+LABEL = {"reminders": N_("Erinnerungen"), "calendar": N_("Kalender"), "contacts": N_("Kontakte")}  # Anzeige: translate
 TOOL = {"reminders": "apple_erinnerungen", "calendar": "apple_kalender", "contacts": "apple_kontakte"}
 TOOL_NAMES = frozenset(TOOL.values())
 # Freigabe-Zustände, wie Scoops Connect sie im hello/state meldet (`apple: {reminders: "granted", …}`)
@@ -153,18 +155,18 @@ class Apple:
         for s in SERVICES:
             perm = grants[s]
             if hub is None:
-                st, hint = "no_node", "Kein Mac mit AIS Scoops Server verbunden."
+                st, hint = "no_node", tx("Kein Mac mit AIS Scoops Server verbunden.")
             elif not online:
-                st, hint = "offline", f"„{hub.name}“ ist gerade nicht verbunden."
+                st, hint = "offline", tx("„{name}“ ist gerade nicht verbunden.", name=hub.name)
             elif perm == "unknown":
-                st, hint = "needs_update", f"AIS Scoops Server auf „{hub.name}“ ist zu alt. Bitte aktualisieren."
+                st, hint = "needs_update", tx("AIS Scoops Server auf „{name}“ ist zu alt. Bitte aktualisieren.", name=hub.name)
             elif perm != "granted":
-                st, hint = "needs_permission", "Auf dem Mac in AIS Scoops Server freigeben."
+                st, hint = "needs_permission", tx("Auf dem Mac in AIS Scoops Server freigeben.")
             elif not enabled[s]:
                 st, hint = "off", None
             else:
                 st, hint = "ready", None
-            services.append({"id": s, "name": LABEL[s], "tool": TOOL[s], "enabled": enabled[s], "permission": perm,
+            services.append({"id": s, "name": i18n.translate(LABEL[s]), "tool": TOOL[s], "enabled": enabled[s], "permission": perm,
                              "available": st == "ready", "status": st, "hint": hint,
                              "node_id": hub.node_id if hub is not None else None})
         nodes = [{"id": h.node_id, "name": h.name, "online": bool(h.transport.online), "apple": self.grants_of(h)}
@@ -182,7 +184,7 @@ class Apple:
         for s in SERVICES:
             if s in body:
                 if not isinstance(body[s], bool):
-                    raise ValueError(f"{s}: true oder false")
+                    raise ValueError(tx("{key}: true oder false", key=s))
                 raw[s] = body[s]
         cfg["apple_services"] = raw
         if self.devices is not None:
@@ -277,7 +279,7 @@ class Apple:
                 "Telefonnummern, Mailadressen, Geburtstag, Firma und Adressen.",
                 {"aktion": {"type": "string", "enum": ["suchen", "geburtstage"]}, "suche": s,
                  "tage": {"type": "integer"}, "anzahl": {"type": "integer"}},
-                ["aktion"], self._contacts, lambda i: "Schaut in deine Kontakte"))
+                ["aktion"], self._contacts, lambda i: tx("Schaut in deine Kontakte")))
         return out
 
     # Die Handler geben Text zurück; Fehler als Text (der Scoop soll sie verstehen und weitergeben).
@@ -325,11 +327,11 @@ class Apple:
                 item = self.call("reminders", "apple.reminders.get", {"id": rid}).get("reminder") or {}
             except AppleError as e:
                 return f"Fehler: {e}"
-            title = f"Erinnerung löschen: „{item.get('title') or rid}“"
-            details = "\n".join(x for x in (f"Liste: {item.get('list')}" if item.get("list") else "",
-                                            f"Fällig: {item.get('due')}" if item.get("due") else "",
+            title = tx("Erinnerung löschen: „{title}“", title=item.get("title") or rid)
+            details = "\n".join(x for x in (tx("Liste: {list}", list=item.get("list")) if item.get("list") else "",
+                                            tx("Fällig: {due}", due=item.get("due")) if item.get("due") else "",
                                             (item.get("notes") or "")[:300]) if x)
-            return request_approval(title, details or "Wird aus Apple-Erinnerungen gelöscht.",
+            return request_approval(title, details or tx("Wird aus Apple-Erinnerungen gelöscht."),
                                     {"kind": "apple", "service": "reminders", "command": "apple.reminders.delete",
                                      "params": {"id": rid}, "label": item.get("title") or rid})
         return "Fehler: unbekannte aktion."
@@ -367,12 +369,14 @@ class Apple:
             except AppleError as e:
                 return f"Fehler: {e}"
             when = ev.get("start") or ""
-            title = f"Termin löschen: „{ev.get('title') or eid}“" + (f" ({_short_dt(when)})" if when else "")
-            details = "\n".join(x for x in (f"Kalender: {ev.get('calendar')}" if ev.get("calendar") else "",
-                                            f"Beginn: {when}" if when else "", f"Ort: {ev.get('location')}" if ev.get("location") else "",
-                                            "Alle folgenden Termine der Serie" if span == "future" and ev.get("recurring") else "")
+            title = (tx("Termin löschen: „{title}“ ({when})", title=ev.get("title") or eid, when=_short_dt(when)) if when
+                     else tx("Termin löschen: „{title}“", title=ev.get("title") or eid))
+            details = "\n".join(x for x in (tx("Kalender: {calendar}", calendar=ev.get("calendar")) if ev.get("calendar") else "",
+                                            tx("Beginn: {start}", start=when) if when else "",
+                                            tx("Ort: {location}", location=ev.get("location")) if ev.get("location") else "",
+                                            tx("Alle folgenden Termine der Serie") if span == "future" and ev.get("recurring") else "")
                                 if x)
-            return request_approval(title, details or "Wird aus dem Apple-Kalender gelöscht.",
+            return request_approval(title, details or tx("Wird aus dem Apple-Kalender gelöscht."),
                                     {"kind": "apple", "service": "calendar", "command": "apple.calendar.delete",
                                      "params": {"id": eid, "span": span}, "label": ev.get("title") or eid})
         return "Fehler: unbekannte aktion."
@@ -423,17 +427,22 @@ def _short_dt(iso: str) -> str:
     if not m:
         return iso
     y, mo, d, hh, mm = m.groups()
+    if i18n.current() == "en":
+        return f"{mo}/{d}/{y}" + (f", {hh}:{mm}" if hh else "")
     return f"{d}.{mo}.{y}" + (f", {hh}:{mm}" if hh else "")
 
 
 def _line_reminders(i: dict) -> str:
-    return {"anlegen": "Legt eine Erinnerung an", "aendern": "Ändert eine Erinnerung", "erledigen": "Hakt eine Erinnerung ab",
-            "loeschen": "Bereitet das Löschen einer Erinnerung vor"}.get(i.get("aktion") or "", "Schaut in deine Erinnerungen")
+    return {"anlegen": tx("Legt eine Erinnerung an"), "aendern": tx("Ändert eine Erinnerung"),
+            "erledigen": tx("Hakt eine Erinnerung ab"),
+            "loeschen": tx("Bereitet das Löschen einer Erinnerung vor")}.get(i.get("aktion") or "",
+                                                                             tx("Schaut in deine Erinnerungen"))
 
 
 def _line_calendar(i: dict) -> str:
-    return {"anlegen": "Trägt einen Termin ein", "aendern": "Ändert einen Termin",
-            "loeschen": "Bereitet das Löschen eines Termins vor"}.get(i.get("aktion") or "", "Schaut in deinen Kalender")
+    return {"anlegen": tx("Trägt einen Termin ein"), "aendern": tx("Ändert einen Termin"),
+            "loeschen": tx("Bereitet das Löschen eines Termins vor")}.get(i.get("aktion") or "",
+                                                                          tx("Schaut in deinen Kalender"))
 
 
 def prompt_hint(services: list[str], user_name: str) -> str | None:

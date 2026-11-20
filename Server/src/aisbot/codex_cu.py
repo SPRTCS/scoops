@@ -30,6 +30,8 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from .i18n import tx
+
 SERVER = "computer-use"
 APP_NAME = "Codex Computer Use.app"
 CLIENT_REL = "Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient"
@@ -40,13 +42,21 @@ APP_WAIT = 15 * 60  # so lange wartet eine App-Freigabe-Karte, danach gilt sie a
 # Wie lange nach einem Fehler gleich der alte Weg genommen wird (die App zeigt sonst bei jedem Versuch ihr Rechte-Fenster)
 BLOCK_FOR = {"rechte": 60 * 60, "fehlt": 10 * 60, "fehler": 10 * 60}
 
-HINT_MISSING = ("Codex Computer Use ist auf dem Server-Mac nicht installiert. Einrichten: in der ChatGPT- bzw. Codex-App am "
-                "Server-Mac Computer Use einmal einschalten (installiert „Codex Computer Use“ unter ~/.codex/computer-use) "
-                "und die Rechte für Bedienungshilfen und Bildschirmaufnahme erteilen.")
-HINT_RIGHTS = ("Codex Computer Use fehlen macOS-Rechte. Am Server-Mac in Systemeinstellungen › Datenschutz & Sicherheit › "
-               "Bedienungshilfen und › Bildschirm- & Systemaudioaufnahme „Codex Computer Use“ erlauben (bzw. dem Fenster "
-               "von Computer Use folgen). Bis dahin arbeiten die Scoops über den Scoops-Bildschirm.")
-HINT_ERROR = "Codex Computer Use ließ sich nicht starten ({detail}). Die Scoops arbeiten so lange über den Scoops-Bildschirm."
+
+
+def hint(kind: str, detail: str = "") -> str:
+    """Hinweis für den Nutzer (Einstellungen, Karte im Chat) in der aktuellen Sprache."""
+    if kind == "fehlt":
+        return tx("Codex Computer Use ist auf dem Server-Mac nicht installiert. Einrichten: in der ChatGPT- bzw. Codex-App "
+                  "am Server-Mac Computer Use einmal einschalten (installiert „Codex Computer Use“ unter "
+                  "~/.codex/computer-use) und die Rechte für Bedienungshilfen und Bildschirmaufnahme erteilen.")
+    if kind == "rechte":
+        return tx("Codex Computer Use fehlen macOS-Rechte. Am Server-Mac in Systemeinstellungen › Datenschutz & Sicherheit › "
+                  "Bedienungshilfen und › Bildschirm- & Systemaudioaufnahme „Codex Computer Use“ erlauben (bzw. dem "
+                  "Fenster von Computer Use folgen). Bis dahin arbeiten die Scoops über den Scoops-Bildschirm.")
+    return tx("Codex Computer Use ließ sich nicht starten ({detail}). Die Scoops arbeiten so lange über den "
+              "Scoops-Bildschirm.", detail=detail[:160])
+
 
 PROMPT = (
     "Bildschirm des Macs: Du bedienst den Mac (den Server-Mac; {user} kann live zusehen) mit Computer Use von Codex, den "
@@ -122,8 +132,7 @@ def blocked() -> dict | None:
 
 
 def block(kind: str, detail: str) -> dict:
-    hint = {"rechte": HINT_RIGHTS, "fehlt": HINT_MISSING}.get(kind) or HINT_ERROR.format(detail=detail[:160])
-    d = {"kind": kind, "detail": detail[:300], "hint": hint, "since": time.time(),
+    d = {"kind": kind, "detail": detail[:300], "hint": hint(kind, detail), "since": time.time(),
          "until": time.time() + BLOCK_FOR.get(kind, 600)}
     with _lock:
         _block.clear()
@@ -163,11 +172,14 @@ def decide(hub, db, cfg: dict | None = None) -> tuple[bool, str | None]:
     if getattr(hub, "paused", False):
         return False, None  # Scoops Connect pausiert: wie bisher (Werkzeuge melden es)
     if client_path() is None:
-        return False, "Codex Computer Use ist nicht installiert"
+        return False, tx("Codex Computer Use ist nicht installiert")
     b = blocked()
     if b:
-        return False, {"rechte": "Codex Computer Use fehlen macOS-Rechte",
-                       "fehlt": "Codex Computer Use ist nicht installiert"}.get(b["kind"], "Codex Computer Use gerade gestört")
+        if b["kind"] == "rechte":
+            return False, tx("Codex Computer Use fehlen macOS-Rechte")
+        if b["kind"] == "fehlt":
+            return False, tx("Codex Computer Use ist nicht installiert")
+        return False, tx("Codex Computer Use gerade gestört")
     return True, None
 
 
@@ -178,11 +190,13 @@ def status() -> dict:
     out = {"supported": True, "enabled": setting(), "installed": client_path(app) is not None,
            "app": str(app) if app else None, "available": False, "reason": None, "hint": None}
     if sys.platform != "darwin":
-        out.update(reason="nur auf macOS")
+        out.update(reason=tx("nur auf macOS"))
     elif not out["installed"]:
-        out.update(reason="nicht installiert", hint=HINT_MISSING)
+        out.update(reason=tx("nicht installiert"), hint=hint("fehlt"))
     elif b:
-        out.update(reason={"rechte": "macOS-Rechte fehlen"}.get(b["kind"], "gestört"), hint=b.get("hint"))
+        # Hinweis in der Sprache der Anfrage neu bilden (gespeichert ist er in der Sprache beim Sperren)
+        out.update(reason=tx("macOS-Rechte fehlen") if b["kind"] == "rechte" else tx("gestört"),
+                   hint=hint(b["kind"], str(b.get("detail") or "")) if b.get("kind") else b.get("hint"))
     else:
         out["available"] = True
     return out
@@ -248,7 +262,7 @@ def open_thread(codex, session_id: str | None, *, model: str, sandbox, base_inst
 def app_label(app: str | None) -> str:
     a = str(app or "").strip()
     if not a:
-        return "eine App"
+        return tx("eine App")
     if "." in a and " " not in a:  # Bundle-ID
         last = a.split(".")[-1]
         return {"finder": "Finder", "safari": "Safari", "mobilesafari": "Safari"}.get(last.lower(), last[:1].upper() + last[1:])
@@ -259,32 +273,36 @@ def line(tool: str, args: dict | None) -> str:
     """Fortschrittszeile aus einem Computer-Use-Aufruf („Klickt in Safari“, „Tippt …“)."""
     a = args if isinstance(args, dict) else {}
     app = app_label(a.get("app")) if a.get("app") else ""
-    in_app = f" in {app}" if app else ""
     if tool == "get_app_state":
-        return f"Schaut auf {app}" if app else "Schaut auf den Bildschirm"
+        return tx("Schaut auf {app}", app=app) if app else tx("Schaut auf den Bildschirm")
     if tool == "list_apps":
-        return "Schaut, welche Apps offen sind"
+        return tx("Schaut, welche Apps offen sind")
     if tool == "click":
         n = int(a.get("click_count") or 1)
-        word = "Doppelklickt" if n == 2 else ("Rechtsklickt" if str(a.get("mouse_button") or "")[:1] == "r" else "Klickt")
-        return word + in_app
+        if n == 2:
+            return tx("Doppelklickt in {app}", app=app) if app else tx("Doppelklickt")
+        if str(a.get("mouse_button") or "")[:1] == "r":
+            return tx("Rechtsklickt in {app}", app=app) if app else tx("Rechtsklickt")
+        return tx("Klickt in {app}", app=app) if app else tx("Klickt")
     if tool == "type_text":
         t = str(a.get("text") or "")
-        return f"Tippt „{t[:40]}{'…' if len(t) > 40 else ''}“"
+        return tx("Tippt „{text}“", text=f"{t[:40]}{'…' if len(t) > 40 else ''}")
     if tool == "set_value":
         t = str(a.get("value") or "")
-        return f"Trägt „{t[:40]}{'…' if len(t) > 40 else ''}“ ein"
+        return tx("Trägt „{text}“ ein", text=f"{t[:40]}{'…' if len(t) > 40 else ''}")
     if tool == "press_key":
-        return f"Drückt {str(a.get('key') or '')[:30]}".strip()
+        return tx("Drückt {key}", key=str(a.get("key") or "")[:30]).strip()
     if tool == "scroll":
-        return "Scrollt" + in_app
+        return tx("Scrollt in {app}", app=app) if app else tx("Scrollt")
     if tool == "drag":
-        return "Zieht" + in_app
+        return tx("Zieht in {app}", app=app) if app else tx("Zieht")
     if tool == "select_text":
-        return "Markiert Text" + in_app
+        return tx("Markiert Text in {app}", app=app) if app else tx("Markiert Text")
     if tool == "perform_secondary_action":
-        return f"Führt „{str(a.get('action') or 'Aktion')[:30]}“ aus" + in_app
-    return "Arbeitet am Bildschirm"
+        action = str(a.get("action") or tx("Aktion"))[:30]
+        return tx("Führt „{action}“ aus in {app}", action=action, app=app) if app else tx("Führt „{action}“ aus",
+                                                                                       action=action)
+    return tx("Arbeitet am Bildschirm")
 
 
 def classify(text: str) -> str | None:
@@ -367,7 +385,7 @@ class Gate:
             self.held = True
             if self.paused_for_user:
                 self.paused_for_user = False
-                self.line("Macht am Bildschirm weiter")
+                self.line(tx("Macht am Bildschirm weiter"))
         return True
 
     def release(self) -> None:
@@ -389,7 +407,7 @@ class Gate:
             with self._lk:
                 if self.held and not self.in_action and self._takeover_wanted():
                     self.paused_for_user = True
-                    self.line(f"Pausiert: {self.user} hat den Bildschirm übernommen")
+                    self.line(tx("Pausiert: {user} hat den Bildschirm übernommen", user=self.user))
                     self.release()
 
     def before_action(self) -> bool:
@@ -398,7 +416,7 @@ class Gate:
         with self._lk:
             if self.held and self._takeover_wanted():
                 self.paused_for_user = True
-                self.line(f"Pausiert: {self.user} hat den Bildschirm übernommen")
+                self.line(tx("Pausiert: {user} hat den Bildschirm übernommen", user=self.user))
                 self.release()
         if not self._ensure():
             return False
@@ -432,12 +450,15 @@ class Gate:
         für eine Weile (dann gleich der alte Weg), mit einem Hinweis an den Nutzer."""
         self.failed = kind
         if kind == "gesperrt":
-            self.line("Der Mac ist gesperrt")
+            self.line(tx("Der Mac ist gesperrt"))
             return
         b = block(kind, detail)
-        self.line({"rechte": "Computer Use von Codex hat keine macOS-Rechte – nimmt den Scoops-Bildschirm",
-                   "fehlt": "Computer Use von Codex fehlt – nimmt den Scoops-Bildschirm"}.get(
-            kind, "Computer Use von Codex gestört – nimmt den Scoops-Bildschirm"))
+        if kind == "rechte":
+            self.line(tx("Computer Use von Codex hat keine macOS-Rechte – nimmt den Scoops-Bildschirm"))
+        elif kind == "fehlt":
+            self.line(tx("Computer Use von Codex fehlt – nimmt den Scoops-Bildschirm"))
+        else:
+            self.line(tx("Computer Use von Codex gestört – nimmt den Scoops-Bildschirm"))
         if self.on_unavailable:
             try:
                 self.on_unavailable(kind, b["hint"])
@@ -455,13 +476,13 @@ class Gate:
             # Codex fragt vor einer Aktion (default_tools_approval_mode = prompt): Rechner belegen, dann freigeben
             return {"action": "accept"} if self.before_action() else {"action": "decline"}
         if p.get("mode") == "url":
-            self.line("Computer Use wollte eine Webseite zur Anmeldung öffnen – abgelehnt")
+            self.line(tx("Computer Use wollte eine Webseite zur Anmeldung öffnen – abgelehnt"))
             return {"action": "decline"}
         msg = str(p.get("message") or "")
         app = _app_from_message(msg)
         if self.ask_app is None:
             return {"action": "decline"}
-        self.line(f"Wartet auf Freigabe: {app_label(app)} bedienen" if app else "Wartet auf Freigabe")
+        self.line(tx("Wartet auf Freigabe: {app} bedienen", app=app_label(app)) if app else tx("Wartet auf Freigabe"))
         with self._lk:
             self.in_action = False  # während die Karte wartet, darf der Nutzer übernehmen
         ok = False
@@ -472,7 +493,7 @@ class Gate:
         if ok and not self.before_action():
             ok = False
         if not ok:
-            self.line(f"{app_label(app)} nicht freigegeben" if app else "Nicht freigegeben")
+            self.line(tx("{app} nicht freigegeben", app=app_label(app)) if app else tx("Nicht freigegeben"))
         return {"action": "accept", "content": {}} if ok else {"action": "decline"}
 
     def detach(self) -> None:

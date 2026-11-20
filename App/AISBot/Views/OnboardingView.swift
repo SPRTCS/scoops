@@ -68,8 +68,8 @@ struct AppleSignInButton: View {
             // (Logo + „Mit Apple anmelden“, weiß bzw. schwarz), gleicher Ablauf über ASAuthorizationController.
             Button { AppleSignInLauncher.shared.start(account) } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "apple.logo").font(.system(size: height * 0.36, weight: .medium))
-                    Text("Mit Apple anmelden").font(.system(size: height * 0.34, weight: .semibold))
+                    Image(systemName: "apple.logo").font(.fixed(height * 0.36, weight: .medium))
+                    Text("Mit Apple anmelden").font(.fixed(height * 0.34, weight: .semibold))
                 }
                 .foregroundStyle(theme.kind == .nacht ? Color.black : Color.white)
                 .frame(maxWidth: .infinity)
@@ -163,7 +163,7 @@ struct ManualConnectForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("Server-Adresse").font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textSecondary)
+                Text("Server-Adresse").appFont(12.5, weight: .medium).foregroundStyle(theme.textSecondary)
                 TextField("https://…ts.net", text: $url)
                     .modifier(FieldStyle(alignment: .leading))
                     .autocorrectionDisabled()
@@ -173,14 +173,14 @@ struct ManualConnectForm: View {
                     #endif
             }
             VStack(alignment: .leading, spacing: 5) {
-                Text("Token").font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textSecondary)
+                Text("Token").appFont(12.5, weight: .medium).foregroundStyle(theme.textSecondary)
                 SecureField("Token vom Server", text: $token)
                     .modifier(FieldStyle(alignment: .leading))
                     .onSubmit(connect)
             }
             if let error {
                 Label(error, systemImage: "exclamationmark.circle")
-                    .font(.system(size: 12.5))
+                    .appFont(12.5)
                     .foregroundStyle(theme.danger)
             }
             Button(action: connect) {
@@ -195,7 +195,7 @@ struct ManualConnectForm: View {
             .keyboardShortcut(.defaultAction)
 
             Text("Den Kopplungslink (`aisbot://pair?…`) zeigt dir der Server an. Öffnest du ihn auf diesem Gerät, wird alles automatisch eingetragen.")
-                .font(.system(size: 12))
+                .appFont(12)
                 .foregroundStyle(theme.textTertiary)
         }
     }
@@ -207,8 +207,8 @@ struct ManualConnectForm: View {
             Task { await store.connect(with: candidate, persist: true) }
             return
         }
-        guard candidate.baseURL != nil else { error = "Die Server-Adresse ist ungültig."; return }
-        guard !candidate.token.isEmpty else { error = "Bitte gib den Token ein."; return }
+        guard candidate.baseURL != nil else { error = String(localized: "Die Server-Adresse ist ungültig."); return }
+        guard !candidate.token.isEmpty else { error = String(localized: "Bitte gib den Token ein."); return }
         checking = true
         error = nil
         Task {
@@ -216,9 +216,9 @@ struct ManualConnectForm: View {
                 _ = try await store.validate(candidate)
                 await store.connect(with: candidate, persist: true)
             } catch let e as APIError where e.status == 401 || e.status == 403 {
-                error = "Der Token passt nicht."
+                error = String(localized: "Der Token passt nicht.")
             } catch {
-                self.error = "Server nicht erreichbar: \(error.localizedDescription)"
+                self.error = String(localized: "Server nicht erreichbar: \(error.localizedDescription)")
             }
             checking = false
         }

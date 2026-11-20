@@ -101,7 +101,7 @@ struct ApprovalsBanner: View {
         .padding(.horizontal, 10)
         .glassEffect(.regular.tint(.orange.opacity(0.25)), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(count == 1 ? "1 offene Freigabe" : "\(count) offene Freigaben")
+        .accessibilityLabel("\(count) offene Freigaben")
     }
 }
 
@@ -195,7 +195,7 @@ private struct FooterRows: View {
         } else if let updated = store.lastUpdated {
             HStack(spacing: 4) {
                 if store.viaPhone { Image(systemName: "iphone") }
-                Text("Stand \(updated.formatted(date: .omitted, time: .shortened))")
+                Text("Stand \(updated.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(.app)))")
             }
             .font(.caption2)
             .foregroundStyle(.secondary)

@@ -107,7 +107,8 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Form {
-                TextField("Server-Adresse", text: $server, prompt: Text(verbatim: "https://dein-server.example"))
+                TextField("Server-Adresse", text: $server,
+                          prompt: Text(verbatim: String(localized: "https://dein-server.example", comment: "Beispieladresse als Platzhalter")))
                     .focused($focus, equals: .server)
                 TextField("Code", text: $code, prompt: Text(verbatim: "K7QX-29PL"))
                     .font(.body.monospaced())
@@ -189,7 +190,7 @@ struct OnboardingView: View {
     }
 
     private func next() {
-        guard Pairing.normalizeServer(server) != nil else { error = "Bitte eine gültige Server-Adresse eingeben."; return }
+        guard Pairing.normalizeServer(server) != nil else { error = String(localized: "Bitte eine gültige Server-Adresse eingeben."); return }
         error = nil
         step = 2
     }
@@ -226,7 +227,7 @@ private struct StepIndicator: View {
         }
         .animation(.snappy, value: step)
         .accessibilityElement()
-        .accessibilityLabel("Schritt \(step) von 3")
+        .accessibilityLabel(Text("Schritt \(step) von 3"))
     }
 }
 

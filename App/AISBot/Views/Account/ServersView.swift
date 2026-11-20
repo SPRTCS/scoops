@@ -19,7 +19,7 @@ struct ServerListSection: View {
     var body: some View {
         let account = store.account
         GroupedStack {
-            GroupedSection("Deine Server", footer: footer, dividerInset: 62) {
+            GroupedSection(String(localized: "Deine Server"), footer: footer, dividerInset: 62) {
                 if account.servers.isEmpty {
                     emptyRow
                 } else {
@@ -56,11 +56,11 @@ struct ServerListSection: View {
                 renaming = nil
                 Task {
                     do { try await account.renameServer(server, to: name) }
-                    catch { store.errorMessage = "Umbenennen fehlgeschlagen: \(error.localizedDescription)" }
+                    catch { store.errorMessage = String(localized: "Umbenennen fehlgeschlagen: \(error.localizedDescription)") }
                 }
             }
         }
-        .confirmationDialog(removing.map { "„\($0.name)“ aus dem Konto entfernen?" } ?? "",
+        .confirmationDialog(removing.map { String(localized: "„\($0.name)“ aus dem Konto entfernen?") } ?? "",
                             isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
                             titleVisibility: .visible) {
             Button("Entfernen", role: .destructive) {
@@ -71,7 +71,7 @@ struct ServerListSection: View {
                         try await account.removeServer(server)
                         if store.settings.cloudServerID == server.id { store.disconnect() }
                     } catch {
-                        store.errorMessage = "Entfernen fehlgeschlagen: \(error.localizedDescription)"
+                        store.errorMessage = String(localized: "Entfernen fehlgeschlagen: \(error.localizedDescription)")
                     }
                 }
             }
@@ -82,7 +82,7 @@ struct ServerListSection: View {
 
     private var footer: String? {
         if let error = store.account.errorMessage { return error }
-        return store.account.servers.isEmpty ? nil : "Tippe auf einen Server, um dich zu verbinden. Online heißt: Er hat sich in den letzten drei Minuten gemeldet."
+        return store.account.servers.isEmpty ? nil : String(localized: "Tippe auf einen Server, um dich zu verbinden. Online heißt: Er hat sich in den letzten drei Minuten gemeldet.")
     }
 
     @ViewBuilder
@@ -90,14 +90,14 @@ struct ServerListSection: View {
         if store.account.loadingServers && !store.account.serversLoaded {
             HStack(spacing: 10) {
                 ProgressView().controlSize(.small)
-                Text("Lade deine Server …").font(.system(size: 15)).foregroundStyle(theme.textSecondary)
+                Text("Lade deine Server …").appFont(15).foregroundStyle(theme.textSecondary)
             }
             .groupedRow(vertical: 14)
         } else {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Noch kein Server").font(.system(size: 15, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                Text("Noch kein Server").appFont(15, weight: .semibold).foregroundStyle(theme.textPrimary)
                 Text("Starte AIS Scoops Server auf deinem Mac und koppele ihn mit „Server hinzufügen“.")
-                    .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                    .appFont(12.5).foregroundStyle(theme.textSecondary)
             }
             .groupedRow(vertical: 12)
         }
@@ -129,9 +129,9 @@ struct ServerRow: View {
                 HStack(spacing: 12) {
                     ZStack(alignment: .bottomTrailing) {
                         Image(systemName: server.name.localizedCaseInsensitiveContains("book") ? "laptopcomputer" : "desktopcomputer")
-                            .font(.system(size: 17, weight: .medium))
+                            .appFont(17, weight: .medium)
                             .foregroundStyle(theme.textPrimary)
-                            .frame(width: 36, height: 36)
+                            .scaledFrame(36)
                             .background(theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         Circle()
                             .fill(server.online ? theme.success : theme.textTertiary)
@@ -141,24 +141,24 @@ struct ServerRow: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
-                            Text(server.name).font(.system(size: 15, weight: .medium)).foregroundStyle(theme.textPrimary)
+                            Text(server.name).appFont(15, weight: .medium).foregroundStyle(theme.textPrimary)
                             if isCurrent {
                                 Text("Verbunden")
-                                    .font(.system(size: 10.5, weight: .semibold))
+                                    .appFont(10.5, weight: .semibold)
                                     .foregroundStyle(theme.success)
                                     .padding(.horizontal, 6).padding(.vertical, 2)
                                     .background(theme.success.opacity(0.14), in: Capsule())
                             }
                         }
                         Text(subtitle)
-                            .font(.system(size: 12.5))
+                            .appFont(12.5)
                             .foregroundStyle(server.online ? theme.success : theme.textSecondary)
-                            .lineLimit(1)
+                            .adaptiveLineLimit(1)
                         if let host = server.displayHost, !host.isEmpty {
                             Text(host)
-                                .font(.system(size: 12))
+                                .appFont(12)
                                 .foregroundStyle(theme.textTertiary)
-                                .lineLimit(1)
+                                .adaptiveLineLimit(1)
                                 .truncationMode(.middle)
                         }
                     }
@@ -177,9 +177,9 @@ struct ServerRow: View {
                 Button("Entfernen", systemImage: "trash", role: .destructive, action: onRemove)
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .semibold))
+                    .appFont(15, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
-                    .frame(width: 30, height: 30)
+                    .scaledFrame(30)
                     .contentShape(Rectangle())
             }
             .menuStyle(.button)
@@ -197,14 +197,17 @@ struct ServerRow: View {
     }
 
     private var subtitle: String {
-        var parts: [String] = [server.online ? "Online" : offlineText]
+        var parts: [String] = [server.online ? String(localized: "Online") : offlineText]
         if let v = server.version, !v.isEmpty { parts.append("v\(v)") }
         return parts.joined(separator: " · ")
     }
 
     private var offlineText: String {
-        guard let seen = server.lastSeenAt else { return "Offline" }
-        return "Offline seit \(seen.formatted(.relative(presentation: .named)).replacingOccurrences(of: "vor ", with: ""))"
+        guard let seen = server.lastSeenAt else { return String(localized: "Offline") }
+        // Deutsch wie bisher „Offline seit 3 Stunden“ (ohne „vor“); Englisch „Offline · 3 hours ago“
+        var since = seen.formatted(.relative(presentation: .named).locale(.app))
+        if AppLanguage.isGerman { since = since.replacingOccurrences(of: "vor ", with: "") }
+        return String(localized: "Offline seit \(since)")
     }
 }
 
@@ -236,11 +239,11 @@ struct AddServerSheet: View {
                     .themedCard(theme, radius: 16)
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Kopplungscode").font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textSecondary)
+                        Text("Kopplungscode").appFont(12.5, weight: .medium).foregroundStyle(theme.textSecondary)
                         PairingCodeField(code: $code, focused: $focused, onSubmit: claim)
                         if let error {
                             Label(error, systemImage: "exclamationmark.circle")
-                                .font(.system(size: 12.5))
+                                .appFont(12.5)
                                 .foregroundStyle(theme.danger)
                         }
                     }
@@ -275,12 +278,12 @@ struct AddServerSheet: View {
     private func step(_ n: Int, _ text: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(n)")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .appFont(13, weight: .bold, design: .rounded)
                 .foregroundStyle(theme.sendButtonIcon)
                 .frame(width: 24, height: 24)
                 .background(theme.sendButton, in: Circle())
             Text(text)
-                .font(.system(size: 14))
+                .appFont(14)
                 .foregroundStyle(theme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -293,7 +296,8 @@ struct AddServerSheet: View {
         Task {
             do {
                 let result = try await store.account.claimServer(code: normalized)
-                store.showToast("„\(result.name ?? "Server")“ hinzugefügt")
+                let name = result.name ?? "Server"
+                store.showToast(String(localized: "„\(name)“ hinzugefügt"))
                 dismiss()
             } catch {
                 self.error = error.localizedDescription

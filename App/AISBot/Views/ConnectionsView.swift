@@ -64,7 +64,7 @@ struct ConnectionsView: View {
         .overlay(alignment: .bottom) {
             if let toast {
                 Label(toast, systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .appFont(14, weight: .semibold)
                     .foregroundStyle(theme.sendButtonIcon)
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(theme.sendButton, in: Capsule())
@@ -115,7 +115,7 @@ struct ConnectionsView: View {
             Text("Über diesen Namen sagst du den Scoops, welches Konto sie nehmen sollen.")
         }
         // Trennen
-        .confirmationDialog(deleteTarget.map { "\($0.app.name) · \($0.account.displayName) trennen?" } ?? "",
+        .confirmationDialog(deleteTarget.map { t in String(localized: "\(t.app.name) · \(t.account.displayName) trennen?") } ?? "",
                             isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }),
                             titleVisibility: .visible) {
             Button("Trennen", role: .destructive) {
@@ -140,7 +140,7 @@ struct ConnectionsView: View {
         // Formular für Schlüssel-Apps
         .sheet(item: $formTarget) { target in
             ConnectFieldsSheet(app: target.app, info: target.info) { title in
-                show(toast: "\(title) verbunden")
+                show(toast: String(localized: "\(title) verbunden"))
                 expanded.insert(target.app.slug)
                 Task { await refresh(fresh: true) }
             }
@@ -193,7 +193,7 @@ struct ConnectionsView: View {
                 HStack(spacing: 6) {
                     Circle().fill(theme.success).frame(width: 7, height: 7)
                     Text("\(catalog.connectedApps) verbunden")
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .appFont(12.5, weight: .semibold)
                         .lineLimit(1)
                         .fixedSize()
                         .foregroundStyle(theme.textPrimary)
@@ -231,13 +231,13 @@ struct ConnectionsView: View {
         return Button { select(chip.id) } label: {
             HStack(spacing: 5) {
                 if chip.id == CatalogCategory.popular {
-                    Image(systemName: "star.fill").font(.system(size: 10.5, weight: .semibold))
+                    Image(systemName: "star.fill").appFont(10.5, weight: .semibold)
                 } else if chip.id == CatalogCategory.connected {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "checkmark.circle.fill").appFont(11, weight: .semibold)
                 } else if chip.id == CatalogCategory.apple {
-                    Image(systemName: "apple.logo").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "apple.logo").appFont(11, weight: .semibold)
                 }
-                Text(chip.displayName).font(.system(size: 13.5, weight: .semibold))
+                Text(chip.displayName).appFont(13.5, weight: .semibold)
             }
             .foregroundStyle(on ? theme.groupedBackground : theme.textPrimary)
             .padding(.horizontal, 13).padding(.vertical, 7.5)
@@ -254,11 +254,11 @@ struct ConnectionsView: View {
     private var searchBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
+                .appFont(15, weight: .medium)
                 .foregroundStyle(theme.textSecondary)
             TextField("Alle Apps durchsuchen", text: Binding(get: { catalog.query }, set: { catalog.query = $0 }))
                 .textFieldStyle(.plain)
-                .font(.system(size: 15.5))
+                .appFont(15.5)
                 .foregroundStyle(theme.textPrimary)
                 .autocorrectionDisabled()
                 #if os(iOS)
@@ -268,7 +268,7 @@ struct ConnectionsView: View {
                 .focused($searchFocused)
             if !catalog.query.isEmpty {
                 Button { catalog.query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 16)).foregroundStyle(theme.textTertiary)
+                    Image(systemName: "xmark.circle.fill").appFont(16).foregroundStyle(theme.textTertiary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Suche löschen")
@@ -293,7 +293,7 @@ struct ConnectionsView: View {
     }
 
     private var listTitle: String {
-        if catalog.isSearching { return "Suchergebnisse" }
+        if catalog.isSearching { return String(localized: "Suchergebnisse") }
         return catalog.chips.first { $0.id == catalog.selected }?.displayName
             ?? CatalogCategory(id: catalog.selected, name: catalog.selected).displayName
     }
@@ -309,7 +309,7 @@ struct ConnectionsView: View {
                             Text(listTitle.uppercased())
                             if catalog.loaded, catalog.total > 0 { Text("\(catalog.total)").monospacedDigit() }
                         }
-                        .font(.system(size: 12, weight: .semibold)).tracking(0.4)
+                        .appFont(12, weight: .semibold).tracking(0.4)
                         .foregroundStyle(theme.textSecondary)
                         .padding(.horizontal, GroupedMetrics.rowInset)
                         .accessibilityAddTraits(.isHeader)
@@ -321,7 +321,7 @@ struct ConnectionsView: View {
                 if showsBuiltin { CustomMCPSection(onToast: { show(toast: $0) }) }
                 if catalog.loaded, !showsApple {
                     Text("Die Anmeldung läuft sicher über Composio. Die Scoops sehen nur die Konten, nie deine Passwörter.")
-                        .font(.system(size: 12.5))
+                        .appFont(12.5)
                         .foregroundStyle(theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .multilineTextAlignment(.center)
@@ -355,7 +355,7 @@ struct ConnectionsView: View {
                     GroupedDivider(inset: 70)
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Weitere Apps laden …").font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                        Text("Weitere Apps laden …").appFont(13).foregroundStyle(theme.textSecondary)
                     }
                     .groupedRow()
                     .frame(maxWidth: .infinity)
@@ -376,17 +376,17 @@ struct ConnectionsView: View {
             if !catalog.loaded || catalog.loading {
                 ProgressView()
             } else if catalog.isSearching {
-                Image(systemName: "magnifyingglass").font(.system(size: 26)).foregroundStyle(theme.textTertiary)
+                Image(systemName: "magnifyingglass").appFont(26).foregroundStyle(theme.textTertiary)
                 Text("Keine App gefunden für „\(catalog.query.trimmingCharacters(in: .whitespaces))“.")
-                    .font(.system(size: 14.5)).foregroundStyle(theme.textSecondary)
+                    .appFont(14.5).foregroundStyle(theme.textSecondary)
                     .multilineTextAlignment(.center)
             } else if catalog.selected == CatalogCategory.connected {
-                Image(systemName: "link").font(.system(size: 26)).foregroundStyle(theme.textTertiary)
-                Text("Noch keine App verbunden.").font(.system(size: 14.5)).foregroundStyle(theme.textSecondary)
+                Image(systemName: "link").appFont(26).foregroundStyle(theme.textTertiary)
+                Text("Noch keine App verbunden.").appFont(14.5).foregroundStyle(theme.textSecondary)
                 Button("Beliebte Apps ansehen") { select(CatalogCategory.popular) }
                     .buttonStyle(PillButtonStyle(kind: .secondary))
             } else {
-                Text("In dieser Kategorie gibt es keine Apps.").font(.system(size: 14.5)).foregroundStyle(theme.textSecondary)
+                Text("In dieser Kategorie gibt es keine Apps.").appFont(14.5).foregroundStyle(theme.textSecondary)
             }
         }
         .frame(maxWidth: .infinity)
@@ -395,18 +395,21 @@ struct ConnectionsView: View {
     }
 
     private func appRow(_ app: CatalogApp) -> some View {
-        HStack(spacing: 12) {
-            AppLogo(slug: app.slug, name: app.name, symbol: app.symbol, size: 40)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(app.name)
-                    .font(.system(size: 15.5, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
-                if let d = app.detail, !d.isEmpty {
-                    Text(d).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary).lineLimit(1)
+        // Große Schrift: Knopf („Verbinden“, „3 Konten“) unter Name und Beschreibung
+        AdaptiveRow(spacing: 12, trailingIndent: 52) {
+            HStack(spacing: 12) {
+                AppLogo(slug: app.slug, name: app.name, symbol: app.symbol, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(app.name)
+                        .appFont(15.5, weight: .semibold)
+                        .foregroundStyle(theme.textPrimary)
+                        .adaptiveLineLimit(1, large: 1, accessibility: 2)
+                    if let d = app.detail, !d.isEmpty {
+                        Text(d).appFont(12.5).foregroundStyle(theme.textSecondary).adaptiveLineLimit(1)
+                    }
                 }
             }
-            Spacer(minLength: 8)
+        } trailing: {
             rowControl(app)
         }
         .groupedRow(vertical: 10)
@@ -429,11 +432,11 @@ struct ConnectionsView: View {
                     Text(app.accounts.count > 1 ? "\(app.accounts.count) Konten" : (pending ? "Ausstehend" : "Verbunden"))
                         .foregroundStyle(theme.textPrimary)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .bold))
+                        .appFont(10, weight: .bold)
                         .foregroundStyle(theme.textSecondary)
                         .rotationEffect(.degrees(open ? 180 : 0))
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .appFont(13, weight: .semibold)
                 .lineLimit(1)
                 .fixedSize()
                 .padding(.horizontal, 11).padding(.vertical, 7)
@@ -442,9 +445,10 @@ struct ConnectionsView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(app.name): \(app.accounts.count == 1 ? "1 Konto" : "\(app.accounts.count) Konten"), \(open ? "zuklappen" : "aufklappen")")
+            .accessibilityLabel(open ? String(localized: "\(app.name): \(app.accounts.count) Konten, zuklappen")
+                                : String(localized: "\(app.name): \(app.accounts.count) Konten, aufklappen"))
         } else if app.authKind == .none {
-            Text("Ohne Anmeldung").font(.system(size: 12.5)).foregroundStyle(theme.textTertiary)
+            Text("Ohne Anmeldung").appFont(12.5).foregroundStyle(theme.textTertiary)
                 .lineLimit(1).fixedSize()
                 .onTapGesture { begin(app) }
         } else {
@@ -473,15 +477,15 @@ struct ConnectionsView: View {
         GroupedDivider(inset: 70)
         Button { begin(app) } label: {
             HStack(spacing: 12) {
-                Image(systemName: "plus.circle.fill").font(.system(size: 18))
+                Image(systemName: "plus.circle.fill").appFont(18)
                     .foregroundStyle(app.canAdd ? theme.accent : theme.textTertiary)
                     .frame(width: 40)
                 Text("Konto hinzufügen")
-                    .font(.system(size: 15))
+                    .appFont(15)
                     .foregroundStyle(app.canAdd ? theme.accent : theme.textTertiary)
                 Spacer()
                 if !app.canAdd {
-                    Text("Höchstens \(catalog.maxPerApp) Konten").font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                    Text("Höchstens \(catalog.maxPerApp) Konten").appFont(12).foregroundStyle(theme.textTertiary)
                 }
             }
             .groupedRow()
@@ -495,28 +499,28 @@ struct ConnectionsView: View {
             StatusDot(color: color(account.state))
                 .frame(width: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(account.displayName).font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                Text(account.displayName).appFont(15).foregroundStyle(theme.textPrimary)
                 if let email = account.email, !email.isEmpty {
-                    Text(email).font(.system(size: 12)).foregroundStyle(theme.textSecondary).lineLimit(1)
+                    Text(email).appFont(12).foregroundStyle(theme.textSecondary).adaptiveLineLimit(1)
                 }
             }
             Spacer(minLength: 6)
             switch account.state {
             case .active:
-                Text("Aktiv").font(.system(size: 12.5)).foregroundStyle(theme.textTertiary)
+                Text("Aktiv").appFont(12.5).foregroundStyle(theme.textTertiary)
             case .problem:
                 Button { startReconnect(account, app: app) } label: {
-                    Text("Neu anmelden").font(.system(size: 13, weight: .semibold))
+                    Text("Neu anmelden").appFont(13, weight: .semibold)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(theme.warning)
             case .pending:
-                Text("Anmeldung läuft").font(.system(size: 12.5)).foregroundStyle(theme.textTertiary)
+                Text("Anmeldung läuft").appFont(12.5).foregroundStyle(theme.textTertiary)
             }
             Menu {
                 accountMenu(account, app: app)
             } label: {
-                Image(systemName: "ellipsis.circle").font(.system(size: 17)).foregroundStyle(theme.textSecondary)
+                Image(systemName: "ellipsis.circle").appFont(17).foregroundStyle(theme.textSecondary)
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
@@ -548,14 +552,14 @@ struct ConnectionsView: View {
     private func errorBanner(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(theme.warning)
-            Text(text).font(.system(size: 13.5)).foregroundStyle(theme.textPrimary)
+            Text(text).appFont(13.5).foregroundStyle(theme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             Button { errorText = nil; Task { await refresh(fresh: true) } } label: {
                 if store.loadingConnections || catalog.loading {
                     ProgressView().controlSize(.small)
                 } else {
-                    Text("Neu versuchen").font(.system(size: 13, weight: .semibold))
+                    Text("Neu versuchen").appFont(13, weight: .semibold)
                 }
             }
             .disabled(store.loadingConnections || catalog.loading)
@@ -573,14 +577,14 @@ struct ConnectionsView: View {
                 HStack(spacing: 12) {
                     AppLogo(slug: "builtin-\(b.id)", name: b.name, symbol: b.symbol ?? "server.rack", size: 40, remote: false)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(b.name).font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                        Text(b.name).appFont(15).foregroundStyle(theme.textPrimary)
                         if let d = b.detail, !d.isEmpty {
-                            Text(d).font(.system(size: 12)).foregroundStyle(theme.textSecondary).lineLimit(2)
+                            Text(d).appFont(12).foregroundStyle(theme.textSecondary).adaptiveLineLimit(2)
                         }
                     }
                     Spacer(minLength: 6)
                     if let t = b.tools, t > 0 {
-                        Text(t == 1 ? "1 Werkzeug" : "\(t) Werkzeuge").font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                        Text("\(t) Werkzeuge").appFont(12).foregroundStyle(theme.textTertiary)
                     }
                     StatusDot(color: builtinColor(b.status))
                         .accessibilityLabel(b.status == "ok" ? "verbunden" : (b.status == "error" ? "Fehler" : "aus"))
@@ -624,7 +628,7 @@ struct ConnectionsView: View {
             namePrompt = NamePrompt(app: app)
             return
         }
-        guard let service = store.service else { errorText = "Keine Verbindung zum Server."; return }
+        guard let service = store.service else { errorText = String(localized: "Keine Verbindung zum Server."); return }
         busySlug = app.slug
         Task {
             defer { busySlug = nil }
@@ -637,7 +641,7 @@ struct ConnectionsView: View {
                     namePrompt = NamePrompt(app: app)
                 default:
                     notice = Notice(title: app.name, message: info.message
-                                    ?? "\(app.name) lässt sich hier im Moment nicht verbinden.")
+                                    ?? String(localized: "\(app.name) lässt sich hier im Moment nicht verbinden."))
                 }
             } catch {
                 errorText = store.message(error)
@@ -672,7 +676,10 @@ struct ConnectionsView: View {
     /// Mit Rücksprung-Schema (Notion direkt, Server 1.25): Das Fenster schließt beim Rücksprung, die App gibt ihn an
     /// den Server weiter, der die Anmeldung abschließt.
     private func run(_ link: ConnectionLink, title: String, slug: String) {
-        guard let url = URL(string: link.url) else { errorText = "Der Server hat keinen gültigen Anmelde-Link geliefert."; return }
+        guard let url = URL(string: link.url) else {
+            errorText = String(localized: "Der Server hat keinen gültigen Anmelde-Link geliefert.")
+            return
+        }
         if let scheme = link.callbackScheme, !scheme.isEmpty {
             busySlug = slug
             login.start(url: url, callbackScheme: scheme) { callback in
@@ -682,7 +689,7 @@ struct ConnectionsView: View {
                     switch await store.finishOAuth(callback) {
                     case .success:
                         expanded.insert(slug)
-                        show(toast: "\(title) verbunden")
+                        show(toast: String(localized: "\(title) verbunden"))
                     case .failure(let e):
                         errorText = e.message
                     }
@@ -709,13 +716,13 @@ struct ConnectionsView: View {
                 if account.status == "active" {
                     login.finish()
                     expanded.insert(slug)
-                    show(toast: "\(title) verbunden")
+                    show(toast: String(localized: "\(title) verbunden"))
                     await refresh(fresh: true)
                     return
                 }
                 if account.status == "failed" {
                     login.finish()
-                    errorText = "Die Anmeldung bei \(title) hat nicht geklappt. Bitte versuche es noch einmal."
+                    errorText = String(localized: "Die Anmeldung bei \(title) hat nicht geklappt. Bitte versuche es noch einmal.")
                     await refresh(fresh: true)
                     return
                 }
@@ -752,8 +759,8 @@ struct ConnectFieldsSheet: View {
                     HStack(spacing: 14) {
                         AppLogo(slug: app.slug, name: app.name, symbol: app.symbol, size: 52)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(info.name).font(.system(size: 18, weight: .semibold)).foregroundStyle(theme.textPrimary)
-                            Text(schemeLabel).font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                            Text(info.name).appFont(18, weight: .semibold).foregroundStyle(theme.textPrimary)
+                            Text(schemeLabel).appFont(13).foregroundStyle(theme.textSecondary)
                         }
                         Spacer(minLength: 0)
                     }
@@ -767,7 +774,7 @@ struct ConnectFieldsSheet: View {
                                    footer: "Über diesen Namen sagst du den Scoops, welches Konto sie nehmen sollen.") {
                         TextField("z. B. privat, arbeit", text: $alias)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 15))
+                            .appFont(15)
                             .autocorrectionDisabled()
                             .focused($focus, equals: "_alias")
                             .groupedRow()
@@ -776,7 +783,7 @@ struct ConnectFieldsSheet: View {
                     if let guide = info.guideUrl, let url = URL(string: guide) {
                         Link(destination: url) {
                             Label("Wo finde ich die Angaben?", systemImage: "questionmark.circle")
-                                .font(.system(size: 14, weight: .medium))
+                                .appFont(14, weight: .medium)
                         }
                         .foregroundStyle(theme.accent)
                         .padding(.horizontal, GroupedMetrics.rowInset)
@@ -785,7 +792,7 @@ struct ConnectFieldsSheet: View {
                     if let error {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(theme.warning)
-                            Text(error).font(.system(size: 13.5)).foregroundStyle(theme.textPrimary)
+                            Text(error).appFont(13.5).foregroundStyle(theme.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(14)
@@ -796,7 +803,7 @@ struct ConnectFieldsSheet: View {
 
                     Label("Die Angaben gehen direkt an Composio. Dein Server speichert sie nicht und schreibt sie in kein Protokoll.",
                           systemImage: "lock.fill")
-                        .font(.system(size: 12.5))
+                        .appFont(12.5)
                         .foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, GroupedMetrics.rowInset)
@@ -805,7 +812,7 @@ struct ConnectFieldsSheet: View {
                 .padding(.vertical, 8)
             }
             .scrollDismissesKeyboard(.interactively)
-            HStack(spacing: 10) {
+            AdaptiveButtonRow(spacing: 10, stretchWhenStacked: true) {
                 Button("Abbrechen") { dismiss() }
                     .buttonStyle(PillButtonStyle(kind: .secondary))
                 Spacer()
@@ -816,6 +823,8 @@ struct ConnectFieldsSheet: View {
                 .disabled(!canSubmit || busy)
                 .keyboardShortcut(.defaultAction)
             }
+            // Fußzeile eines Blatts: wächst bis zur größten normalen Stufe mit, bleibt so in einer Zeile
+            .dynamicTypeSize(...AppFont.controlCap)
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
         }
@@ -834,9 +843,9 @@ struct ConnectFieldsSheet: View {
 
     private var schemeLabel: String {
         switch info.scheme ?? "" {
-        case "BEARER_TOKEN": "Mit Zugangs-Token verbinden"
-        case "BASIC", "BASIC_WITH_JWT": "Mit Benutzername und Passwort verbinden"
-        default: "Mit API-Schlüssel verbinden"
+        case "BEARER_TOKEN": String(localized: "Mit Zugangs-Token verbinden")
+        case "BASIC", "BASIC_WITH_JWT": String(localized: "Mit Benutzername und Passwort verbinden")
+        default: String(localized: "Mit API-Schlüssel verbinden")
         }
     }
 
@@ -846,8 +855,8 @@ struct ConnectFieldsSheet: View {
 
     private func fieldRow(_ f: AuthField) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(f.required ? f.label : "\(f.label) (optional)")
-                .font(.system(size: 12.5, weight: .semibold))
+            Text(f.required ? f.label : String(localized: "\(f.label) (optional)"))
+                .appFont(12.5, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
             Group {
                 if f.secret {
@@ -857,7 +866,7 @@ struct ConnectFieldsSheet: View {
                 }
             }
             .textFieldStyle(.plain)
-            .font(.system(size: 15.5))
+            .appFont(15.5)
             .foregroundStyle(theme.textPrimary)
             .autocorrectionDisabled()
             #if os(iOS)
@@ -866,7 +875,7 @@ struct ConnectFieldsSheet: View {
             .focused($focus, equals: f.name)
             .onSubmit { submitIfReady() }
             if let d = f.description, !d.isEmpty {
-                Text(d).font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                Text(d).appFont(12).foregroundStyle(theme.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -876,7 +885,7 @@ struct ConnectFieldsSheet: View {
     private func submitIfReady() { if canSubmit, !busy { submit() } }
 
     private func submit() {
-        guard let service = store.service else { error = "Keine Verbindung zum Server."; return }
+        guard let service = store.service else { error = String(localized: "Keine Verbindung zum Server."); return }
         let fields = info.fields.compactMap { f -> AuthFieldValue? in
             let v = (values[f.name] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             return v.isEmpty ? nil : AuthFieldValue(name: f.name, value: v)

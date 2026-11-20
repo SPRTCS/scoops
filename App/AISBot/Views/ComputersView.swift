@@ -13,13 +13,16 @@ struct ComputersSection: View {
     @State private var deleteTarget: ComputerNode?
 
     var body: some View {
-        GroupedSection("Rechner", footer: footer, dividerInset: 62) {
+        // Eigener Schlüssel: Überschrift heißt englisch „Computers“ (Mehrzahl), „Rechner“ sonst „Computer“
+        GroupedSection(String(localized: "settings.section.computers", defaultValue: "Rechner",
+                              comment: "Abschnitt in den Einstellungen mit allen Rechnern (englisch Mehrzahl: Computers)"),
+                       footer: footer, dividerInset: 62) {
             ForEach(list) { node in row(node) }
             Button { showAdd = true } label: {
                 HStack(spacing: 12) {
-                    Image(systemName: "plus.circle.fill").font(.system(size: 18)).foregroundStyle(theme.accent)
+                    Image(systemName: "plus.circle.fill").appFont(18).foregroundStyle(theme.accent)
                         .frame(width: 34)
-                    Text("Rechner hinzufügen").font(.system(size: 15)).foregroundStyle(theme.accent)
+                    Text("Rechner hinzufügen").appFont(15).foregroundStyle(theme.accent)
                     Spacer()
                 }
                 .groupedRow()
@@ -41,7 +44,7 @@ struct ComputersSection: View {
         } message: {
             Text("So heißt der Rechner in der App und bei deinen Scoops.")
         }
-        .confirmationDialog(deleteTarget.map { "„\($0.name)“ entfernen?" } ?? "",
+        .confirmationDialog(deleteTarget.map { t in String(localized: "„\(t.name)“ entfernen?") } ?? "",
                             isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }),
                             titleVisibility: .visible) {
             Button("Rechner entfernen", role: .destructive) {
@@ -57,22 +60,24 @@ struct ComputersSection: View {
     /// Ohne geladene Liste (ältere Server) wenigstens der Bot-Rechner
     private var list: [ComputerNode] {
         store.nodes.isEmpty
-            ? [ComputerNode(id: ComputerNode.builtinID, name: "Bot-Rechner", mode: "vm", builtin: true,
+            ? [ComputerNode(id: ComputerNode.builtinID, name: String(localized: "Bot-Rechner"), mode: "vm", builtin: true,
                             online: store.computer.state != "asleep", state: store.computer.state)]
             : store.nodes
     }
 
     private var footer: String {
-        "An diesen Rechnern arbeiten deine Scoops. Weitere Macs schließt du mit der App Scoops Connect an; "
-            + "welcher Scoop wo arbeitet, legst du in seinem Profil fest."
+        String(localized: "An diesen Rechnern arbeiten deine Scoops. Weitere Macs schließt du mit der App Scoops Connect an; welcher Scoop wo arbeitet, legst du in seinem Profil fest.")
     }
 
     private var deleteMessage: String {
         guard let target = deleteTarget else { return "" }
         let users = store.bots.filter { $0.computerNode == target.id }.map(\.name)
-        var text = "Scoops Connect auf diesem Mac wird getrennt und muss neu gekoppelt werden."
+        var text = String(localized: "Scoops Connect auf diesem Mac wird getrennt und muss neu gekoppelt werden.")
         if !users.isEmpty {
-            text += " \(users.formatted(.list(type: .and))) \(users.count == 1 ? "arbeitet" : "arbeiten") dann wieder am Bot-Rechner."
+            let names = users.formatted(.list(type: .and).locale(.app))
+            text += " " + (users.count == 1
+                ? String(localized: "\(names) arbeitet dann wieder am Bot-Rechner.", comment: "Ein Scoop (Name)")
+                : String(localized: "\(names) arbeiten dann wieder am Bot-Rechner.", comment: "Mehrere Scoops (Aufzählung)"))
         }
         return text
     }
@@ -81,17 +86,17 @@ struct ComputersSection: View {
         HStack(spacing: 12) {
             ComputerSymbol(node: node, size: 34)
             VStack(alignment: .leading, spacing: 2) {
-                Text(node.name).font(.system(size: 15)).foregroundStyle(theme.textPrimary).lineLimit(1)
+                Text(node.name).appFont(15).foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
                 HStack(spacing: 5) {
                     Circle().fill(statusColor(node)).frame(width: 7, height: 7)
-                    Text(subtitle(node)).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary).lineLimit(1)
+                    Text(subtitle(node)).appFont(12.5).foregroundStyle(theme.textSecondary).adaptiveLineLimit(1)
                 }
             }
             Spacer(minLength: 6)
             Menu {
                 menu(node)
             } label: {
-                Image(systemName: "ellipsis.circle").font(.system(size: 17)).foregroundStyle(theme.textSecondary)
+                Image(systemName: "ellipsis.circle").appFont(17).foregroundStyle(theme.textSecondary)
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
@@ -116,15 +121,16 @@ struct ComputersSection: View {
     private func subtitle(_ node: ComputerNode) -> String {
         var parts = [node.statusText]
         if node.isBuiltin {
-            parts.append("Eingebaut")
+            parts.append(String(localized: "Eingebaut", comment: "Rechner: der eingebaute Bot-Rechner"))
         } else {
-            parts.append(node.mode == "vm" ? "VM" : "Direkt")
+            parts.append(node.mode == "vm" ? "VM" : String(localized: "Direkt", comment: "Rechner-Modus: Mac direkt gesteuert (statt VM)"))
             if !node.online, let seen = node.lastSeen {
-                parts.append("zuletzt \(seen.formatted(.relative(presentation: .named)))")
+                let ago = seen.formatted(.relative(presentation: .named).locale(.app))
+                parts.append(String(localized: "zuletzt \(ago)", comment: "Rechner zuletzt gesehen, z. B. „zuletzt vor 2 Stunden“"))
             }
         }
         let users = store.bots.filter { $0.computerNode == node.id }.count
-        if users > 0 { parts.append("\(users) \(users == 1 ? "Scoop" : "Scoops")") }
+        if users > 0 { parts.append(String(localized: "\(users) Scoops")) }
         return parts.joined(separator: " · ")
     }
 
@@ -139,7 +145,7 @@ struct ComputerSymbol: View {
 
     var body: some View {
         Image(systemName: node.symbol)
-            .font(.system(size: size * 0.44, weight: .semibold))
+            .font(.fixed(size * 0.44, weight: .semibold))
             .foregroundStyle(node.online ? theme.textPrimary : theme.textTertiary)
             .frame(width: size, height: size)
             .background(theme.selection, in: RoundedRectangle(cornerRadius: size * 0.26, style: .continuous))
@@ -220,22 +226,22 @@ struct AddComputerSheet: View {
                     let left = max(0, pairing.expiresAt.timeIntervalSince(context.date))
                     VStack(spacing: 12) {
                         Text(pairing.code)
-                            .font(.system(size: 40, weight: .bold, design: .monospaced))
+                            .appFont(40, weight: .bold, design: .monospaced)
                             .tracking(3)
                             .foregroundStyle(left > 0 ? theme.textPrimary : theme.textTertiary)
                             .strikethrough(left <= 0, color: theme.textTertiary)
                             .textSelection(.enabled)
                             .minimumScaleFactor(0.6)
-                            .lineLimit(1)
+                            .adaptiveLineLimit(1)
                             .accessibilityLabel("Code \(pairing.code.map(String.init).joined(separator: " "))")
                         if left > 0 {
                             HStack(spacing: 6) {
                                 Image(systemName: "timer")
                                 Text("Gültig noch \(Self.countdown(left))").monospacedDigit()
                             }
-                            .font(.system(size: 13))
+                            .appFont(13)
                             .foregroundStyle(left < 60 ? theme.warning : theme.textSecondary)
-                            HStack(spacing: 10) {
+                            AdaptiveButtonRow(spacing: 10) {
                                 Button {
                                     Clipboard.copy(pairing.code)
                                     copied = true
@@ -245,11 +251,11 @@ struct AddComputerSheet: View {
                                 .buttonStyle(PillButtonStyle(kind: .secondary))
                                 HStack(spacing: 6) {
                                     ProgressView().controlSize(.small)
-                                    Text("Warte auf den Mac …").font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                                    Text("Warte auf den Mac …").appFont(12.5).foregroundStyle(theme.textSecondary)
                                 }
                             }
                         } else {
-                            Text("Code abgelaufen").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.danger)
+                            Text("Code abgelaufen").appFont(13, weight: .semibold).foregroundStyle(theme.danger)
                             Button("Neuen Code anzeigen") { Task { await newCode() } }
                                 .buttonStyle(PillButtonStyle(kind: .primary))
                                 .disabled(loading)
@@ -258,8 +264,8 @@ struct AddComputerSheet: View {
                 }
             } else if let error {
                 VStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle").font(.system(size: 26)).foregroundStyle(theme.warning)
-                    Text(error).font(.system(size: 13)).foregroundStyle(theme.textSecondary).multilineTextAlignment(.center)
+                    Image(systemName: "exclamationmark.triangle").appFont(26).foregroundStyle(theme.warning)
+                    Text(error).appFont(13).foregroundStyle(theme.textSecondary).multilineTextAlignment(.center)
                     Button("Nochmal versuchen") { Task { await newCode() } }
                         .buttonStyle(PillButtonStyle(kind: .primary))
                 }
@@ -277,30 +283,31 @@ struct AddComputerSheet: View {
 
     private var steps: some View {
         GroupedSection("So geht's", footer: "Der Code gilt 10 Minuten und nur einmal. Scoops Connect verbindet sich danach von selbst, auch nach einem Neustart.") {
-            step(1, "Scoops Connect auf dem Mac öffnen", "Die App erscheint danach oben in der Menüleiste.")
+            step(1, "Scoops Connect auf dem Mac öffnen", String(localized: "Die App erscheint danach oben in der Menüleiste."))
             step(2, "Code eingeben", serverHint)
             step(3, "Modus wählen und Zugriff erlauben",
-                 "„Diesen Mac direkt steuern“ für einen reinen Scoop-Rechner, „Abgeschirmte VM“, wenn du selbst daran arbeitest. Danach Bildschirmaufnahme und Bedienungshilfen erlauben.")
+                 String(localized: "„Diesen Mac direkt steuern“ für einen reinen Scoop-Rechner, „Abgeschirmte VM“, wenn du selbst daran arbeitest. Danach Bildschirmaufnahme und Bedienungshilfen erlauben."))
         }
     }
 
     private var serverHint: String {
         if let url = pairing?.serverUrl, !url.isEmpty {
-            return "Server-Adresse: \(url.replacingOccurrences(of: "https://", with: ""))"
+            let address = url.replacingOccurrences(of: "https://", with: "")
+            return String(localized: "Server-Adresse: \(address)")
         }
-        return "Server-Adresse wie in dieser App unter Verbindung."
+        return String(localized: "Server-Adresse wie in dieser App unter Verbindung.")
     }
 
-    private func step(_ n: Int, _ title: String, _ detail: String) -> some View {
+    private func step(_ n: Int, _ title: LocalizedStringKey, _ detail: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(n)")
-                .font(.system(size: 13, weight: .bold))
+                .appFont(13, weight: .bold)
                 .foregroundStyle(theme.textOnAccent)
                 .frame(width: 24, height: 24)
                 .background(theme.accent, in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 15, weight: .medium)).foregroundStyle(theme.textPrimary)
-                Text(detail).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                Text(title).appFont(15, weight: .medium).foregroundStyle(theme.textPrimary)
+                Text(detail).appFont(12.5).foregroundStyle(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             }
@@ -314,15 +321,15 @@ struct AddComputerSheet: View {
     private func success(_ node: ComputerNode) -> some View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 52))
+                .appFont(52)
                 .foregroundStyle(theme.success)
                 .padding(.top, 30)
             Text("„\(node.name)“ ist verbunden")
-                .font(.system(size: 19, weight: .semibold))
+                .appFont(19, weight: .semibold)
                 .foregroundStyle(theme.textPrimary)
                 .multilineTextAlignment(.center)
             Text("Wähle im Profil eines Scoops unter „Computer“, ob er an diesem Rechner arbeiten soll.")
-                .font(.system(size: 13.5))
+                .appFont(13.5)
                 .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
             Button("Fertig") { dismiss() }
@@ -340,10 +347,10 @@ struct AddComputerSheet: View {
             pairing = try await store.pairNode()
         } catch let e as APIError where e.status == 404 {
             pairing = nil
-            error = "Dein Server kennt noch keine weiteren Rechner. Bitte erst auf Version 1.11 aktualisieren."
+            error = String(localized: "Dein Server kennt noch keine weiteren Rechner. Bitte erst auf Version 1.11 aktualisieren.")
         } catch {
             pairing = nil
-            self.error = "Kein Code erhalten: \(error.localizedDescription)"
+            self.error = String(localized: "Kein Code erhalten: \(error.localizedDescription)")
         }
         loading = false
     }
@@ -375,16 +382,19 @@ struct ComputerNodePicker: View {
                 }
             }
         } label: {
-            HStack(spacing: 12) {
-                Text("Rechner").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
-                Spacer(minLength: 8)
-                if let current, !current.isAvailable {
-                    Text(current.statusText).font(.system(size: 12.5)).foregroundStyle(theme.warning)
+            // Große Schrift: gewählter Rechner unter „Rechner“
+            AdaptiveRow(spacing: 12, stackedSpacing: 2) {
+                Text("Rechner").appFont(15).foregroundStyle(theme.textPrimary)
+            } trailing: {
+                HStack(spacing: 12) {
+                    if let current, !current.isAvailable {
+                        Text(current.statusText).appFont(12.5).foregroundStyle(theme.warning)
+                    }
+                    Text(current?.name ?? store.nodeName(bot.computerNode))
+                        .appFont(15).foregroundStyle(theme.textSecondary).adaptiveLineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .appFont(11, weight: .semibold).foregroundStyle(theme.textTertiary)
                 }
-                Text(current?.name ?? store.nodeName(bot.computerNode))
-                    .font(.system(size: 15)).foregroundStyle(theme.textSecondary).lineLimit(1)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.textTertiary)
             }
             .groupedRow()
         }
@@ -417,10 +427,10 @@ struct ComputerNodeSwitcher: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: store.node(store.computerNodeID)?.symbol ?? "cube.transparent")
-                Text(store.nodeName(store.computerNodeID)).lineLimit(1)
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                Text(store.nodeName(store.computerNodeID)).adaptiveLineLimit(1)
+                Image(systemName: "chevron.down").appFont(10, weight: .bold)
             }
-            .font(.system(size: 13, weight: .medium))
+            .appFont(13, weight: .medium)
             .foregroundStyle(theme.textPrimary)
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(theme.surfaceRaised, in: Capsule())

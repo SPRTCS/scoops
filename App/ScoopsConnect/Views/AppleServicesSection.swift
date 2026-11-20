@@ -15,7 +15,8 @@ struct AppleServicesSection: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let last = model.lastAppleCommand {
-                Text("Zuletzt genutzt: \(Self.label(last.command)) · \(last.at.formatted(date: .omitted, time: .shortened))")
+                Text("Zuletzt genutzt: \(Self.label(last.command)) · \(last.at.formatted(date: .omitted, time: .shortened))",
+                     comment: "Dienst · Uhrzeit")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
@@ -29,9 +30,9 @@ struct AppleServicesSection: View {
     }
 
     static func label(_ command: String) -> String {
-        if command.hasPrefix("apple.reminders.") { return "Erinnerungen" }
-        if command.hasPrefix("apple.calendar.") { return "Kalender" }
-        if command.hasPrefix("apple.contacts.") { return "Kontakte" }
+        if command.hasPrefix("apple.reminders.") { return AppleService.reminders.title }
+        if command.hasPrefix("apple.calendar.") { return AppleService.calendar.title }
+        if command.hasPrefix("apple.contacts.") { return AppleService.contacts.title }
         return command
     }
 }
@@ -66,7 +67,7 @@ private struct AppleServiceRow: View {
                                                           set: { model.setAppleEnabled(service, $0) }))
                     .toggleStyle(.switch)
                     .labelsHidden()
-                    .accessibilityLabel("\(service.title) für Scoops nutzen")
+                    .accessibilityLabel(Text("\(service.title) für Scoops nutzen"))
             }
         }
         .padding(.vertical, 4)

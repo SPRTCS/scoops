@@ -15,6 +15,18 @@ final class ComposerDraft {
     var replyTo: ReplyRef? {
         didSet { if replyTo != oldValue { onChange?() } }
     }
+    /// Eigene Nachricht wird gerade bearbeitet (App 1.3): Hinweis-Chip über dem Eingabefeld, Senden ersetzt den Text.
+    /// Nicht gesichert: Nach einem Neustart steht der Text als normaler Entwurf da.
+    var editing: EditTarget?
+
+    struct EditTarget: Equatable {
+        var messageID: String
+        /// Text der Nachricht vor dem Bearbeiten
+        var original: String
+        /// Was vorher im Eingabefeld stand (kommt nach dem Bearbeiten oder Abbrechen zurück)
+        var previousDraft: String
+    }
+
     let attachments = AttachmentQueue()
     @ObservationIgnored var onChange: (() -> Void)?
 

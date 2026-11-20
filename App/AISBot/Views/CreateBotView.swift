@@ -49,7 +49,10 @@ struct CreateBotView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetHeader(isEditing ? "Aussehen bearbeiten" : "Neuer Scoop", icon: isEditing ? "paintbrush" : "sparkles") { dismiss() }
+            SheetHeader(isEditing ? "Aussehen bearbeiten" : "Neuer Scoop", icon: isEditing ? "paintbrush" : "sparkles") {
+                // Statt selbst zu gestalten: Scoop aus einer Vorlagen-Datei anlegen (docs/vorlagen.md)
+                if !isEditing, store.supportsTemplates { TemplatePickerButton() }
+            } onClose: { dismiss() }
             Divider().overlay(theme.surfaceBorder)
 
             ScrollView {
@@ -104,7 +107,7 @@ struct CreateBotView: View {
                                 variant { $0.mouth = m; $0.accessory = "none" }
                             } select: { mascot.mouth = $0 }
                             HStack {
-                                Text("Rote Wangen").font(.system(size: 13)).foregroundStyle(theme.textPrimary)
+                                Text("Rote Wangen").appFont(13).foregroundStyle(theme.textPrimary)
                                 Spacer()
                                 Toggle("Rote Wangen", isOn: Binding(get: { mascot.showsCheeks }, set: { mascot.cheeks = $0 }))
                                     .labelsHidden()
@@ -157,7 +160,7 @@ struct CreateBotView: View {
             }
 
             Divider().overlay(theme.surfaceBorder)
-            HStack(spacing: 10) {
+            AdaptiveButtonRow(spacing: 10, stretchWhenStacked: true) {
                 if !usesPhoto {
                     Button("Zufall") { randomize() }
                         .buttonStyle(PillButtonStyle(kind: .secondary))
@@ -172,6 +175,8 @@ struct CreateBotView: View {
                     .disabled(!canSave)
                     .keyboardShortcut(.defaultAction)
             }
+            // Fußzeile eines Blatts: wächst bis zur größten normalen Stufe mit, bleibt so in einer Zeile
+            .dynamicTypeSize(...AppFont.controlCap)
             .padding(.horizontal, 18).padding(.vertical, 12)
         }
         .background(theme.groupedBackground)
@@ -206,7 +211,7 @@ struct CreateBotView: View {
                 photoError = nil
                 cropSource = AvatarCropSource(image: image)
             } else if case .success = result {
-                photoError = "Das Bild konnte nicht gelesen werden."
+                photoError = String(localized: "Das Bild konnte nicht gelesen werden.")
             }
         }
         .sheet(item: $cropSource) { src in
@@ -253,7 +258,7 @@ struct CreateBotView: View {
 
     private var photoControls: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            AdaptiveButtonRow(spacing: 8) {
                 Button { showPhotoPicker = true } label: {
                     Label(hasPhoto ? "Anderes Foto" : "Foto wählen", systemImage: "photo.on.rectangle")
                 }
@@ -273,11 +278,11 @@ struct CreateBotView: View {
                 }
             }
             Text(photoHint)
-                .font(.system(size: 12))
+                .appFont(12)
                 .foregroundStyle(theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let photoError {
-                Text(photoError).font(.system(size: 12)).foregroundStyle(.red)
+                Text(photoError).appFont(12).foregroundStyle(.red)
             }
             if hasPhoto {
                 Button {
@@ -294,15 +299,15 @@ struct CreateBotView: View {
 
     private var photoHint: String {
         #if os(macOS)
-        "Foto oder Grafik, wird rund angezeigt. Du kannst ein Bild auch direkt auf die Vorschau ziehen. Accessoires gibt es nur beim Maskottchen."
+        String(localized: "Foto oder Grafik, wird rund angezeigt. Du kannst ein Bild auch direkt auf die Vorschau ziehen. Accessoires gibt es nur beim Maskottchen.")
         #else
-        "Foto oder Grafik, wird rund angezeigt. Accessoires gibt es nur beim Maskottchen."
+        String(localized: "Foto oder Grafik, wird rund angezeigt. Accessoires gibt es nur beim Maskottchen.")
         #endif
     }
 
     private func openCrop(_ data: Data?) {
         guard let data, let image = ScoopPhotoCoding.image(from: data) else {
-            photoError = "Das Bild konnte nicht gelesen werden."
+            photoError = String(localized: "Das Bild konnte nicht gelesen werden.")
             return
         }
         photoError = nil
@@ -328,7 +333,7 @@ struct CreateBotView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .padding(.top, 5)
                         Text(name(item))
-                            .font(.system(size: 9.5))
+                            .appFont(9.5)
                             .foregroundStyle(selected == item ? theme.textPrimary : theme.textSecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
@@ -338,9 +343,9 @@ struct CreateBotView: View {
         }
     }
 
-    private func pickerSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func pickerSection<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.textSecondary)
+            Text(title).appFont(12.5, weight: .medium).foregroundStyle(theme.textSecondary)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -391,7 +396,7 @@ struct CreateBotView: View {
             ForEach(Mascot.accessoryGroups, id: \.title) { group in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(group.title)
-                        .font(.system(size: 11, weight: .medium))
+                        .appFont(11, weight: .medium)
                         .foregroundStyle(theme.textSecondary.opacity(0.8))
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 60, maximum: 78), spacing: 4)], spacing: 4) {
                         ForEach(group.items, id: \.self) { acc in
@@ -403,7 +408,7 @@ struct CreateBotView: View {
                                                size: 42, seed: "acc", animated: false)
                                         .padding(.top, 5)
                                     Text(Mascot.accessoryName(acc))
-                                        .font(.system(size: 9.5))
+                                        .appFont(9.5)
                                         .foregroundStyle(mascot.accessory == acc ? theme.textPrimary : theme.textSecondary)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.7)
@@ -425,7 +430,7 @@ struct FieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .textFieldStyle(.plain)
-            .font(.system(size: 14.5))
+            .appFont(14.5)
             .foregroundStyle(theme.textPrimary)
             .padding(.horizontal, 14).padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: alignment)
@@ -457,7 +462,7 @@ struct SystemColorPicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIColorPickerViewController {
         let vc = UIColorPickerViewController()
         vc.supportsAlpha = false
-        vc.title = "Eigene Farbe"
+        vc.title = String(localized: "Eigene Farbe")
         vc.selectedColor = UIColor(color)
         vc.delegate = context.coordinator
         return vc

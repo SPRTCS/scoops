@@ -20,6 +20,17 @@ struct GroupedSection<Content: View>: View {
     @ViewBuilder var content: Content
     @Environment(\.theme) private var theme
 
+    /// Überschrift und Fußtext als übersetzbare Texte (Literale landen im String Catalog).
+    init(_ header: LocalizedStringResource? = nil, footer: LocalizedStringResource? = nil,
+         dividerInset: CGFloat = GroupedMetrics.rowInset, @ViewBuilder content: () -> Content) {
+        self.header = header.map { String(localized: $0) }
+        self.footer = footer.map { String(localized: $0) }
+        self.dividerInset = dividerInset
+        self.content = content()
+    }
+
+    /// Überschrift und Fußtext als fertige Texte (schon übersetzt oder vom Server).
+    @_disfavoredOverload
     init(_ header: String? = nil, footer: String? = nil, dividerInset: CGFloat = GroupedMetrics.rowInset,
          @ViewBuilder content: () -> Content) {
         self.header = header
@@ -32,7 +43,7 @@ struct GroupedSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 7) {
             if let header {
                 Text(header.uppercased())
-                    .font(.system(size: 12, weight: .semibold))
+                    .appFont(12, weight: .semibold)
                     .tracking(0.4)
                     .foregroundStyle(theme.textSecondary)
                     .padding(.horizontal, GroupedMetrics.rowInset)
@@ -53,7 +64,7 @@ struct GroupedSection<Content: View>: View {
                 .strokeBorder(theme.surfaceBorder, lineWidth: 0.5))
             if let footer {
                 Text(footer)
-                    .font(.system(size: 12.5))
+                    .appFont(12.5)
                     .foregroundStyle(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, GroupedMetrics.rowInset)
@@ -96,6 +107,17 @@ struct GroupedLabelRow<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
     @Environment(\.theme) private var theme
 
+    /// Titel und Untertitel als übersetzbare Texte (Literale landen im String Catalog).
+    init(icon: String? = nil, iconColor: Color? = nil, title: LocalizedStringResource,
+         subtitle: LocalizedStringResource? = nil, titleColor: Color? = nil,
+         @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+        self.icon = icon; self.iconColor = iconColor; self.title = String(localized: title)
+        self.subtitle = subtitle.map { String(localized: $0) }
+        self.titleColor = titleColor; self.trailing = trailing()
+    }
+
+    /// Titel und Untertitel als fertige Texte (schon übersetzt oder vom Server).
+    @_disfavoredOverload
     init(icon: String? = nil, iconColor: Color? = nil, title: String, subtitle: String? = nil, titleColor: Color? = nil,
          @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
         self.icon = icon; self.iconColor = iconColor; self.title = title; self.subtitle = subtitle
@@ -106,21 +128,22 @@ struct GroupedLabelRow<Trailing: View>: View {
         HStack(spacing: 12) {
             if let icon {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .medium))
+                    .appFont(15, weight: .medium)
                     .foregroundStyle(iconColor ?? theme.textSecondary)
-                    .frame(width: 22)
+                    .scaledFrame(width: 22)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 15))
+                    .appFont(15)
                     .foregroundStyle(titleColor ?? theme.textPrimary)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 12.5))
+                        .appFont(12.5)
                         .foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .layoutPriority(1)
             Spacer(minLength: 8)
             trailing
         }
@@ -133,7 +156,7 @@ struct DisclosureChevron: View {
     @Environment(\.theme) private var theme
     var body: some View {
         Image(systemName: "chevron.right")
-            .font(.system(size: 12, weight: .semibold))
+            .appFont(12, weight: .semibold)
             .foregroundStyle(theme.textTertiary)
     }
 }
@@ -145,22 +168,35 @@ struct SheetHeader<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
     var onClose: () -> Void
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    init(_ title: LocalizedStringResource, icon: String? = nil, @ViewBuilder trailing: () -> Trailing = { EmptyView() },
+         onClose: @escaping () -> Void) {
+        self.title = String(localized: title); self.icon = icon; self.trailing = trailing(); self.onClose = onClose
+    }
+
+    /// Titel als fertiger Text (schon übersetzt oder Name).
+    @_disfavoredOverload
     init(_ title: String, icon: String? = nil, @ViewBuilder trailing: () -> Trailing = { EmptyView() },
          onClose: @escaping () -> Void) {
         self.title = title; self.icon = icon; self.trailing = trailing(); self.onClose = onClose
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            if let icon {
-                Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(theme.textSecondary)
+        // Große Schrift (Bedienungshilfen): Zusatzknöpfe in eine eigene Zeile unter den Titel, damit der Titel Platz hat
+        let stacked = dynamicTypeSize.isAccessibilitySize && !(Trailing.self == EmptyView.self)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                if let icon {
+                    Image(systemName: icon).appFont(15, weight: .semibold).foregroundStyle(theme.textSecondary)
+                }
+                Text(title).appFont(17, weight: .semibold).foregroundStyle(theme.textPrimary)
+                Spacer()
+                if !stacked { trailing }
+                CircleIconButton(systemName: "xmark", help: String(localized: "Schließen"), size: 30, action: onClose)
+                    .keyboardShortcut(.cancelAction)
             }
-            Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(theme.textPrimary)
-            Spacer()
-            trailing
-            CircleIconButton(systemName: "xmark", help: "Schließen", size: 30, action: onClose)
-                .keyboardShortcut(.cancelAction)
+            if stacked { trailing }
         }
         .padding(.horizontal, 20)
         .padding(.top, 18)

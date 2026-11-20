@@ -284,10 +284,18 @@ GUEST_ROUTES = {
     ("GET", "/api/shared/me"): ("any", None), ("POST", "/api/shared/devices"): ("any", None),
     ("DELETE", "/api/shared/devices"): ("any", None), ("GET", "/api/bots"): ("any", None),
     ("GET", "/api/models"): ("any", None),
+    # Stummschalten und Ruhezeiten gelten pro Person: Gäste ändern nur ihre eigenen (docs/ruhe.md)
+    ("PUT", "/api/chats/{chat_id}/mute"): ("read", None),
+    ("GET", "/api/settings/quiet-hours"): ("any", None), ("PATCH", "/api/settings/quiet-hours"): ("any", None),
+    # Sprache gilt pro Person: Gäste lesen und setzen nur ihre eigene (docs/sprache.md)
+    ("GET", "/api/settings/language"): ("any", None), ("PATCH", "/api/settings/language"): ("any", None),
     ("GET", "/api/bots/{bot_id}"): ("read", None), ("PATCH", "/api/bots/{bot_id}"): ("edit", None),
     ("GET", "/api/bots/{bot_id}/messages"): ("read", None), ("POST", "/api/bots/{bot_id}/messages"): ("write", None),
     ("POST", "/api/bots/{bot_id}/stop"): ("write", None), ("POST", "/api/bots/{bot_id}/read"): ("read", None),
     ("PUT", "/api/messages/{mid}/reaction"): ("write", None),
+    # App 1.3: Suche (nur geteilte Scoops), Ausschnitt um eine Fundstelle, eigene Nachricht bearbeiten
+    ("GET", "/api/search"): ("any", None), ("GET", "/api/chats/{chat_id}/messages/around/{mid}"): ("read", None),
+    ("PATCH", "/api/messages/{mid}"): ("write", None),
     ("GET", "/api/chats/{chat_id}/files"): ("read", None), ("POST", "/api/chats/{chat_id}/files"): ("write", None),
     ("GET", "/api/files/{fid}"): ("read", None), ("DELETE", "/api/files/{fid}"): ("edit", None),
     ("GET", "/api/bots/{bot_id}/avatar"): ("read", None), ("PUT", "/api/bots/{bot_id}/avatar"): ("edit", None),
@@ -315,9 +323,22 @@ QUERY_BOT = {"/api/transcribe", "/api/voice/live", "/api/voice/live/preview", "/
 BODIES = {("PATCH", "/api/bots/{bot_id}"): {"name": "Mila"}, ("POST", "/api/bots/{bot_id}/messages"): {"text": "hi"},
           ("PUT", "/api/messages/{mid}/reaction"): {"emoji": "👍"}, ("PATCH", "/api/routines/{rid}"): {"enabled": True},
           ("PATCH", "/api/skills/{sid}"): {"name": "x"}, ("POST", "/api/shared/devices"): {"apns_token": "ab" * 32},
-          ("DELETE", "/api/shared/devices"): {"apns_token": "ab" * 32}, ("POST", "/api/computer/input"): {"type": "move", "x": 1, "y": 1}}
+          ("DELETE", "/api/shared/devices"): {"apns_token": "ab" * 32}, ("POST", "/api/computer/input"): {"type": "move", "x": 1, "y": 1},
+          ("PATCH", "/api/settings/language"): {"language": "de"}}
+# App 1.3 (Suche/Bearbeiten, Heute, Systemintegration, Ruhe/Vorlagen): was Gäste dürfen und was nur der Admin darf.
+# Die Systemintegration (Teilen, Kurzbefehle) bringt keine eigenen Routen mit, sie benutzt die vorhandenen.
+APP13_GUEST_ROUTES = {
+    ("GET", "/api/search"), ("GET", "/api/chats/{chat_id}/messages/around/{mid}"), ("PATCH", "/api/messages/{mid}"),
+    ("PUT", "/api/chats/{chat_id}/mute"), ("GET", "/api/settings/quiet-hours"), ("PATCH", "/api/settings/quiet-hours"),
+    ("GET", "/api/settings/language"), ("PATCH", "/api/settings/language"),
+}
+APP13_OWNER_ONLY = {
+    ("GET", "/api/today"), ("GET", "/api/approvals"),
+    ("GET", "/api/bots/{bot_id}/template"), ("POST", "/api/templates/check"), ("POST", "/api/templates/import"),
+}
 SKIP_CALL = {("DELETE", "/api/files/{fid}"), ("DELETE", "/api/memories/{mem_id}"), ("DELETE", "/api/routines/{rid}"),
-             ("DELETE", "/api/skills/{sid}")}  # zerstörend: Erlaubnis nur prüfen, wenn erwartet verboten
+             ("DELETE", "/api/skills/{sid}"),  # zerstörend: Erlaubnis nur prüfen, wenn erwartet verboten
+             ("PATCH", "/api/messages/{mid}")}  # nur eigene Nachrichten (fremde → 403), Erlaubtes prüft test_chat_edit.py
 
 
 def routes():
@@ -404,6 +425,20 @@ def part_fake(w: dict) -> None:
        and http.delete(f"/api/memories/{gmem['id']}", headers=CARL).status_code == 403, "„Für alle Scoops“-Gedächtnis für Gäste tabu")
     ok(http.post(f"/api/bots/{S}/reset", headers=CARL).status_code == 403 and http.delete(f"/api/bots/{S}", headers=CARL).status_code == 403,
        "Bearbeiten: Zurücksetzen/Löschen → 403")
+    ok(http.get(f"/api/bots/{S}/template", headers=CARL).status_code == 403
+       and http.post("/api/templates/import", headers=CARL, json={"template": {"format": 1, "type": "ais-scoops-template", "name": "X"}}).status_code == 403
+       and http.post("/api/templates/check", headers=CARL, json={}).status_code == 403,
+       "Bearbeiten: Scoop als Vorlage exportieren oder Vorlagen importieren → 403 (nur Admin)")
+    # App 1.3 als Ganzes: Jede neue Route ist entweder ausdrücklich für Gäste freigegeben oder nur für den Admin.
+    # (Die Schleife oben prüft ohnehin jede Route; hier steht, was gewollt ist, damit eine neue Route auffällt.)
+    new_routes = set(APP13_GUEST_ROUTES) | APP13_OWNER_ONLY
+    ok(new_routes <= set(routes()), f"alle Routen von App 1.3 vorhanden ({sorted(new_routes - set(routes()))})")
+    ok(all(r in GUEST_ROUTES for r in APP13_GUEST_ROUTES) and not (APP13_OWNER_ONLY & set(GUEST_ROUTES)),
+       "App 1.3: Suche, Ausschnitt, Bearbeiten, Stummschalten, Ruhezeiten für Gäste; Heute, Postfach, Vorlagen nicht")
+    ok(all(http.get(u, headers=h).status_code == 403 for u in ("/api/today", "/api/approvals") for h in (CARL, LEA, VIEW))
+       and http.get("/api/today", headers=OWNER).status_code == 200
+       and http.get("/api/approvals", headers=OWNER).status_code == 200,
+       "Seite „Heute“ und Freigaben-Postfach: Gäste (jede Rolle) → 403, Admin → 200")
     me = http.get("/api/shared/me", headers=LEA).json()
     ok(me["role"] == "guest" and me["name"] == "Lea" and me["shares"][0]["role"] == "write", "GET /api/shared/me")
     ok(http.get("/api/shared/me", headers=OWNER).json()["role"] == "owner", "/api/shared/me für den Admin")

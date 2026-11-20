@@ -26,6 +26,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
+from .i18n import tx
 from .profile import kc
 
 # HTTP-Adresse (…convex.site) des Produktions-Deployments; überschreibbar per config `cloud_url`.
@@ -198,7 +199,7 @@ class Cloud:
         """Fordert einen Code an. Ein Hintergrund-Thread pollt, bis er in der App eingelöst wurde."""
         cfg = self.load_config()
         if cfg.get("owner_id") and not force:
-            raise RuntimeError("Server ist bereits mit einem Konto gekoppelt (erneut koppeln: force).")
+            raise RuntimeError(tx("Server ist bereits mit einem Konto gekoppelt (erneut koppeln: force)."))
         body = {"name": cfg.get("server_name") or server_name(), "version": self.version,
                 "publicUrl": cfg.get("public_url") or ""}
         if cfg.get("tailnet_url"):
@@ -206,7 +207,7 @@ class Cloud:
         r = httpx.post(self.url(cfg) + "/servers/claim/start", json=body, timeout=15)
         data = _json(r)
         if r.status_code != 200:
-            raise RuntimeError(data.get("error") or f"Kopplung nicht möglich ({r.status_code})")
+            raise RuntimeError(data.get("error") or tx("Kopplung nicht möglich ({status})", status=r.status_code))
         expires_at = time.time() + float(data.get("ttlSeconds") or 600)
         with self._lock:
             self.pending = {"code": data["code"], "claim_id": data["claimId"], "claim_secret": data["claimSecret"],
@@ -225,7 +226,7 @@ class Cloud:
                 if self.poll_once() != "pending":
                     return
             except Exception as e:  # noqa: BLE001 – Netzfehler: weiter versuchen, bis der Code abläuft
-                self.last_error = f"Kopplung: {e}"
+                self.last_error = tx("Kopplung: {error}", error=e)
                 if not self.pending or self.pending["expires_at"] <= time.time():
                     return
 
@@ -245,7 +246,7 @@ class Cloud:
         with self._lock:
             if self.pending is p:
                 self.pending = None
-        self.last_error = data.get("error") or f"Kopplung beendet ({r.status_code})"
+        self.last_error = data.get("error") or tx("Kopplung beendet ({status})", status=r.status_code)
         return "expired"
 
     def _store_link(self, data: dict) -> None:
@@ -266,7 +267,7 @@ class Cloud:
         try:
             self.heartbeat()
         except Exception as e:  # noqa: BLE001
-            self.last_error = f"Herzschlag: {e}"
+            self.last_error = tx("Herzschlag: {error}", error=e)
 
     def unlink(self, reason: str) -> None:
         cfg = self.load_config()
@@ -293,7 +294,7 @@ class Cloud:
         try:
             self.heartbeat()
         except Exception as e:  # noqa: BLE001
-            self.last_error = f"Herzschlag: {e}"
+            self.last_error = tx("Herzschlag: {error}", error=e)
 
     def heartbeat(self) -> dict | None:
         self.last_heartbeat = time.time()
@@ -302,7 +303,7 @@ class Cloud:
             return None
         secret = get_secret()
         if not secret:
-            self.last_error = "Herzschlag: serverSecret fehlt im Schlüsselbund"
+            self.last_error = tx("Herzschlag: serverSecret fehlt im Schlüsselbund")
             return None
         body = {"publicUrl": cfg.get("public_url") or "", "version": self.version}
         if cfg.get("tailnet_url"):
@@ -311,7 +312,7 @@ class Cloud:
                        headers={"Authorization": f"Bearer {secret}"}, timeout=15)
         data = _json(r)
         if r.status_code == 401 and data.get("code") == "unknown_server":
-            self.last_error = "Server wurde in der App entfernt oder das Konto gelöscht"
+            self.last_error = tx("Server wurde in der App entfernt oder das Konto gelöscht")
             self.unlink("vom Konto entfernt")
             return None
         if r.status_code != 200:

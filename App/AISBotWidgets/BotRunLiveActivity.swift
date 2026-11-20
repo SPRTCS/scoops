@@ -79,7 +79,7 @@ private struct LockScreenRunView: View {
                             .font(.subheadline.weight(.semibold)).foregroundStyle(theme.success)
                     }
                 }
-                Text(running ? context.state.statusLine : "Fertig, schau in den Chat.")
+                Text(running ? context.state.statusLine : String(localized: "Fertig, schau in den Chat."))
                     .font(.subheadline)
                     .foregroundStyle(theme.textSecondary)
                     .lineLimit(2)

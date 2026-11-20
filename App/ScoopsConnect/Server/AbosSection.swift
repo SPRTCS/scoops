@@ -12,12 +12,16 @@ struct AboProvider: Identifiable {
     let symbol: String
     let help: String
 
-    static let all = [
-        AboProvider(id: "claude", title: "Claude", loginTitle: "Mit Claude anmelden", symbol: "sparkles",
-                    help: "Claude Pro oder Max. Claude-Scoops, Aufgaben und Routinen laufen dann über Claude Code mit deinem Abo."),
-        AboProvider(id: "openai", title: "ChatGPT", loginTitle: "Mit ChatGPT anmelden", symbol: "bubble.left.and.bubble.right",
-                    help: "ChatGPT Plus oder Pro. GPT-Scoops, Aufgaben und Routinen laufen dann über Codex mit deinem Abo."),
-    ]
+    /// Berechnet (nicht gespeichert), damit die Texte in der aktuellen Sprache nachgeschlagen werden
+    static var all: [AboProvider] {
+        [
+            AboProvider(id: "claude", title: "Claude", loginTitle: String(localized: "Mit Claude anmelden"), symbol: "sparkles",
+                        help: String(localized: "Claude Pro oder Max. Claude-Scoops, Aufgaben und Routinen laufen dann über Claude Code mit deinem Abo.")),
+            AboProvider(id: "openai", title: "ChatGPT", loginTitle: String(localized: "Mit ChatGPT anmelden"),
+                        symbol: "bubble.left.and.bubble.right",
+                        help: String(localized: "ChatGPT Plus oder Pro. GPT-Scoops, Aufgaben und Routinen laufen dann über Codex mit deinem Abo.")),
+        ]
+    }
 }
 
 struct AbosView: View {
@@ -39,7 +43,7 @@ struct AbosView: View {
             if let message {
                 Text(message).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            Text("Sprechmodus, Bildgenerierung und Diktat laufen weiter über den API-Schlüssel. Abo-Läufe kosten nichts extra, zählen aber auf die Limits deines Abos.")
+            Text("Sprechmodus und Diktat laufen weiter über den API-Schlüssel, Bilder nur über das ChatGPT-Abo. Abo-Läufe kosten nichts extra, zählen aber auf die Limits deines Abos.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .task { await manager.refreshAbos(force: true) }
@@ -79,10 +83,10 @@ struct AbosView: View {
                     }
                     Text(p.help).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if let lim = st?["limit"], lim != .null {
-                        Text("Abo-Limit erreicht – läuft bis \(time(lim["until"]?.string)) über den API-Schlüssel.")
+                        limitText(lim["until"]?.string)
                             .font(.caption).foregroundStyle(.orange)
                     } else if let u = st?["usage"]?["utilization"]?.double {
-                        Text("Abo-Auslastung \(Int((u * 100).rounded())) %" + windowText(st?["usage"]?["window"]?.string))
+                        usageText(Int((u * 100).rounded()), window: st?["usage"]?["window"]?.string)
                             .font(.caption).foregroundStyle(u > 0.85 ? .orange : .secondary)
                     }
                     if st?["installed"]?.bool == false {
@@ -91,7 +95,7 @@ struct AbosView: View {
                     }
                 }
                 Spacer()
-                Button(busy == p.id ? "Öffnet …" : (loggedIn ? "Neu anmelden" : p.loginTitle)) {
+                Button(busy == p.id ? String(localized: "Öffnet …") : (loggedIn ? String(localized: "Neu anmelden") : p.loginTitle)) {
                     Task { await login(p) }
                 }
                 .disabled(busy != nil || st?["installed"]?.bool == false)
@@ -105,7 +109,8 @@ struct AbosView: View {
             .padding(.leading, 40)
             .disabled(busy != nil)
             if mode != "api" && !loggedIn {
-                Text("Noch nicht angemeldet: Bis dahin " + (mode == "abo" ? "schlagen Läufe mit einem Hinweis fehl." : "läuft alles über den API-Schlüssel."))
+                Text(mode == "abo" ? "Noch nicht angemeldet: Bis dahin schlagen Läufe mit einem Hinweis fehl."
+                                   : "Noch nicht angemeldet: Bis dahin läuft alles über den API-Schlüssel.")
                     .font(.caption).foregroundStyle(.orange).padding(.leading, 40)
             }
         }
@@ -113,20 +118,23 @@ struct AbosView: View {
 
     private func statusText(_ st: JSONValue?) -> String {
         let plan = st?["plan"]?.string.map { $0.prefix(1).uppercased() + $0.dropFirst() }
-        return plan.map { "Angemeldet · \($0)" } ?? "Angemeldet"
+        return plan.map { String(localized: "Angemeldet · \($0)", comment: "Abo: angemeldet, mit Tarif") } ?? String(localized: "Angemeldet")
     }
 
-    private func windowText(_ w: String?) -> String {
-        switch w {
-        case "five_hour": " (5-Stunden-Fenster)"
-        case "seven_day", "seven_day_opus", "seven_day_sonnet": " (Woche)"
-        default: ""
+    /// Auslastung des Abos in Prozent, mit Zeitfenster des Anbieters (ganze Sätze, je Sprache eigenes Prozentformat)
+    private func usageText(_ percent: Int, window: String?) -> Text {
+        switch window {
+        case "five_hour": Text("Abo-Auslastung \(percent) % (5-Stunden-Fenster)")
+        case "seven_day", "seven_day_opus", "seven_day_sonnet": Text("Abo-Auslastung \(percent) % (Woche)")
+        default: Text("Abo-Auslastung \(percent) %")
         }
     }
 
-    private func time(_ iso: String?) -> String {
-        guard let iso, let d = ISO8601DateFormatter().date(from: iso) else { return "später" }
-        return d.formatted(date: .omitted, time: .shortened)
+    private func limitText(_ iso: String?) -> Text {
+        guard let iso, let d = ISO8601DateFormatter().date(from: iso) else {
+            return Text("Abo-Limit erreicht – läuft bis später über den API-Schlüssel.")
+        }
+        return Text("Abo-Limit erreicht – läuft bis \(d.formatted(date: .omitted, time: .shortened)) über den API-Schlüssel.")
     }
 
     private func login(_ p: AboProvider) async {
@@ -134,7 +142,8 @@ struct AbosView: View {
         defer { busy = nil }
         do {
             try await manager.startAboLogin(p.id)
-            message = "Ein Terminal-Fenster mit der Anmeldung von \(p.id == "claude" ? "Claude Code" : "Codex") ist offen. Melde dich dort bzw. im Browser an; der Status hier aktualisiert sich von selbst."
+            let program = p.id == "claude" ? "Claude Code" : "Codex"
+            message = String(localized: "Ein Terminal-Fenster mit der Anmeldung von \(program) ist offen. Melde dich dort bzw. im Browser an; der Status hier aktualisiert sich von selbst.")
             watching = true
         } catch {
             message = error.localizedDescription

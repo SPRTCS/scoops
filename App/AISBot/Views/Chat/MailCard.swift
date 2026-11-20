@@ -7,6 +7,7 @@ struct MailCard: View {
     let mail: MailDraft
     @Environment(AppStore.self) private var store
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var account: String
     @State private var to: String
@@ -33,7 +34,9 @@ struct MailCard: View {
 
     private var status: String { mail.status }
     private var isDraft: Bool { status == "draft" && message.meta.state != "declined" }
-    private var kindTitle: String { mail.isReply ? "Antwort" : "Mail" }
+    private var kindTitle: String {
+        mail.isReply ? String(localized: "mail.reply", defaultValue: "Antwort", comment: "Mail-Karte: Antwort auf eine Mail (englisch „Reply“)") : String(localized: "Mail")
+    }
     /// Lange Texte erst eingeklappt
     private var bodyIsLong: Bool { bodyText.count > 280 || bodyText.split(separator: "\n", omittingEmptySubsequences: false).count > 8 }
 
@@ -47,7 +50,7 @@ struct MailCard: View {
                 if status == "sending" || working {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Wird gesendet …").font(.system(size: 13, weight: .medium)).foregroundStyle(theme.textSecondary)
+                        Text("Wird gesendet …").appFont(13, weight: .medium).foregroundStyle(theme.textSecondary)
                     }
                 } else {
                     buttons
@@ -71,7 +74,7 @@ struct MailCard: View {
             Button { Clipboard.copy(plainText) } label: { Label("Kopieren", systemImage: "doc.on.doc") }
         }
         .alwaysAllowConfirmation(isPresented: $confirmAlways, label: alwaysLabel,
-                                 scoopName: store.bot(message.meta.authorId ?? message.chatId)?.name ?? "Der Scoop") {
+                                 scoopName: store.bot(message.meta.authorId ?? message.chatId)?.name ?? String(localized: "Der Scoop", comment: "Rückfall für den Namen am Satzanfang")) {
             decideAlways()
         }
     }
@@ -84,23 +87,23 @@ struct MailCard: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: headerIcon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .appFont(13, weight: .semibold)
                     .foregroundStyle(headerTint)
-                    .frame(width: 28, height: 28)
+                    .scaledFrame(28)
                     .background(headerTint.opacity(0.14), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
                     Text(kindTitle)
-                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(theme.textTertiary)
+                        .appFont(11.5, weight: .medium).foregroundStyle(theme.textTertiary)
                     Text(headline)
-                        .font(.system(size: 15, weight: .semibold))
+                        .appFont(15, weight: .semibold)
                         .foregroundStyle(theme.textPrimary)
-                        .lineLimit(2)
+                        .adaptiveLineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
                 if !isDraft && status != "sending" {
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 11, weight: .bold))
+                        .appFont(11, weight: .bold)
                         .foregroundStyle(theme.textTertiary)
                         .rotationEffect(.degrees(expanded ? 180 : 0))
                 }
@@ -133,10 +136,11 @@ struct MailCard: View {
     private var headline: String {
         switch status {
         case "sent":
-            let time = (mail.sentAt ?? message.createdAt).formatted(date: .omitted, time: .shortened)
-            return "Gesendet an \(mail.to.joined(separator: ", ")) · \(time)"
-        case "failed": return "Nicht gesendet: \(mail.subject)"
-        case "discarded": return "Verworfen: \(mail.subject)"
+            let time = (mail.sentAt ?? message.createdAt).formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(.app))
+            let recipients = mail.to.joined(separator: ", ")
+            return String(localized: "Gesendet an \(recipients) · \(time)")
+        case "failed": return String(localized: "Nicht gesendet: \(mail.subject)")
+        case "discarded": return String(localized: "Verworfen: \(mail.subject)")
         default: return mail.subject.isEmpty ? (message.meta.title ?? message.text) : mail.subject
         }
     }
@@ -156,7 +160,7 @@ struct MailCard: View {
             row("Betreff") {
                 if mail.isReply {
                     // Antwort in einem Verlauf: Betreff nur Anzeige
-                    Text(subject).font(.system(size: 14)).foregroundStyle(theme.textSecondary)
+                    Text(subject).appFont(14).foregroundStyle(theme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     field("Betreff", text: $subject, editable: editable)
@@ -174,22 +178,24 @@ struct MailCard: View {
         Rectangle().fill(theme.surfaceBorder).frame(height: 0.5).padding(.leading, 12)
     }
 
-    private func row<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+    private func row<Content: View>(_ label: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
+        // Große Schrift (Bedienungshilfen): Beschriftung über dem Feld statt in einer festen Spalte
+        AdaptiveStack(verticalAlignment: .firstTextBaseline, spacing: dynamicTypeSize.isAccessibilitySize ? 2 : 10) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .appFont(13, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
-                .frame(width: 54, alignment: .leading)
+                .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : AppFont.scaled(54, relativeTo: .footnote, in: dynamicTypeSize),
+                       alignment: .leading)
             content()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
     }
 
-    private func field(_ placeholder: String, text: Binding<String>, editable: Bool, email: Bool = false) -> some View {
+    private func field(_ placeholder: LocalizedStringKey, text: Binding<String>, editable: Bool, email: Bool = false) -> some View {
         TextField(placeholder, text: text)
             .textFieldStyle(.plain)
-            .font(.system(size: 14))
+            .appFont(14)
             .foregroundStyle(theme.textPrimary)
             .disabled(!editable)
             .autocorrectionDisabled(email)
@@ -205,20 +211,20 @@ struct MailCard: View {
         let current = accounts.first { $0.alias == account || ($0.alias == nil && account.isEmpty) }
         let label = HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(current?.displayName ?? (account.isEmpty ? "Standard" : account))
-                    .font(.system(size: 14, weight: .medium)).foregroundStyle(theme.textPrimary)
+                Text(current?.displayName ?? (account.isEmpty ? String(localized: "Standard", comment: "Mail-Karte: Standard-Konto als Absender") : account))
+                    .appFont(14, weight: .medium).foregroundStyle(theme.textPrimary)
                 if let email = current?.email ?? mail.accountEmail {
-                    Text(email).font(.system(size: 12)).foregroundStyle(theme.textTertiary).lineLimit(1)
+                    Text(email).appFont(12).foregroundStyle(theme.textTertiary).adaptiveLineLimit(1)
                 }
             }
             if editable && accounts.count > 1 {
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(theme.textTertiary)
+                    .appFont(10, weight: .semibold).foregroundStyle(theme.textTertiary)
             }
             Spacer(minLength: 0)
             if editable && !showsCc && cc.isEmpty {
                 Button("Cc") { showsCc = true }
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .appFont(12.5, weight: .semibold)
                     .buttonStyle(.plain)
                     .foregroundStyle(theme.accent)
                     .accessibilityLabel("Cc hinzufügen")
@@ -253,13 +259,13 @@ struct MailCard: View {
             if editable && (bodyExpanded || !bodyIsLong) {
                 TextField("Text", text: $bodyText, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 14))
+                    .appFont(14)
                     .lineSpacing(2.5)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(3...)
             } else {
                 Text(bodyText)
-                    .font(.system(size: 14))
+                    .appFont(14)
                     .lineSpacing(2.5)
                     .foregroundStyle(editable ? theme.textPrimary : theme.textSecondary)
                     .lineLimit(bodyExpanded || !bodyIsLong ? nil : 6)
@@ -274,7 +280,7 @@ struct MailCard: View {
                 Button(bodyExpanded ? "Weniger" : "Mehr") {
                     withAnimation(.smooth(duration: 0.2)) { bodyExpanded.toggle() }
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .appFont(13, weight: .semibold)
                 .buttonStyle(.plain)
                 .foregroundStyle(theme.accent)
             }
@@ -285,7 +291,7 @@ struct MailCard: View {
 
     private func errorText(_ text: String) -> some View {
         Label(text, systemImage: "exclamationmark.triangle.fill")
-            .font(.system(size: 13))
+            .appFont(13)
             .foregroundStyle(theme.danger)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -311,7 +317,7 @@ struct MailCard: View {
     }
 
     private var pills: some View {
-        HStack(spacing: 8) {
+        AdaptiveButtonRow(spacing: 8) {
             Button { decide(false) } label: { Text("Abbrechen").frame(minWidth: 80) }
                 .buttonStyle(PillButtonStyle(kind: .secondary))
             Button { decide(true) } label: {
@@ -320,7 +326,8 @@ struct MailCard: View {
             .buttonStyle(PillButtonStyle(kind: .primary))
             .disabled(addresses(to).isEmpty)
         }
-        .fixedSize()
+        // Nur senkrecht fest: Bei großer Schrift dürfen die Knöpfe untereinander stehen
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     /// v1.20: Mails an diese Empfänger künftig ohne Rückfrage senden
@@ -364,7 +371,8 @@ struct MailCard: View {
     /// Bezeichnung der Dauerfreigabe mit den aktuell eingetragenen Empfängern
     private var alwaysLabel: String {
         let rcpt = (addresses(to) + addresses(cc)).map { $0.lowercased() }
-        return rcpt.isEmpty ? (message.meta.alwaysLabel ?? "Mails") : "Mails an \(rcpt.joined(separator: ", "))"
+        let list = rcpt.joined(separator: ", ")
+        return rcpt.isEmpty ? (message.meta.alwaysLabel ?? String(localized: "Mails")) : String(localized: "Mails an \(list)")
     }
 
     private func decide(_ approve: Bool) {
@@ -378,9 +386,11 @@ struct MailCard: View {
     }
 
     private var plainText: String {
-        var lines = ["Von: \(mail.accountEmail ?? mail.account ?? "")", "An: \(mail.to.joined(separator: ", "))"]
+        let from = mail.accountEmail ?? mail.account ?? ""
+        let to = mail.to.joined(separator: ", ")
+        var lines = [String(localized: "Von: \(from)"), String(localized: "An: \(to)")]
         if !mail.cc.isEmpty { lines.append("Cc: \(mail.cc.joined(separator: ", "))") }
-        lines.append("Betreff: \(mail.subject)")
+        lines.append(String(localized: "Betreff: \(mail.subject)"))
         return lines.joined(separator: "\n") + "\n\n" + mail.body
     }
 }

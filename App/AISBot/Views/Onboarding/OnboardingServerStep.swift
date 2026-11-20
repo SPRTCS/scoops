@@ -35,7 +35,7 @@ struct OnboardingServerStep: View {
 
     private var situation: Situation {
         if demoUnreachable {
-            return .unreachable("Der Server antwortet nicht. Ist dein Mac wach und im selben Netz?")
+            return .unreachable(String(localized: "Der Server antwortet nicht. Ist dein Mac wach und im selben Netz?"))
         }
         switch store.phase {
         case .online: return mode == .guided ? .connected : .connecting
@@ -102,7 +102,7 @@ struct OnboardingServerStep: View {
     private var guideView: some View {
         OnboardingPage {
             Image(systemName: "desktopcomputer")
-                .font(.system(size: 56, weight: .light))
+                .appFont(56, weight: .light)
                 .foregroundStyle(theme.textSecondary)
                 .overlay(alignment: .bottomTrailing) {
                     ScoopFigureView(figure: .creme, size: 44).offset(x: 20, y: 8)
@@ -159,7 +159,7 @@ struct OnboardingServerStep: View {
         #endif
         Button {
             Clipboard.copy(url.absoluteString)
-            store.showToast("Link kopiert")
+            store.showToast(String(localized: "Link kopiert"))
         } label: {
             Label("Link kopieren", systemImage: "doc.on.doc")
         }
@@ -190,7 +190,7 @@ struct OnboardingServerStep: View {
     private var codeView: some View {
         OnboardingPage(scrollTarget: codeScrollTarget) {
             Image(systemName: "number.square")
-                .font(.system(size: 52, weight: .light))
+                .appFont(52, weight: .light)
                 .foregroundStyle(theme.accent)
                 .padding(.top, 20)
                 .accessibilityHidden(true)
@@ -253,7 +253,7 @@ struct OnboardingServerStep: View {
         do {
             let result = try await store.account.claimServer(code: normalized)
             guard let serverID = result.serverId else {
-                codeError = .other("Der Konto-Dienst hat keinen Server gemeldet. Bitte versuch es noch einmal.")
+                codeError = .other(String(localized: "Der Konto-Dienst hat keinen Server gemeldet. Bitte versuch es noch einmal."))
                 return
             }
             code = ""
@@ -382,7 +382,7 @@ struct OnboardingServerStep: View {
     private var connectedView: some View {
         OnboardingPage {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
+                .appFont(64)
                 .foregroundStyle(theme.success)
                 .padding(.top, 40)
                 .accessibilityHidden(true)
@@ -399,7 +399,7 @@ struct OnboardingServerStep: View {
     private func unreachableView(_ message: String) -> some View {
         OnboardingPage {
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 56, weight: .light))
+                .appFont(56, weight: .light)
                 .foregroundStyle(theme.warning)
                 .padding(.top, 28)
                 .accessibilityHidden(true)

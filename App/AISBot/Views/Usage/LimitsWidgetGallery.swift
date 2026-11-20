@@ -57,23 +57,23 @@ struct LimitsWidgetGallery: View {
     private var demoBots: [WidgetBot] {
         let now = PreviewData.clock
         return [
-            WidgetBot(id: "b_mila", name: "Mila", label: "Assistenz",
+            WidgetBot(id: "b_mila", name: "Mila", label: demoText("Assistenz", en: "Assistant"),
                       mascot: Mascot(shape: "bean", color: "#8B5CF6", eyes: "dots", accessory: "bowtie"),
-                      pinned: true, busy: true, statusLine: "Ist im Browser auf booking.com",
+                      pinned: true, busy: true, statusLine: demoText("Ist im Browser auf booking.com", en: "Browses booking.com"),
                       runStartedAt: now.addingTimeInterval(-72), unread: 0,
-                      lastMessagePreview: "Guten Morgen Arman! Das steht heute an …", lastMessageAt: now),
-            WidgetBot(id: "b_theo", name: "Theo", label: "Recherche",
+                      lastMessagePreview: demoText("Guten Morgen Arman! Das steht heute an …", en: "Good morning, Arman! Here’s what’s on today…"), lastMessageAt: now),
+            WidgetBot(id: "b_theo", name: "Theo", label: demoText("Recherche", en: "Research"),
                       mascot: Mascot(shape: "cloud", color: "#3D84F5", eyes: "ovals", accessory: "glasses"),
                       pinned: true, busy: false, statusLine: nil, runStartedAt: nil, unread: 1,
-                      lastMessagePreview: "Die drei wichtigsten Punkte …", lastMessageAt: now.addingTimeInterval(-3600)),
+                      lastMessagePreview: demoText("Die drei wichtigsten Punkte …", en: "The three key points…"), lastMessageAt: now.addingTimeInterval(-3600)),
             WidgetBot(id: "b_lio", name: "Lio", label: "Social Media",
                       mascot: Mascot(shape: "star", color: "#FFB524", eyes: "sparkle", accessory: "beret"),
                       pinned: false, busy: false, statusLine: nil, runStartedAt: nil, unread: 2,
-                      lastMessagePreview: "Freigabe: Post auf X veröffentlichen", lastMessageAt: now.addingTimeInterval(-7200)),
-            WidgetBot(id: "b_nora", name: "Nora", label: "Finanzen",
+                      lastMessagePreview: demoText("Freigabe: Post auf X veröffentlichen", en: "Approval: Publish post on X"), lastMessageAt: now.addingTimeInterval(-7200)),
+            WidgetBot(id: "b_nora", name: "Nora", label: demoText("Finanzen", en: "Finance"),
                       mascot: Mascot(shape: "egg", color: "#22BFAE", eyes: "happy", accessory: "headphones"),
                       pinned: false, busy: false, statusLine: nil, runStartedAt: nil, unread: 0,
-                      lastMessagePreview: "Dein Oktober ist durch …", lastMessageAt: now.addingTimeInterval(-9000)),
+                      lastMessagePreview: demoText("Dein Oktober ist durch …", en: "October is wrapped up…"), lastMessageAt: now.addingTimeInterval(-9000)),
         ]
     }
 

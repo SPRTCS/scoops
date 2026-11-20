@@ -79,6 +79,7 @@ final class ServerController {
     /// Nur für Renderings des Assistenten (`-rendersetup`)
     @ObservationIgnored var previewThisMac: Bool?
     @ObservationIgnored var previewTailscale: Tailscale.Info?
+    @ObservationIgnored var previewTailscaleEntries: [Tailscale.ServeEntry] = []
     #endif
 
     /// Ist die Rechner-Kopplung dieses Macs die mit dem eigenen Server? (Loopback-Adresse oder der Rechner steht in
@@ -115,19 +116,20 @@ final class ServerController {
     /// die noch auf einen alten Port zeigt, wird umgestellt.
     func serverDidStart() async {
         oldAgentInstalled = OldAISBotAgent.isInstalled
+        await manager.adoptAppLanguageIfUnset()
         var notes: [String] = []
         if test {
             if let id = testNodeID { _ = try? await manager.adoptThisMac(nodeID: id) }
         } else if pairedWithOwnServer {
             let target = manager.baseURL.absoluteString
             if model.serverURL != target {
-                notes.append("Rechner-Verbindung auf \(target) umgestellt (vorher \(model.serverURL))")
+                notes.append(String(localized: "Rechner-Verbindung auf \(target) umgestellt (vorher \(model.serverURL))"))
                 model.moveServer(to: target)
             } else if model.linkState != .connected {
                 model.reconnectNow()
             }
             if let merged = try? await manager.adoptThisMac(nodeID: model.nodeID), !merged.isEmpty {
-                notes.append("\(merged.count) alte(r) Eintrag/Einträge dieses Macs zusammengeführt")
+                notes.append(String(localized: "\(merged.count) alte(r) Eintrag/Einträge dieses Macs zusammengeführt"))
             }
         }
         if !test, let note = await repairTailscale() { notes.append(note) }
@@ -138,6 +140,14 @@ final class ServerController {
     /// Port als den aktuellen, wird sie auf den aktuellen Port umgestellt (gleiche https-Adresse).
     @discardableResult
     func repairTailscale() async -> String? {
+        #if DEBUG
+        // Renderings: nie Tailscale aufrufen (schon gar nicht `serve`/`funnel`), nur den Beispielzustand zeigen.
+        if manager.setup.offline {
+            tailscaleEntries = previewTailscaleEntries
+            tailscaleChecked = true
+            return nil
+        }
+        #endif
         guard let info = await Tailscale.detect(), info.running else {
             tailscaleEntries = []
             tailscaleChecked = true
@@ -153,13 +163,14 @@ final class ServerController {
         for e in entries where ours.contains(e.id) {
             guard let tp = e.targetPort, tp != manager.port else { continue }
             if case .success = await Tailscale.share(info: info, localPort: manager.port, publicly: e.funnel, httpsPort: e.httpsPort) {
-                fixed.append("\(e.funnel ? "Funnel" : "Serve") \(e.url) → Port \(manager.port) (vorher \(tp))")
+                fixed.append(e.funnel ? String(localized: "Funnel \(e.url) → Port \(String(manager.port)) (vorher \(String(tp)))")
+                                      : String(localized: "Serve \(e.url) → Port \(String(manager.port)) (vorher \(String(tp)))"))
             }
         }
         if !fixed.isEmpty {
             entries = await Tailscale.status(info: info)
             tailscaleEntries = entries
-            return "Tailscale umgestellt: " + fixed.joined(separator: ", ")
+            return String(localized: "Tailscale umgestellt: \(fixed.joined(separator: ", "))")
         }
         return nil
     }
@@ -172,7 +183,7 @@ final class ServerController {
 
     /// Alte Installation „AIS Bot“ deaktivieren (nur nach Klick); danach Server auf seinem Port neu starten.
     func disableOldAgent() -> String? {
-        guard !test else { return "Im Testmodus deaktiviert." }
+        guard !test else { return String(localized: "Im Testmodus deaktiviert.") }
         let err = OldAISBotAgent.disable()
         oldAgentInstalled = OldAISBotAgent.isInstalled
         return err
@@ -222,11 +233,18 @@ final class ServerController {
     var accessSummary: String? {
         var parts: [String] = []
         for (id, title) in [("claude", "Claude"), ("openai", "ChatGPT")] where aboActive(id) {
-            let plan = manager.abos?[id]?["plan"]?.string.map { " (" + $0.prefix(1).uppercased() + $0.dropFirst() + ")" } ?? ""
-            parts.append("\(title)-Abo\(plan)")
+            if let plan = manager.abos?[id]?["plan"]?.string, !plan.isEmpty {
+                let name = plan.prefix(1).uppercased() + plan.dropFirst()
+                parts.append(String(localized: "\(title)-Abo (\(name))", comment: "z. B. „Claude-Abo (Max)“: Anbieter, Tarif"))
+            } else {
+                parts.append(String(localized: "\(title)-Abo", comment: "z. B. „Claude-Abo“: Anbieter"))
+            }
         }
         let keys = [(SecretStore.Kind.anthropic, "Anthropic"), (.openai, "OpenAI")].filter { modelKey($0.0) }.map(\.1)
-        if !keys.isEmpty { parts.append("API-Schlüssel von " + keys.joined(separator: " und ")) }
+        if !keys.isEmpty {
+            let list = keys.formatted(.list(type: .and).locale(AppLanguage.locale))
+            parts.append(String(localized: "API-Schlüssel von \(list)", comment: "Aufzählung der Anbieter, z. B. „Anthropic und OpenAI“"))
+        }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -293,10 +311,12 @@ final class ServerController {
     /// Adresse, die AIS Scoops auf dem iPhone bekommt.
     var reachabilityKind: String {
         let u = manager.publicURL
-        if u.isEmpty { return "nur auf diesem Mac" }
-        if let e = activeShare, u.hasPrefix(e.url) { return e.funnel ? "öffentlich (Tailscale Funnel)" : "Tailnet (Tailscale Serve)" }
-        if u.hasPrefix("https://") { return u.contains(".ts.net") ? "Tailscale" : "öffentlich" }
-        return "nur im Heim-WLAN"
+        if u.isEmpty { return String(localized: "nur auf diesem Mac") }
+        if let e = activeShare, u.hasPrefix(e.url) {
+            return e.funnel ? String(localized: "öffentlich (Tailscale Funnel)") : String(localized: "Tailnet (Tailscale Serve)")
+        }
+        if u.hasPrefix("https://") { return u.contains(".ts.net") ? "Tailscale" : String(localized: "öffentlich") }
+        return String(localized: "nur im Heim-WLAN")
     }
 
     // MARK: Anzeige

@@ -28,6 +28,7 @@ from .computer import ComputerError
 from .db import DB, new_id, now, now_iso
 from .engine import USER_HOLDER, ComputerHub
 from .profile import feature, user_name
+from .i18n import tx
 
 VM_ID = "vm"
 VM_NAME = "Bot-Rechner"
@@ -93,7 +94,7 @@ class NodeTransport:
     async def send_json(self, data: dict, ws=None) -> None:
         ws = ws or self.ws
         if ws is None:
-            raise ComputerError(f"Der Rechner „{self.name}“ ist offline")
+            raise ComputerError(tx("Der Rechner „{name}“ ist offline", name=self.name))
         async with self.send_lock or asyncio.Lock():
             await ws.send_text(json.dumps(data, ensure_ascii=False))
 
@@ -134,11 +135,11 @@ class NodeTransport:
     # -- Befehle (aus Worker-Threads) -----------------------------------------
     def send(self, command: str, params: dict) -> dict:
         if not self.online or self.loop is None:
-            raise ComputerError(f"Der Rechner „{self.name}“ ist offline (Scoops Connect ist nicht verbunden). "
-                                f"Sag {user_name()} Bescheid, statt es weiter zu versuchen.")
+            raise ComputerError(tx("Der Rechner „{name}“ ist offline (Scoops Connect ist nicht verbunden). "
+                                   "Sag {user} Bescheid, statt es weiter zu versuchen.", name=self.name, user=user_name()))
         if self.paused and not command.startswith("apple."):  # Pause betrifft die Steuerung, nicht die Apple-Dienste
-            raise ComputerError(f"Rechner ist pausiert: Auf „{self.name}“ wurde Scoops Connect pausiert. "
-                                f"Sag {user_name()} Bescheid, statt es weiter zu versuchen.")
+            raise ComputerError(tx("Rechner ist pausiert: Auf „{name}“ wurde Scoops Connect pausiert. "
+                                   "Sag {user} Bescheid, statt es weiter zu versuchen.", name=self.name, user=user_name()))
         try:
             if asyncio.get_running_loop() is self.loop:
                 raise RuntimeError("NodeTransport.send darf nicht in der Event-Loop laufen (asyncio.to_thread nutzen)")
@@ -158,11 +159,12 @@ class NodeTransport:
             except ComputerError:
                 raise
             except Exception as e:  # noqa: BLE001
-                raise ComputerError(f"Befehl an „{self.name}“ nicht zustellbar: {e}") from e
+                raise ComputerError(tx("Befehl an „{name}“ nicht zustellbar: {error}", name=self.name, error=e)) from e
             try:
                 return fut.result(timeout=timeout)
             except concurrent.futures.TimeoutError as e:
-                raise ComputerError(f"{command}: keine Antwort von „{self.name}“ nach {int(timeout)} s") from e
+                raise ComputerError(tx("{command}: keine Antwort von „{name}“ nach {seconds} s", command=command,
+                                       name=self.name, seconds=int(timeout))) from e
         finally:
             with self._lock:
                 self._pending.pop(cid, None)
@@ -278,7 +280,7 @@ class Computers:
         return [self.node_json(h) for h in self.visible()]
 
     def vm_name(self) -> str:
-        return self.db.setting("node_vm_name") or VM_NAME
+        return self.db.setting("node_vm_name") or tx("Bot-Rechner")
 
     def changed(self, node_id: str) -> None:
         if not self.on_node_changed:
@@ -296,7 +298,7 @@ class Computers:
     def rename(self, node_id: str, name: str) -> None:
         name = name.strip()[:60]
         if not name:
-            raise ValueError("Name fehlt")
+            raise ValueError(tx("Name fehlt"))
         if node_id == VM_ID:
             self.db.set_setting("node_vm_name", name)
             return
@@ -311,7 +313,7 @@ class Computers:
     def remove(self, node_id: str) -> tuple[NodeTransport, list[str]]:
         """Entfernt den Rechner; gibt Transport (zum Trennen) und betroffene Scoops zurück."""
         if node_id == VM_ID:
-            raise ValueError("Der Bot-Rechner kann nicht entfernt werden")
+            raise ValueError(tx("Der Bot-Rechner kann nicht entfernt werden"))
         with self._lock:
             hub = self.hubs.pop(node_id, None)
         if not hub:

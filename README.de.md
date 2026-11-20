@@ -58,14 +58,16 @@ kein gehostetes „KI-Backend“, das deine Gespräche sieht.
 
 | | |
 |---|---|
-| 💬 **Chatten mit Persönlichkeit** | Form, Farbe, Charakter, Regeln. Scoops merken sich Vorlieben, Personen und Projekte über Gespräche hinweg. |
-| 🗂️ **Aufgaben im Hintergrund** | Größere Aufträge laufen wie bei einem Coding-Agenten auf einem eigenen Board (*Offen → Geplant → Läuft → Prüfen → Fertig*). Die Ergebnisse landen in der Bibliothek. |
+| 💬 **Chatten mit Persönlichkeit** | Form, Farbe, Charakter, Regeln. Scoops merken sich Vorlieben, Personen und Projekte über Gespräche hinweg. Suche über alle Chats, eigene Nachricht bearbeiten, Link-Vorschauen. |
+| 🗂️ **Aufgaben im Hintergrund** | Größere Aufträge laufen wie bei einem Coding-Agenten auf einem eigenen Board (*Offen → Geplant → In Arbeit → Zu prüfen → Abgeschlossen*). Die Ergebnisse landen in der Bibliothek. **Heute** zeigt, was über alle Scoops auf dich wartet. |
 | 🖥️ **Echte Arbeit am Rechner** | Shell, Datei-Werkzeuge und **Computer Use**: auf dem Server-Mac, in einer macOS-VM oder auf weiteren Macs. Live zusehen und jederzeit übernehmen. |
 | ✅ **Du behältst die Kontrolle** | Mails, Posts, Käufe, Anrufe und riskante Befehle erscheinen als **Freigabe-Karte**: einmal freigeben, ablehnen oder dauerhaft erlauben. |
+| 🎨 **Bilder über dein Abo** | Scoops erstellen und bearbeiten Bilder über dein **ChatGPT-Abo** (offizielles Codex), im Chat oder in Aufgaben, ohne API-Kosten ([Details](docs/bilder.md)). |
 | 🔌 **Deine Apps** | Gmail, Notion, Kalender und mehr über Composio, **beliebige MCP-Server** (auch mit OAuth), Apple-Erinnerungen, Kalender, Kontakte und Home. Passwörter liegen in einem Tresor, den die Scoops nie sehen. |
-| ⏰ **Routinen** | Morgenbriefing, Wochenrückblick, Postfach-Check: wiederkehrende Aufträge nach Zeitplan. |
-| 👥 **Teams und Teilen** | Gruppenchats, ein Haupt-Scoop mit Überblick, der die anderen verbessern kann, und geteilte Scoops für Partner, Familie oder Team. |
-| 🎙️ **Überall dabei** | Native Apps für **iPhone, iPad, Mac und Apple Watch**, Widgets, Sperrbildschirm-Widgets, Live-Aktivitäten, Push und **Sprechmodus**. |
+| ⏰ **Routinen und Ruhe** | Morgenbriefing, Wochenrückblick, Postfach-Check: wiederkehrende Aufträge nach Zeitplan. Chats **stummschalten** und **Ruhezeiten** festlegen. |
+| 👥 **Teams, Teilen, Vorlagen** | Gruppenchats, ein Haupt-Scoop mit Überblick, der die anderen verbessern kann, und geteilte Scoops für Partner, Familie oder Team. Scoops als **Vorlage** weitergeben, ohne Persönliches ([Format und Beispiele](docs/vorlagen.md)). |
+| 🎙️ **Überall dabei** | Native Apps für **iPhone, iPad, Mac und Apple Watch**, Widgets, Live-Aktivitäten, Push, **Sprechmodus**, **Teilen-Menü**, **Kurzbefehle und Siri**, **Kontrollzentrum** und **Spotlight**. Die Schrift wächst mit der Textgröße des Systems. |
+| 🌍 **Deutsch und Englisch** | App, Server und Server-App sprechen **Deutsch und Englisch**, jeder Scoop antwortet in deiner Sprache. |
 
 <div align="center">
 <img src=".github/assets/screens/mac-04-teamwork.jpg" alt="AIS Scoops auf dem Mac: mehrere Scoops arbeiten zusammen" width="88%">
@@ -130,9 +132,10 @@ flowchart LR
 ## 🤝 Mitmachen
 
 Jeder Beitrag hilft: Fehlerberichte, Doku, Übersetzungen und Funktionen. Los geht es in
-[CONTRIBUTING.md](CONTRIBUTING.md). Besonders gesucht: eine **englische Oberfläche** (String Catalog) und englische
-Fassungen der Doku. Sicherheitslücken bitte nicht öffentlich melden, sondern wie in [SECURITY.md](SECURITY.md)
-beschrieben.
+[CONTRIBUTING.md](CONTRIBUTING.md). Besonders gesucht: **englische Fassungen der Doku**, **weitere Sprachen**
+(Anleitung und Glossar in [docs/sprache.md](docs/sprache.md)), **Vorlagen aus der Community**
+([Beispiele](docs/vorlagen/)), ein **Linux-Server** und **weitere Verbindungen**. Sicherheitslücken bitte nicht
+öffentlich melden, sondern wie in [SECURITY.md](SECURITY.md) beschrieben.
 
 ## 📄 Lizenz
 

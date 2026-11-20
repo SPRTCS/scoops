@@ -23,6 +23,7 @@ from pathlib import Path
 
 import httpx
 
+from .i18n import N_, translate, tx
 from .profile import DATA_DIR, kc
 
 API = "https://backend.composio.dev/api"
@@ -30,19 +31,31 @@ MAX_PER_APP = 10
 
 # Vorgeschlagene Apps (Reihenfolge in der App). Weitere verbundene Apps erscheinen zusätzlich.
 CATALOG = [
-    ("gmail", "Gmail", "Mails lesen, Entwürfe schreiben, senden"),
-    ("googlecalendar", "Google Kalender", "Termine lesen und anlegen"),
-    ("outlook", "Outlook", "Microsoft-Mail und -Kalender"),
-    ("notion", "Notion", "Seiten und Datenbanken, z. B. Tasks"),
-    ("googledrive", "Google Drive", "Dateien finden und ablegen"),
-    ("googlesheets", "Google Sheets", "Tabellen lesen und füllen"),
-    ("googledocs", "Google Docs", "Dokumente lesen und schreiben"),
-    ("slack", "Slack", "Nachrichten lesen und schreiben"),
-    ("github", "GitHub", "Repos, Issues, Pull Requests"),
-    ("linkedin", "LinkedIn", "Profil und Beiträge"),
+    ("gmail", "Gmail", N_("Mails lesen, Entwürfe schreiben, senden")),
+    ("googlecalendar", N_("Google Kalender"), N_("Termine lesen und anlegen")),
+    ("outlook", "Outlook", N_("Microsoft-Mail und -Kalender")),
+    ("notion", "Notion", N_("Seiten und Datenbanken, z. B. Tasks")),
+    ("googledrive", "Google Drive", N_("Dateien finden und ablegen")),
+    ("googlesheets", "Google Sheets", N_("Tabellen lesen und füllen")),
+    ("googledocs", "Google Docs", N_("Dokumente lesen und schreiben")),
+    ("slack", "Slack", N_("Nachrichten lesen und schreiben")),
+    ("github", "GitHub", N_("Repos, Issues, Pull Requests")),
+    ("linkedin", "LinkedIn", N_("Profil und Beiträge")),
 ]
-NAMES = {slug: name for slug, name, _ in CATALOG}
-DETAILS = {slug: detail for slug, _, detail in CATALOG}
+
+
+class _Translated(dict):
+    """Dict mit deutschen (N_-markierten) Texten, das beim Lesen in die aktuelle Sprache übersetzt (docs/sprache.md)."""
+
+    def __getitem__(self, k):
+        return translate(super().__getitem__(k))
+
+    def get(self, k, default=None):
+        return translate(super().get(k, default))
+
+
+NAMES = _Translated({slug: name for slug, name, _ in CATALOG})
+DETAILS = _Translated({slug: detail for slug, _, detail in CATALOG})
 POPULAR_ORDER = {slug: i for i, (slug, _, _) in enumerate(CATALOG)}
 SF_SYMBOLS = {"gmail": "envelope.fill", "outlook": "envelope.badge.fill", "googlecalendar": "calendar",
               "notion": "doc.text.fill", "googledrive": "externaldrive.fill", "googlesheets": "tablecells.fill",
@@ -63,41 +76,43 @@ SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_\-]{0,79}$")
 # Eigene Kategorien mit deutschem Namen; jede fasst mehrere Composio-Kategorien (Kleinschreibung) zusammen.
 # Composio-Kategorien, die hier fehlen, erscheinen mit ihrem Originalnamen.
 GROUPS: list[tuple[str, str, set[str]]] = [
-    ("productivity", "Produktivität", {"productivity", "project management", "task management", "documents",
+    ("productivity", N_("Produktivität"), {"productivity", "project management", "task management", "documents",
                                        "spreadsheets", "notes", "time tracking software", "file management & storage",
                                        "signatures", "forms & surveys", "content & files", "product management",
                                        "bookmark managers", "documents & ocr", "scheduling & booking", "calendar",
                                        "event management"}),
-    ("communication", "Kommunikation", {"email", "team chat", "communication", "phone & sms", "team collaboration",
+    ("communication", N_("Kommunikation"), {"email", "team chat", "communication", "phone & sms", "team collaboration",
                                         "notifications", "video conferencing", "transactional email",
                                         "ai meeting assistants"}),
     ("design", "Design", {"images & design", "video & audio", "media generation", "website builders",
                           "website & app building", "app builder"}),
-    ("development", "Entwicklung", {"developer tools", "model context protocol", "server monitoring", "it operations",
+    ("development", N_("Entwicklung"), {"developer tools", "model context protocol", "server monitoring", "it operations",
                                     "security & identity tools", "internet of things"}),
-    ("data", "Daten", {"analytics", "business intelligence", "databases", "ai web scraping", "web scraping & browser",
+    ("data", N_("Daten"), {"analytics", "business intelligence", "databases", "ai web scraping", "web scraping & browser",
                        "web search & research", "dashboards", "market data", "company data", "people & contact data",
                        "places & weather"}),
-    ("finance", "Finanzen", {"accounting", "payment processing", "proposal & invoice management", "taxes",
+    ("finance", N_("Finanzen"), {"accounting", "payment processing", "proposal & invoice management", "taxes",
                              "fundraising"}),
     ("marketing", "Marketing", {"marketing automation", "marketing", "social media marketing", "ads & conversion",
                                 "email newsletters", "social media accounts", "drip emails", "url shortener",
                                 "customer appreciation"}),
-    ("sales", "Vertrieb & CRM", {"crm", "sales & crm", "contact management", "ai sales tools", "customer support"}),
-    ("ai", "KI", {"artificial intelligence", "ai agents", "ai content generation", "ai models", "ai chatbots",
+    ("sales", N_("Vertrieb & CRM"), {"crm", "sales & crm", "contact management", "ai sales tools", "customer support"}),
+    ("ai", N_("KI"), {"artificial intelligence", "ai agents", "ai content generation", "ai models", "ai chatbots",
                   "ai document extraction", "transcription", "audio & speech", "ai assistants",
                   "ai safety compliance detection"}),
-    ("commerce", "Handel", {"ecommerce", "commerce", "reviews"}),
-    ("hr", "Personal", {"human resources", "hr talent & recruitment"}),
-    ("education", "Bildung", {"education", "online courses"}),
-    ("lifestyle", "Freizeit", {"lifestyle & entertainment", "news & lifestyle", "gaming"}),
+    ("commerce", N_("Handel"), {"ecommerce", "commerce", "reviews"}),
+    ("hr", N_("Personal"), {"human resources", "hr talent & recruitment"}),
+    ("education", N_("Bildung"), {"education", "online courses"}),
+    ("lifestyle", N_("Freizeit"), {"lifestyle & entertainment", "news & lifestyle", "gaming"}),
 ]
 GROUP_OF = {name: gid for gid, _, names in GROUPS for name in names}
-GROUP_NAMES = {gid: label for gid, label, _ in GROUPS}
+GROUP_NAMES = _Translated({gid: label for gid, label, _ in GROUPS})
 MIN_OTHER_CATEGORY = 8  # unbekannte Kategorien erst ab so vielen Apps als Chip
 
-UNAVAILABLE = ("Für {name} bietet Composio keine fertige Anmeldung an. Dafür müsste zuerst im Composio-Konto "
-               "eine eigene Anmeldung (Auth-Config) für diese App hinterlegt werden.")
+def unavailable(name: str) -> str:
+    """Hinweis, wenn Composio für eine App keine fertige Anmeldung hat (in der Sprache der Anfrage)."""
+    return tx("Für {name} bietet Composio keine fertige Anmeldung an. Dafür müsste zuerst im Composio-Konto "
+              "eine eigene Anmeldung (Auth-Config) für diese App hinterlegt werden.", name=name)
 
 
 def _field(f: dict, required: bool) -> dict:
@@ -239,7 +254,7 @@ class Connections:
             return cfg["composio_session_id"]
         key = _key()
         if not key:
-            raise RuntimeError("Kein Composio-Schlüssel hinterlegt")
+            raise RuntimeError(tx("Kein Composio-Schlüssel hinterlegt"))
         import secrets
         user_id = cfg.get("composio_user_id") or f"scoops-{secrets.token_hex(6)}"
         bodies = [{"user_id": user_id, "multi_account": {"enable": True, "max_accounts_per_toolkit": MAX_PER_APP}},
@@ -255,7 +270,7 @@ class Connections:
                     parts = [p for p in url.split("/") if p]
                     sid = parts[parts.index("mcp") - 1] if "mcp" in parts else None
                 if not sid:
-                    raise RuntimeError("Composio: Antwort ohne Sitzungs-ID")
+                    raise RuntimeError(tx("Composio: Antwort ohne Sitzungs-ID"))
                 cfg = self.load_config()
                 cfg.update(composio_session_id=sid, composio_user_id=user_id)
                 save_config(cfg)
@@ -263,14 +278,14 @@ class Connections:
             last = f"{r.status_code} {r.text[:200]}"
             if r.status_code in (401, 403):
                 break
-        raise RuntimeError(f"Composio-Sitzung nicht anlegbar ({last})")
+        raise RuntimeError(tx("Composio-Sitzung nicht anlegbar ({last})", last=last))
 
     def _cfg(self) -> tuple[str, str, str]:
         key = _key()
         cfg = self.load_config()
         sid = cfg.get("composio_session_id")
         if not key or not sid:
-            raise RuntimeError("Composio ist nicht eingerichtet")
+            raise RuntimeError(tx("Composio ist nicht eingerichtet"))
         return key, sid, cfg.get("composio_user_id", "arman")
 
     def _req(self, method: str, path: str, *, scrub: tuple[str, ...] = (), **kw) -> dict:
@@ -381,7 +396,7 @@ class Connections:
         slugs = [s for s, _, _ in CATALOG] + sorted({a["app"] for a in accs} - set(NAMES))
         apps = []
         for slug in slugs:
-            detail = next((d for s, _, d in CATALOG if s == slug), "") or (known.get(slug) or {}).get("description", "")
+            detail = translate(next((d for s, _, d in CATALOG if s == slug), "")) or (known.get(slug) or {}).get("description", "")
             mine = [a for a in accs if a["app"] == slug and a["status"] != "initializing"]
             apps.append({"slug": slug, "name": self.display_name(slug), "detail": detail,
                          "symbol": SF_SYMBOLS.get(slug, "app.connected.to.app.below.fill"),
@@ -394,16 +409,16 @@ class Connections:
         accs = self.accounts(fresh=True)
         mine = [a for a in accs if a["app"] == slug and a["status"] == "active"]
         if len(mine) >= MAX_PER_APP:
-            raise ValueError(f"Höchstens {MAX_PER_APP} Konten pro App")
+            raise ValueError(tx("Höchstens {max} Konten pro App", max=MAX_PER_APP))
         if alias and any(a["alias"].lower() == alias.lower() for a in mine):
-            raise ValueError("Diesen Namen gibt es für diese App schon")
+            raise ValueError(tx("Diesen Namen gibt es für diese App schon"))
 
     def _check_slug(self, slug: str) -> None:
         if not SLUG_RE.match(slug or ""):
-            raise NotFound("Unbekannte App")
+            raise NotFound(tx("Unbekannte App"))
         _, items, source = self._catalog
         if source == "composio" and items and slug not in {i["slug"] for i in items} and slug not in NAMES:
-            raise NotFound("Diese App gibt es bei Composio nicht.")
+            raise NotFound(tx("Diese App gibt es bei Composio nicht."))
 
     def link(self, slug: str, alias: str | None) -> dict:
         _, sid, _ = self._cfg()
@@ -431,11 +446,11 @@ class Connections:
     def _link_error(self, slug: str, e: ComposioError) -> Exception:
         """Composio-Fehler beim Link → verständliche Meldung (keine verwaltete Anmeldung, Name doppelt …)."""
         if e.slug.endswith("NoManagedAuth") or e.code == 4308 or e.status == 501:
-            return Unsupported(UNAVAILABLE.format(name=self.display_name(slug)))
+            return Unsupported(unavailable(self.display_name(slug)))
         if e.status == 404:
-            return NotFound(f"{self.display_name(slug)} ist bei Composio nicht (mehr) verfügbar.")
+            return NotFound(tx("{name} ist bei Composio nicht (mehr) verfügbar.", name=self.display_name(slug)))
         if e.status == 409:
-            return ValueError("Diesen Namen gibt es für diese App schon")
+            return ValueError(tx("Diesen Namen gibt es für diese App schon"))
         return e
 
     def status(self, account_id: str) -> dict:
@@ -449,7 +464,7 @@ class Connections:
     def rename(self, account_id: str, alias: str) -> dict:
         alias = alias.strip()
         if not alias:
-            raise ValueError("Name fehlt")
+            raise ValueError(tx("Name fehlt"))
         self._req("PATCH", f"/v3/connected_accounts/{account_id}", json={"alias": alias})
         self._cache = (0.0, [])
         return self.status(account_id)
@@ -470,8 +485,8 @@ class Connections:
         except ComposioError as e:
             err = self._link_error(a["app"], e)
             if isinstance(err, Unsupported) and self.auth_info(a["app"]).get("auth") == "fields":
-                raise Unsupported("Dieses Konto meldest du neu an, indem du es trennst und mit neuem Schlüssel "
-                                  "wieder verbindest.") from None
+                raise Unsupported(tx("Dieses Konto meldest du neu an, indem du es trennst und mit neuem Schlüssel "
+                                     "wieder verbindest.")) from None
             raise err from None
         self._cache = (0.0, [])
         return {"url": d["redirect_url"], "account_id": d.get("connected_account_id")}
@@ -494,7 +509,7 @@ class Connections:
         d = self._req("POST", f"/v3/tools/execute/{slug}",
                       json={"connected_account_id": account_id, "user_id": uid, "arguments": args})
         if d.get("successful") is False or d.get("error"):
-            raise RuntimeError(str(d.get("error") or "Composio meldet einen Fehler")[:300])
+            raise RuntimeError(str(d.get("error") or tx("Composio meldet einen Fehler"))[:300])
         return d.get("data") or {}
 
     # -- Katalog (ab 1.16) ------------------------------------------------------------
@@ -542,7 +557,7 @@ class Connections:
         """Alle Toolkits von Composio (seitenweise, je 1000), ohne veraltete und lokale."""
         key = _key()
         if not key:
-            raise ComposioError("Kein Composio-Schlüssel hinterlegt")
+            raise ComposioError(tx("Kein Composio-Schlüssel hinterlegt"))
         raw: list[dict] = []
         cursor = None
         for _ in range(20):
@@ -565,7 +580,7 @@ class Connections:
             seen.add(tk["slug"])
             out.append(_toolkit_item(tk, len(out)))
         if not out:
-            raise ComposioError("Composio: leerer Katalog")
+            raise ComposioError(tx("Composio: leerer Katalog"))
         return out
 
     def _refresh_catalog(self) -> None:
@@ -741,9 +756,9 @@ class Connections:
             for cid, name in zip(i.get("categories") or [], i.get("category_names") or []):
                 raw_name.setdefault(cid, name)
         by = self._accounts_by_app()
-        out = [{"id": "popular", "name": "Beliebt", "count": len(CATALOG)},
-               {"id": "connected", "name": "Verbunden", "count": len(by)}]
-        out += [{"id": gid, "name": label, "count": counts[gid]} for gid, label, _ in GROUPS if counts[gid]]
+        out = [{"id": "popular", "name": tx("Beliebt"), "count": len(CATALOG)},
+               {"id": "connected", "name": tx("Verbunden"), "count": len(by)}]
+        out += [{"id": gid, "name": translate(label), "count": counts[gid]} for gid, label, _ in GROUPS if counts[gid]]
         others = sorted(((cid, n) for cid, n in counts.items() if cid not in GROUP_NAMES and n >= MIN_OTHER_CATEGORY),
                         key=lambda x: (-x[1], x[0]))
         for cid, n in others:
@@ -757,12 +772,12 @@ class Connections:
             return d
         key = _key()
         if not key:
-            raise ComposioError("Kein Composio-Schlüssel hinterlegt")
+            raise ComposioError(tx("Kein Composio-Schlüssel hinterlegt"))
         try:
             d = self._call(key, "GET", f"/v3/toolkits/{slug}")
         except ComposioError as e:
             if e.status == 404:
-                raise NotFound("Diese App gibt es bei Composio nicht.") from None
+                raise NotFound(tx("Diese App gibt es bei Composio nicht.")) from None
             raise
         self._details[slug] = (time.time(), d)
         return d
@@ -779,9 +794,9 @@ class Connections:
                      "auth": kind, "scheme": None, "fields": [], "message": None, "guide_url": None,
                      "max_per_app": MAX_PER_APP}
         if kind == "none":
-            out["message"] = f"{name} braucht keine Anmeldung. Die Scoops können die App direkt nutzen."
+            out["message"] = tx("{name} braucht keine Anmeldung. Die Scoops können die App direkt nutzen.", name=name)
         elif kind == "unavailable":
-            out["message"] = UNAVAILABLE.format(name=name)
+            out["message"] = unavailable(name)
         elif kind == "fields":
             detail = self._toolkit_detail(slug)
             chosen = None
@@ -794,7 +809,7 @@ class Connections:
                 if chosen:
                     break
             if not chosen:
-                out.update(auth="unavailable", message=UNAVAILABLE.format(name=name))
+                out.update(auth="unavailable", message=unavailable(name))
             else:
                 scheme, cfg = chosen
                 init = (cfg.get("fields") or {}).get("connected_account_initiation") or {}
@@ -817,7 +832,7 @@ class Connections:
                                             "name": f"{name} (Scoops)", "credentials": {}}})
         ac = (d.get("auth_config") or {}).get("id") or d.get("id")
         if not ac:
-            raise ComposioError("Composio: Antwort ohne Auth-Config-ID")
+            raise ComposioError(tx("Composio: Antwort ohne Auth-Config-ID"))
         self._configs = (0.0, {})
         return ac
 
@@ -828,8 +843,8 @@ class Connections:
         info = self.auth_info(slug)
         if info["auth"] != "fields":
             if info["auth"] == "oauth":
-                raise Unsupported(f"{info['name']} verbindest du über die Anmeldung im Browser.")
-            raise Unsupported(info.get("message") or UNAVAILABLE.format(name=info["name"]))
+                raise Unsupported(tx("{name} verbindest du über die Anmeldung im Browser.", name=info["name"]))
+            raise Unsupported(info.get("message") or unavailable(info["name"]))
         if isinstance(values, list):  # App: [{"name": …, "value": …}] (Feldnamen bleiben unverändert)
             values = {str(x.get("name")): x.get("value") for x in values if isinstance(x, dict) and x.get("name")}
         values = values if isinstance(values, dict) else {}
@@ -841,10 +856,10 @@ class Connections:
                 v = str(f["default"])
             if not v:
                 if f["required"]:
-                    raise ValueError(f"Bitte „{f['label']}“ ausfüllen.")
+                    raise ValueError(tx("Bitte „{label}“ ausfüllen.", label=f["label"]))
                 continue
             if len(v) > 4000:
-                raise ValueError(f"„{f['label']}“ ist zu lang.")
+                raise ValueError(tx("„{label}“ ist zu lang.", label=f["label"]))
             val[f["name"]] = v
         alias = (alias or "").strip()
         self._check_add(slug, alias)
@@ -858,10 +873,10 @@ class Connections:
         except ComposioError as e:
             text = f"{e.slug} {e}".lower()
             if "credentialvalidation" in text or "credential" in text or e.status == 422:
-                raise ValueError(f"{info['name']} hat die Angaben abgelehnt. Bitte prüfe sie und versuche es "
-                                 "noch einmal.") from None
+                raise ValueError(tx("{name} hat die Angaben abgelehnt. Bitte prüfe sie und versuche es "
+                                    "noch einmal.", name=info["name"])) from None
             if e.status == 409:
-                raise ValueError("Diesen Namen gibt es für diese App schon") from None
+                raise ValueError(tx("Diesen Namen gibt es für diese App schon")) from None
             raise ComposioError(str(e), e.status, e.slug, e.code) from None
         finally:
             val.clear()
@@ -875,7 +890,7 @@ class Connections:
     def logo_png(self, slug: str) -> bytes:
         """App-Logo als PNG (128 px), 30 Tage auf der Platte. Composio liefert SVG; umgewandelt mit `sips` (macOS)."""
         if not SLUG_RE.match(slug or ""):
-            raise NotFound("Unbekannte App")
+            raise NotFound(tx("Unbekannte App"))
         path = Path(self.data_dir) / LOGO_DIR / f"{slug}.png"
         try:
             if path.stat().st_size and time.time() - path.stat().st_mtime < LOGO_TTL:
@@ -888,14 +903,14 @@ class Connections:
         try:
             r = self.http.get(url, follow_redirects=True, timeout=10)
         except httpx.HTTPError as e:
-            raise NotFound("Kein Logo") from e
+            raise NotFound(tx("Kein Logo")) from e
         if r.status_code >= 400 or not r.content or len(r.content) > LOGO_MAX_BYTES:
-            raise NotFound("Kein Logo")
+            raise NotFound(tx("Kein Logo"))
         ctype = r.headers.get("content-type", "").split(";")[0].strip().lower()
         ext = {"image/svg+xml": ".svg", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
                "image/gif": ".gif"}.get(ctype) or (".svg" if r.content.lstrip()[:5] in (b"<svg ", b"<?xml") else "")
         if not ext:
-            raise NotFound("Kein Logo")
+            raise NotFound(tx("Kein Logo"))
         path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory() as tmp:
             src, out = Path(tmp) / f"logo{ext}", Path(tmp) / "logo.png"
@@ -904,9 +919,9 @@ class Connections:
                 res = subprocess.run(["sips", "-s", "format", "png", "-Z", "128", str(src), "--out", str(out)],
                                      capture_output=True, timeout=20)
             except (OSError, subprocess.TimeoutExpired) as e:
-                raise NotFound("Kein Logo") from e
+                raise NotFound(tx("Kein Logo")) from e
             if res.returncode != 0 or not out.exists() or not out.stat().st_size:
-                raise NotFound("Kein Logo")
+                raise NotFound(tx("Kein Logo"))
             data = out.read_bytes()
         try:
             path.write_bytes(data)

@@ -68,8 +68,9 @@ struct CloudError: LocalizedError {
 
     /// Sitzung ungültig oder abgelaufen
     var isUnauthorized: Bool {
+        // Text-Vergleich nur als Rückfall für deutsche Meldungen des Konto-Dienstes; eigene Fehler tragen Status 401
         status == 401 || status == 403 || message.localizedCaseInsensitiveContains("unauthenticated")
-            || message.localizedCaseInsensitiveContains("nicht angemeldet")
+            || message.localizedCaseInsensitiveContains("nicht angemeldet")  // nicht übersetzen: Vergleich mit Meldung des Konto-Dienstes
     }
 }
 
@@ -143,7 +144,7 @@ final class ConvexCloudService: CloudService {
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
-            throw CloudError(status: status, message: "Unerwartete Antwort vom Konto-Dienst.")
+            throw CloudError(status: status, message: String(localized: "Unerwartete Antwort vom Konto-Dienst."))
         }
     }
 
@@ -165,13 +166,13 @@ final class ConvexCloudService: CloudService {
     func renameServer(id: String, name: String, token: String) async throws {
         struct Args: Encodable { var serverId: String; var name: String }
         let result = try await call(.mutation, Function.renameServer, args: Args(serverId: id, name: name), token: token, as: OKResult.self)
-        guard result.ok else { throw CloudError(status: 404, message: "Der Server wurde nicht gefunden.") }
+        guard result.ok else { throw CloudError(status: 404, message: String(localized: "Der Server wurde nicht gefunden.")) }
     }
 
     func removeServer(id: String, token: String) async throws {
         struct Args: Encodable { var serverId: String }
         let result = try await call(.mutation, Function.removeServer, args: Args(serverId: id), token: token, as: OKResult.self)
-        guard result.ok else { throw CloudError(status: 404, message: "Der Server wurde nicht gefunden.") }
+        guard result.ok else { throw CloudError(status: 404, message: String(localized: "Der Server wurde nicht gefunden.")) }
     }
 
     func mySessions(token: String) async throws -> [CloudSession] {
@@ -181,12 +182,12 @@ final class ConvexCloudService: CloudService {
     func revokeSession(id: String?, token: String) async throws {
         struct Args: Encodable { var sessionId: String? }
         let result = try await call(.mutation, Function.revokeSession, args: Args(sessionId: id), token: token, as: OKResult.self)
-        guard result.ok else { throw CloudError(status: 404, message: "Die Anmeldung wurde nicht gefunden.") }
+        guard result.ok else { throw CloudError(status: 404, message: String(localized: "Die Anmeldung wurde nicht gefunden.")) }
     }
 
     func deleteAccount(token: String) async throws {
         let result = try await call(.mutation, Function.deleteAccount, args: EmptyArgs(), token: token, as: OKResult.self)
-        guard result.ok else { throw CloudError(status: 500, message: "Das Konto konnte nicht gelöscht werden.") }
+        guard result.ok else { throw CloudError(status: 500, message: String(localized: "Das Konto konnte nicht gelöscht werden.")) }
     }
 
     // MARK: Geteilte Scoops
@@ -197,11 +198,11 @@ final class ConvexCloudService: CloudService {
         guard result.ok, !result.code.isEmpty else {
             let text: String
             switch result.error {
-            case "not_owner": text = "Nur der Inhaber des Servers kann diesen Scoop teilen."
-            case "too_many_invites": text = "Es gibt schon 20 offene Einladungen für diesen Scoop. Widerrufe zuerst eine."
-            case "too_many_shares": text = "Dieser Scoop ist schon mit 50 Personen geteilt."
-            case "rate_limited": text = "Zu viele Einladungen in kurzer Zeit. Bitte später erneut versuchen."
-            default: text = "Die Einladung konnte nicht erstellt werden."
+            case "not_owner": text = String(localized: "Nur der Inhaber des Servers kann diesen Scoop teilen.")
+            case "too_many_invites": text = String(localized: "Es gibt schon 20 offene Einladungen für diesen Scoop. Widerrufe zuerst eine.")
+            case "too_many_shares": text = String(localized: "Dieser Scoop ist schon mit 50 Personen geteilt.")
+            case "rate_limited": text = String(localized: "Zu viele Einladungen in kurzer Zeit. Bitte später erneut versuchen.")
+            default: text = String(localized: "Die Einladung konnte nicht erstellt werden.")
             }
             throw CloudError(status: 400, message: result.message ?? text)
         }
@@ -218,25 +219,25 @@ final class ConvexCloudService: CloudService {
         struct Args: Encodable { var shareId: String; var role: ShareRole?; var computer: ComputerAccess? }
         let result = try await call(.mutation, Function.updateShare, args: Args(shareId: id, role: role, computer: computer),
                                     token: token, as: OKResult.self)
-        guard result.ok else { throw CloudError(status: 404, message: "Diese Person hat keinen Zugriff mehr.") }
+        guard result.ok else { throw CloudError(status: 404, message: String(localized: "Diese Person hat keinen Zugriff mehr.")) }
     }
 
     func removeShare(id: String, token: String) async throws {
         struct Args: Encodable { var shareId: String }
         let result = try await call(.mutation, Function.removeShare, args: Args(shareId: id), token: token, as: OKResult.self)
-        guard result.ok else { throw CloudError(status: 404, message: "Diese Person hat keinen Zugriff mehr.") }
+        guard result.ok else { throw CloudError(status: 404, message: String(localized: "Diese Person hat keinen Zugriff mehr.")) }
     }
 
     func revokeInvite(id: String, token: String) async throws {
         struct Args: Encodable { var inviteId: String }
         let result = try await call(.mutation, Function.revokeInvite, args: Args(inviteId: id), token: token, as: OKResult.self)
-        guard result.ok else { throw CloudError(status: 404, message: "Die Einladung gibt es nicht mehr.") }
+        guard result.ok else { throw CloudError(status: 404, message: String(localized: "Die Einladung gibt es nicht mehr.")) }
     }
 
     func inviteInfo(code: String, token: String?) async throws -> InviteInfo {
         struct Args: Encodable { var code: String }
         let info = try await call(.query, Function.inviteInfo, args: Args(code: code), token: token, as: InviteInfo?.self)
-        guard let info else { throw CloudError(status: 404, message: "Diese Einladung gibt es nicht (mehr).") }
+        guard let info else { throw CloudError(status: 404, message: String(localized: "Diese Einladung gibt es nicht (mehr).")) }
         return info
     }
 
@@ -252,7 +253,7 @@ final class ConvexCloudService: CloudService {
     func leaveShare(id: String, token: String) async throws {
         struct Args: Encodable { var shareId: String }
         let result = try await call(.mutation, Function.leave, args: Args(shareId: id), token: token, as: OKResult.self)
-        guard result.ok else { throw CloudError(status: 404, message: "Du hast schon keinen Zugriff mehr.") }
+        guard result.ok else { throw CloudError(status: 404, message: String(localized: "Du hast schon keinen Zugriff mehr.")) }
     }
 
     private enum Kind: String { case query, mutation, action }
@@ -295,14 +296,14 @@ final class ConvexCloudService: CloudService {
         }
         guard envelope.status == "success" else {
             if envelope.errorData?.code == "unauthenticated" {
-                throw CloudError(status: 401, message: envelope.errorData?.message ?? "Nicht angemeldet")
+                throw CloudError(status: 401, message: envelope.errorData?.message ?? String(localized: "Nicht angemeldet"))
             }
             throw CloudError(status: status, message: envelope.errorData?.message ?? Self.readable(envelope.errorMessage))
         }
         if let value = envelope.value { return value }
         // `null` ist für optionale Rückgaben gültig (z. B. `users:me` ohne Konto)
         if let none = try? decoder.decode(T.self, from: Data("null".utf8)) { return none }
-        throw CloudError(status: status, message: "Unerwartete Antwort vom Konto-Dienst.")
+        throw CloudError(status: status, message: String(localized: "Unerwartete Antwort vom Konto-Dienst."))
     }
 
     private static func error(status: Int, data: Data) -> CloudError {
@@ -315,13 +316,13 @@ final class ConvexCloudService: CloudService {
     /// Convex hängt Funktionsname und Stacktrace an (`[CONVEX M(servers:claimServer)] … Uncaught Error: Text`).
     private static func readable(_ raw: String?) -> String {
         guard var s = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else {
-            return "Der Konto-Dienst hat einen Fehler gemeldet."
+            return String(localized: "Der Konto-Dienst hat einen Fehler gemeldet.")
         }
         if let r = s.range(of: "Uncaught Error: ") { s = String(s[r.upperBound...]) }
         else if let r = s.range(of: "Server Error") { s = String(s[r.upperBound...]).trimmingCharacters(in: .whitespaces) }
         if let nl = s.firstIndex(of: "\n") { s = String(s[..<nl]) }
         if let at = s.range(of: "    at ") { s = String(s[..<at.lowerBound]) }
-        return s.isEmpty ? "Der Konto-Dienst hat einen Fehler gemeldet." : s
+        return s.isEmpty ? String(localized: "Der Konto-Dienst hat einen Fehler gemeldet.") : s
     }
 }
 
@@ -400,7 +401,7 @@ final class MockCloudService: CloudService {
             var result = ClaimResult(serverId: nil, name: nil)
             result.ok = false
             result.error = "invalid_code"
-            result.message = "Dieser Code ist ungültig oder abgelaufen."
+            result.message = String(localized: "Dieser Code ist ungültig oder abgelaufen.")
             return result
         }
         let server = CloudServer(id: "s_\(UUID().uuidString.prefix(6))", name: "Mac mini",
@@ -477,10 +478,10 @@ final class MockCloudService: CloudService {
         await pause()
         let normalized = code.uppercased().filter { $0.isLetter || $0.isNumber }
         if normalized.hasPrefix("ALT") {
-            return InviteInfo(botName: "Ben", botMascot: nil, ownerName: "Sophie Krämer", role: .read, computer: .noAccess,
+            return InviteInfo(botName: "Ben", botMascot: nil, ownerName: demoText("Sophie Krämer", en: "Sophie Kramer"), role: .read, computer: .noAccess,
                               expiresAt: Date().addingTimeInterval(-3600), status: "expired")
         }
-        return InviteInfo(botName: MockSharing.kiko.botName, botMascot: MockSharing.kiko.botMascot, botLabel: "Reiseplanung",
+        return InviteInfo(botName: MockSharing.kiko.botName, botMascot: MockSharing.kiko.botMascot, botLabel: demoText("Reiseplanung", en: "Travel Planning"),
                           ownerName: MockSharing.kiko.ownerName, role: MockSharing.kiko.role,
                           computer: MockSharing.kiko.computer, expiresAt: Date().addingTimeInterval(6 * 86400))
     }
@@ -516,13 +517,13 @@ enum MockSharing {
 
     static let sophieServer = "s_sophie"
     static let junaMascot = Mascot(shape: "egg", color: "#FA5438", eyes: "relaxed", accessory: "headphones", gaze: "left")
-    static let juna = SharedScoop(id: "sh_juna", serverId: sophieServer, serverName: "Sophies Mac",
+    static let juna = SharedScoop(id: "sh_juna", serverId: sophieServer, serverName: demoText("Sophies Mac", en: "Sophie’s Mac"),
                                   publicUrl: "https://sophies-mac.tailnet.ts.net:8787", botId: "b_juna", botName: "Juna",
-                                  botMascot: junaMascot, ownerId: "u_sophie", ownerName: "Sophie Krämer",
+                                  botMascot: junaMascot, ownerId: "u_sophie", ownerName: demoText("Sophie Krämer", en: "Sophie Kramer"),
                                   role: .write, computer: .view, online: true, createdAt: Date().addingTimeInterval(-3 * 86400))
-    static let kiko = SharedScoop(id: "sh_kiko", serverId: sophieServer, serverName: "Sophies Mac",
+    static let kiko = SharedScoop(id: "sh_kiko", serverId: sophieServer, serverName: demoText("Sophies Mac", en: "Sophie’s Mac"),
                                   publicUrl: "https://sophies-mac.tailnet.ts.net:8787", botId: "b_kiko", botName: "Kiko",
                                   botMascot: Mascot(shape: "circle", color: "#F1DDBB", eyes: "cat", accessory: "none", gaze: "left", mouth: "smile"),
-                                  ownerId: "u_sophie", ownerName: "Sophie Krämer", role: .read, computer: .noAccess,
+                                  ownerId: "u_sophie", ownerName: demoText("Sophie Krämer", en: "Sophie Kramer"), role: .read, computer: .noAccess,
                                   online: true, createdAt: Date())
 }

@@ -92,6 +92,15 @@ final class AccountStore {
 
     // MARK: - Schlüsselbund
 
+    /// Startete iOS die App vor dem ersten Entsperren nach einem Neustart (Ort betreten, Gerätebefehl per Push), war
+    /// der Schlüsselbund noch zu (`kSecAttrAccessibleAfterFirstUnlock`): Die Sitzung fehlte dann nur scheinbar. Liest
+    /// sie nach, ohne etwas zu schreiben. `true`, wenn jetzt eine Sitzung da ist, die vorher fehlte.
+    func reloadAfterFirstUnlock() -> Bool {
+        guard !isMock, !ephemeral, credentials == nil, let creds = Self.loadCredentials() else { return false }
+        credentials = creds
+        return true
+    }
+
     private static func loadCredentials() -> CloudCredentials? {
         guard let raw = Keychain.read(account: keychainAccount), let data = raw.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(CloudCredentials.self, from: data)
@@ -123,12 +132,12 @@ final class AccountStore {
         switch result {
         case .failure(let error):
             if let e = error as? ASAuthorizationError, e.code == .canceled { return }
-            errorMessage = "Anmeldung abgebrochen: \(error.localizedDescription)"
+            errorMessage = String(localized: "Anmeldung abgebrochen: \(error.localizedDescription)")
         case .success(let authorization):
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
                   let tokenData = credential.identityToken,
                   let identityToken = String(data: tokenData, encoding: .utf8) else {
-                errorMessage = "Apple hat keine Anmeldedaten geliefert."
+                errorMessage = String(localized: "Apple hat keine Anmeldedaten geliefert.")
                 return
             }
             let name = credential.fullName
@@ -168,7 +177,7 @@ final class AccountStore {
                                    expiresAt: response.expiresAt, user: user, appleUserID: appleUserID))
             await loadServers()
         } catch {
-            errorMessage = "Anmeldung fehlgeschlagen: \(error.localizedDescription)"
+            errorMessage = String(localized: "Anmeldung fehlgeschlagen: \(error.localizedDescription)")
         }
     }
 
@@ -177,7 +186,7 @@ final class AccountStore {
     /// Gültiges Sitzungs-JWT. Läuft es in weniger als einer Minute ab, wird vorher erneuert; in den letzten
     /// sieben Tagen der Laufzeit (30 Tage) im Hintergrund (Empfehlung des Backends).
     func validToken() async throws -> String {
-        guard let creds = credentials else { throw CloudError(status: 401, message: "Nicht angemeldet") }
+        guard let creds = credentials else { throw CloudError(status: 401, message: String(localized: "Nicht angemeldet")) }
         guard let expiry = creds.expiry else { return creds.token }
         let left = expiry.timeIntervalSinceNow
         if left < 60 { return try await refresh() }
@@ -196,7 +205,7 @@ final class AccountStore {
     @discardableResult
     private func refresh() async throws -> String {
         if let running = refreshTask { return try await running.value }
-        guard let creds = credentials else { throw CloudError(status: 401, message: "Nicht angemeldet") }
+        guard let creds = credentials else { throw CloudError(status: 401, message: String(localized: "Nicht angemeldet")) }
         let task = Task { () throws -> String in
             let response = try await service.refresh(refreshToken: creds.refreshToken, token: creds.token)
             guard var current = self.credentials, current.token == creds.token else {
@@ -246,7 +255,7 @@ final class AccountStore {
             serversLoaded = true
             errorMessage = nil
         } catch {
-            if isSignedIn { errorMessage = "Server konnten nicht geladen werden: \(error.localizedDescription)" }
+            if isSignedIn { errorMessage = String(localized: "Server konnten nicht geladen werden: \(error.localizedDescription)") }
         }
     }
 
@@ -258,8 +267,8 @@ final class AccountStore {
         let result = try await authorized { try await service.claimServer(code: normalized, token: $0) }
         guard result.ok else {
             let fallback = result.error == "rate_limited"
-                ? "Zu viele Versuche. Bitte warte ein paar Minuten."
-                : "Dieser Code ist ungültig oder abgelaufen."
+                ? String(localized: "Zu viele Versuche. Bitte warte ein paar Minuten.")
+                : String(localized: "Dieser Code ist ungültig oder abgelaufen.")
             throw CloudError(status: 400, message: result.message ?? fallback, code: result.error)
         }
         await loadServers()
@@ -300,7 +309,7 @@ final class AccountStore {
                 .map { s in var s = s; if let sid, s.id == sid { s.current = true }; return s }
                 .sorted { ($0.current ? 1 : 0, $0.lastUsedAt ?? .distantPast) > ($1.current ? 1 : 0, $1.lastUsedAt ?? .distantPast) }
         } catch {
-            if isSignedIn { errorMessage = "Geräte konnten nicht geladen werden: \(error.localizedDescription)" }
+            if isSignedIn { errorMessage = String(localized: "Geräte konnten nicht geladen werden: \(error.localizedDescription)") }
         }
     }
 

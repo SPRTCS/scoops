@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var checkOK = false
     @State private var showVault = false
     @State private var showServers = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var showInitiative = ProcessInfo.processInfo.arguments.contains("-settingsinitiative")
     /// Seite „Nutzung und Verbrauch“ (Server 1.31); `-usage` öffnet sie direkt (Screenshots)
@@ -30,8 +31,11 @@ struct SettingsView: View {
                     GroupedStack {
                         AccountSettingsSection()
                         connectionsSection
+                        // Aussehen der App, dann Chat (Link-Vorschauen) und Mitteilungen (Ruhezeiten), danach die Scoops
                         appearance
                         appIconSection
+                        ChatSettingsSection()
+                        NotificationSettingsSection()
                         initiativeSection
                         ComputersSection().id("nodes")
                         WorkspaceSettingsSection()
@@ -97,7 +101,9 @@ struct SettingsView: View {
                               footer: "„System“ folgt dem Hell- oder Dunkelmodus deines Geräts: Nacht bei Dunkel, Hell bei Hell.") {
             // Umbrechend: drei Karten nebeneinander passen auf schmalen Bildschirmen (iPhone Duo zugeklappt) nicht –
             // vorher wurde die ganze Seite breiter als der Bildschirm und links abgeschnitten.
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12, alignment: .top)], spacing: 12) {
+            // Große Schrift: Erscheinungsbild-Karten einzeln untereinander
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 280 : 150), spacing: 12,
+                                         alignment: .top)], spacing: 12) {
                 ForEach(AppearanceMode.allCases) { mode in
                     Button { withAnimation(.smooth) { store.appearance = mode } } label: {
                         ThemePreviewCard(mode: mode, selected: store.appearance == mode)
@@ -113,9 +119,9 @@ struct SettingsView: View {
 
     private var appIconSection: some View {
         #if os(iOS)
-        let footer = "Das Symbol auf dem Home-Bildschirm. iOS bestätigt den Wechsel kurz mit einer Meldung."
+        let footer: LocalizedStringResource = "Das Symbol auf dem Home-Bildschirm. iOS bestätigt den Wechsel kurz mit einer Meldung."
         #else
-        let footer = "Auf dem Mac ändert sich das Symbol im Dock, solange AIS Scoops läuft."
+        let footer: LocalizedStringResource = "Auf dem Mac ändert sich das Symbol im Dock, solange AIS Scoops läuft."
         #endif
         return GroupedSection("App-Symbol", footer: footer) {
             AppIconPicker()
@@ -135,11 +141,11 @@ struct SettingsView: View {
                         }
                         .frame(width: 30)
                     } else {
-                        Image(systemName: "crown").font(.system(size: 15)).foregroundStyle(theme.textSecondary).frame(width: 30)
+                        Image(systemName: "crown").appFont(15).foregroundStyle(theme.textSecondary).scaledFrame(width: 30)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Initiative").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
-                        Text(initiativeSummary).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                        Text("Initiative").appFont(15).foregroundStyle(theme.textPrimary)
+                        Text(initiativeSummary).appFont(12.5).foregroundStyle(theme.textSecondary)
                     }
                     Spacer()
                     DisclosureChevron()
@@ -151,9 +157,9 @@ struct SettingsView: View {
     }
 
     private var initiativeSummary: String {
-        guard let primary = store.primaryBot else { return "Noch kein Haupt-Scoop gewählt" }
+        guard let primary = store.primaryBot else { return String(localized: "Noch kein Haupt-Scoop gewählt") }
         guard let s = store.initiative else { return primary.name }
-        guard s.enabled else { return "\(primary.name) · aus" }
+        guard s.enabled else { return String(localized: "\(primary.name) · aus", comment: "Initiative ausgeschaltet") }
         return "\(primary.name) · \(s.times.joined(separator: ", "))"
     }
 
@@ -162,7 +168,8 @@ struct SettingsView: View {
     private var connectionsSection: some View {
         GroupedSection("Apps verbinden", footer: "Gmail, Notion, Kalender und mehr – auch mehrere Konten pro App. Deine Scoops nutzen sie für ihre Aufgaben.") {
             Button { showConnections = true } label: {
-                GroupedLabelRow(icon: "link", iconColor: theme.accent, title: "Apps verbinden", subtitle: connectionsSummary) {
+                GroupedLabelRow(icon: "link", iconColor: theme.accent, title: String(localized: "Apps verbinden"),
+                                subtitle: connectionsSummary) {
                     DisclosureChevron()
                 }
             }
@@ -174,10 +181,13 @@ struct SettingsView: View {
     }
 
     private var connectionsSummary: String {
-        guard let c = store.connections else { return "Konten bei Gmail, Notion & Co." }
+        guard let c = store.connections else { return String(localized: "Konten bei Gmail, Notion & Co.") }
         let n = c.apps.reduce(0) { $0 + $1.accounts.count }
         let apps = c.apps.filter { !$0.accounts.isEmpty }.count
-        return n == 0 ? "Noch keine Konten" : "\(n) \(n == 1 ? "Konto" : "Konten") in \(apps) \(apps == 1 ? "App" : "Apps")"
+        if n == 0 { return String(localized: "Noch keine Konten") }
+        let accounts = String(localized: "\(n) Konten", comment: "Anzahl verbundener Konten, z. B. „3 Konten“")
+        let appCount = String(localized: "\(apps) Apps", comment: "Anzahl Apps, z. B. „2 Apps“")
+        return String(localized: "\(accounts) in \(appCount)", comment: "z. B. „3 Konten in 2 Apps“")
     }
 
     private var vaultSection: some View {
@@ -206,11 +216,11 @@ struct SettingsView: View {
         GroupedSection("Verbindung", footer: "Verbunden über dein Konto. Die App meldet sich mit deiner Sitzung beim Server an, ein Token ist nicht nötig.") {
             statusRow
             HStack(spacing: 12) {
-                Text("Server").font(.system(size: 15)).foregroundStyle(theme.textPrimary).frame(width: 70, alignment: .leading)
+                Text("Server").appFont(15).foregroundStyle(theme.textPrimary).frame(width: 70, alignment: .leading)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(store.settings.cloudServerName ?? "Server").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                    Text(store.settings.cloudServerName ?? "Server").appFont(15).foregroundStyle(theme.textPrimary)
                     if let host = store.settings.baseURL?.host(), !store.settings.isMock {
-                        Text(host).font(.system(size: 12.5)).foregroundStyle(theme.textSecondary).lineLimit(1).truncationMode(.middle)
+                        Text(host).appFont(12.5).foregroundStyle(theme.textSecondary).adaptiveLineLimit(1).truncationMode(.middle)
                     }
                 }
             }
@@ -223,7 +233,7 @@ struct SettingsView: View {
                 Button("Server wechseln") { showServers = true }
                     .buttonStyle(PillButtonStyle(kind: .secondary))
             }
-            .font(.system(size: 15))
+            .appFont(15)
             .groupedRow(vertical: 8)
         }
         .sheet(isPresented: $showServers) {
@@ -234,10 +244,10 @@ struct SettingsView: View {
     private var statusRow: some View {
         HStack(spacing: 10) {
             Circle().fill(statusColor).frame(width: 9, height: 9)
-            Text(statusText).font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+            Text(statusText).appFont(15).foregroundStyle(theme.textPrimary)
             Spacer()
             if let v = store.serverVersion {
-                Text("Server \(v)").font(.system(size: 13)).foregroundStyle(theme.textTertiary)
+                Text("Server \(v)").appFont(13).foregroundStyle(theme.textTertiary)
             }
         }
         .groupedRow()
@@ -264,23 +274,23 @@ struct SettingsView: View {
                     .foregroundStyle(theme.danger)
                 Spacer()
                 if let checkResult {
-                    Text(checkResult).font(.system(size: 12.5)).foregroundStyle(checkOK ? theme.success : theme.danger)
-                        .lineLimit(2)
+                    Text(checkResult).appFont(12.5).foregroundStyle(checkOK ? theme.success : theme.danger)
+                        .adaptiveLineLimit(2)
                 }
                 if checking { ProgressView().controlSize(.small) }
                 Button("Verbinden") { connect() }
                     .buttonStyle(PillButtonStyle(kind: .primary))
                     .disabled(checking || url.isEmpty)
             }
-            .font(.system(size: 15))
+            .appFont(15)
             .groupedRow(vertical: 8)
         }
     }
 
-    private func formRow<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
+    private func formRow<C: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> C) -> some View {
         HStack(spacing: 12) {
-            Text(title).font(.system(size: 15)).foregroundStyle(theme.textPrimary).frame(width: 70, alignment: .leading)
-            content().font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+            Text(title).appFont(15).foregroundStyle(theme.textPrimary).frame(width: 70, alignment: .leading)
+            content().appFont(15).foregroundStyle(theme.textPrimary)
         }
         .groupedRow()
     }
@@ -295,17 +305,19 @@ struct SettingsView: View {
     }
 
     private var statusText: String {
-        if store.isMock { return store.settings.usesAccount ? "Demo-Modus (Beispielkonto)" : "Demo-Modus (ohne Server)" }
+        if store.isMock {
+            return store.settings.usesAccount ? String(localized: "Demo-Modus (Beispielkonto)") : String(localized: "Demo-Modus (ohne Server)")
+        }
         switch store.phase {
         case .online:
             switch store.socketState {
-            case .connected: return "Verbunden, live"
-            case .reconnecting: return "Verbunden, Live-Kanal verbindet neu …"
-            default: return "Verbunden"
+            case .connected: return String(localized: "Verbunden, live")
+            case .reconnecting: return String(localized: "Verbunden, Live-Kanal verbindet neu …")
+            default: return String(localized: "Verbunden")
             }
-        case .connecting: return "Verbinde …"
-        case .offline(let m): return "Offline: \(m)"
-        case .unconfigured: return "Nicht eingerichtet"
+        case .connecting: return String(localized: "Verbinde …")
+        case .offline(let m): return String(localized: "Offline: \(m)")
+        case .unconfigured: return String(localized: "Nicht eingerichtet")
         }
     }
 
@@ -318,11 +330,15 @@ struct SettingsView: View {
             do {
                 let h = try await store.validate(candidate)
                 checkOK = true
-                checkResult = "Verbunden\(h.version.map { " (Server \($0))" } ?? "")."
+                if let version = h.version {
+                    checkResult = String(localized: "Verbunden (Server \(version)).")
+                } else {
+                    checkResult = String(localized: "Verbunden.")
+                }
                 await store.connect(with: candidate, persist: true)
             } catch {
                 checkOK = false
-                checkResult = "Keine Verbindung: \(error.localizedDescription)"
+                checkResult = String(localized: "Keine Verbindung: \(error.localizedDescription)")
             }
             checking = false
         }
@@ -334,8 +350,8 @@ struct SettingsView: View {
     private var costs: some View {
         if let u = store.usage {
             GroupedSection("Kosten", footer: u.byModel.isEmpty ? nil : "Aufteilung pro Modell für diesen Monat.") {
-                costRow("Heute", u.todayUsd, bold: true)
-                costRow("Dieser Monat", u.monthUsd, bold: true)
+                costRow(String(localized: "Heute"), u.todayUsd, bold: true)
+                costRow(String(localized: "Dieser Monat"), u.monthUsd, bold: true)
                 ForEach(u.byModel.sorted { $0.value > $1.value }, id: \.key) { key, value in
                     costRow(BotModel.displayName(for: key), value, bold: false)
                 }
@@ -344,8 +360,8 @@ struct SettingsView: View {
             if let abo = u.abo, abo.monthRuns > 0 {
                 // Server 1.30: Läufe über KI-Abos (Claude Code/Codex mit Abo) ohne Betrag
                 GroupedSection("Über Abos", footer: "Diese Läufe gingen über dein Claude- bzw. ChatGPT-Abo und kosten nichts extra; sie zählen auf die Limits des Abos.") {
-                    runsRow("Heute", abo.todayRuns, bold: true)
-                    runsRow("Dieser Monat", abo.monthRuns, bold: true)
+                    runsRow(String(localized: "Heute"), abo.todayRuns, bold: true)
+                    runsRow(String(localized: "Dieser Monat"), abo.monthRuns, bold: true)
                     ForEach(abo.byModel.sorted { $0.value.runs > $1.value.runs }, id: \.key) { key, value in
                         runsRow(BotModel.displayName(for: key), value.runs, bold: false)
                     }
@@ -379,9 +395,9 @@ struct SettingsView: View {
             #endif
         } label: {
             GroupedLabelRow(icon: "chart.bar.xaxis", iconColor: supported ? theme.accent : theme.textTertiary,
-                            title: "Nutzung und Verbrauch",
-                            subtitle: supported ? "Kosten, Tokens und Abo-Limits aller Apps"
-                                                : "Server aktualisieren (ab Version 1.31)",
+                            title: String(localized: "Nutzung und Verbrauch"),
+                            subtitle: supported ? String(localized: "Kosten, Tokens und Abo-Limits aller Apps")
+                                                : String(localized: "Server aktualisieren (ab Version 1.31)"),
                             titleColor: supported ? nil : theme.textSecondary) {
                 if supported { DisclosureChevron() }
             }
@@ -393,10 +409,10 @@ struct SettingsView: View {
 
     private func runsRow(_ title: String, _ runs: Int, bold: Bool) -> some View {
         HStack {
-            Text(title).font(.system(size: 15)).foregroundStyle(bold ? theme.textPrimary : theme.textSecondary)
+            Text(title).appFont(15).foregroundStyle(bold ? theme.textPrimary : theme.textSecondary)
             Spacer()
-            Text(runs == 1 ? "1 Lauf" : "\(runs) Läufe")
-                .font(.system(size: 15, weight: bold ? .semibold : .regular))
+            Text("\(runs) Läufe")
+                .appFont(15, weight: bold ? .semibold : .regular)
                 .monospacedDigit()
                 .foregroundStyle(bold ? theme.textPrimary : theme.textSecondary)
         }
@@ -413,16 +429,16 @@ struct SettingsView: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 5) {
-                    Text(bot?.name ?? "Gelöschter Scoop").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                    Text(bot?.name ?? String(localized: "Gelöschter Scoop")).appFont(15).foregroundStyle(theme.textPrimary)
                     if bot?.isSharedByMe == true {
-                        Image(systemName: "person.2.fill").font(.system(size: 10.5)).foregroundStyle(theme.textTertiary)
+                        Image(systemName: "person.2.fill").appFont(10.5).foregroundStyle(theme.textTertiary)
                             .accessibilityLabel("geteilt")
                     }
                 }
-                Text("Heute \(Formatting.usd(cost.todayUsd))").font(.system(size: 12)).foregroundStyle(theme.textSecondary)
+                Text("Heute \(Formatting.usd(cost.todayUsd))").appFont(12).foregroundStyle(theme.textSecondary)
             }
             Spacer()
-            Text(Formatting.usd(cost.monthUsd)).font(.system(size: 15)).monospacedDigit().foregroundStyle(theme.textPrimary)
+            Text(Formatting.usd(cost.monthUsd)).appFont(15).monospacedDigit().foregroundStyle(theme.textPrimary)
         }
         .groupedRow(vertical: 8)
         .accessibilityElement(children: .combine)
@@ -430,10 +446,10 @@ struct SettingsView: View {
 
     private func costRow(_ title: String, _ value: Double, bold: Bool) -> some View {
         HStack {
-            Text(title).font(.system(size: 15)).foregroundStyle(bold ? theme.textPrimary : theme.textSecondary)
+            Text(title).appFont(15).foregroundStyle(bold ? theme.textPrimary : theme.textSecondary)
             Spacer()
             Text(Formatting.usd(value))
-                .font(.system(size: 15, weight: bold ? .semibold : .regular))
+                .appFont(15, weight: bold ? .semibold : .regular)
                 .monospacedDigit()
                 .foregroundStyle(bold ? theme.textPrimary : theme.textSecondary)
         }
@@ -473,11 +489,11 @@ struct SettingsView: View {
                 AppIconArtwork(variant: AppIconSwitcher.current, canvas: 52)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("AIS Scoops").font(.system(size: 15, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                    Text("AIS Scoops").appFont(15, weight: .semibold).foregroundStyle(theme.textPrimary)
                     Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "–") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "–"))")
-                        .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                        .appFont(12.5).foregroundStyle(theme.textSecondary)
                     Text("Deine Scoops: kleine Kollegen mit Charakter, Gedächtnis und eigenem Rechner.")
-                        .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                        .appFont(12.5).foregroundStyle(theme.textSecondary)
                 }
             }
             .groupedRow(vertical: 12)
@@ -490,6 +506,7 @@ struct ThemePreviewCard: View {
     let mode: AppearanceMode
     let selected: Bool
     @Environment(\.theme) private var current
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -519,11 +536,17 @@ struct ThemePreviewCard: View {
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(current.surfaceBorder))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
-                    Text(mode.displayName).font(.system(size: 13.5, weight: .semibold)).foregroundStyle(current.textPrimary)
-                    if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(current.accent).font(.system(size: 12)) }
+                    Text(mode.displayName).appFont(13.5, weight: .semibold).foregroundStyle(current.textPrimary)
+                    if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(current.accent).appFont(12) }
                 }
-                Text(mode.subtitle).font(.system(size: 11.5)).foregroundStyle(current.textSecondary)
-                    .lineLimit(2, reservesSpace: true)
+                // Standard: zwei Zeilen reserviert (Karten gleich hoch); größere Schrift: ganzer Satz
+                if dynamicTypeSize <= .large {
+                    Text(mode.subtitle).appFont(11.5).foregroundStyle(current.textSecondary)
+                        .lineLimit(2, reservesSpace: true)
+                } else {
+                    Text(mode.subtitle).appFont(11.5).foregroundStyle(current.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .padding(10)

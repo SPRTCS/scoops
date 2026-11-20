@@ -88,7 +88,7 @@ struct AvatarCropView: View {
                 }
                 .frame(width: side)
                 Text("Ziehen zum Verschieben, zoomen mit dem Regler oder zwei Fingern.")
-                    .font(.system(size: 12.5))
+                    .appFont(12.5)
                     .foregroundStyle(theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -98,7 +98,7 @@ struct AvatarCropView: View {
 
             Spacer(minLength: 0)
             Divider().overlay(theme.surfaceBorder)
-            HStack(spacing: 10) {
+            AdaptiveButtonRow(spacing: 10, stretchWhenStacked: true) {
                 Button("Zurücksetzen") { withAnimation(.snappy) { zoom = 1; offset = .zero } }
                     .buttonStyle(PillButtonStyle(kind: .secondary))
                 Spacer()
@@ -109,6 +109,8 @@ struct AvatarCropView: View {
                     .buttonStyle(PillButtonStyle(kind: .primary))
                     .keyboardShortcut(.defaultAction)
             }
+            // Fußzeile eines Blatts: wächst bis zur größten normalen Stufe mit, bleibt so in einer Zeile
+            .dynamicTypeSize(...AppFont.controlCap)
             .padding(.horizontal, 18).padding(.vertical, 12)
         }
         .background(theme.groupedBackground)
@@ -245,9 +247,9 @@ struct AvatarEmptyPreview: View {
                 .foregroundStyle(targeted ? tint : theme.textSecondary.opacity(0.5))
             VStack(spacing: 6) {
                 Image(systemName: "photo.badge.plus")
-                    .font(.system(size: size * 0.2))
+                    .font(.fixed(size * 0.2))
                 #if os(macOS)
-                Text("Bild hierher ziehen").font(.system(size: 11.5, weight: .medium))
+                Text("Bild hierher ziehen").appFont(11.5, weight: .medium)
                 #endif
             }
             .foregroundStyle(theme.textSecondary)

@@ -44,14 +44,14 @@ struct TaskFormView: View {
                             .textFieldStyle(.plain)
                             .lineLimit(4...14)
                             .focused($promptFocused)
-                            .font(.system(size: 15))
+                            .appFont(15)
                             .groupedRow(vertical: 12)
                         TextField("Titel (optional)", text: $title)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 15))
+                            .appFont(15)
                             .groupedRow()
                     }
-                    GroupedSection("Start", footer: startMode.footer) {
+                    GroupedSection(String(localized: "Start", comment: "Abschnitt: wann eine Aufgabe startet"), footer: startMode.footer) {
                         Picker("Start", selection: $startMode.animation(.snappy(duration: 0.2))) {
                             ForEach(editing == nil ? TaskStartMode.allCases : [.open, .scheduled]) { m in
                                 Label(m.title, systemImage: m.icon).tag(m)
@@ -62,7 +62,7 @@ struct TaskFormView: View {
                         .groupedRow()
                         if startMode == .scheduled {
                             DatePicker("Start", selection: $date, in: Date()..., displayedComponents: [.date, .hourAndMinute])
-                                .font(.system(size: 15))
+                                .appFont(15)
                                 .groupedRow()
                         }
                     }
@@ -72,9 +72,10 @@ struct TaskFormView: View {
                         }
                     }
                     if actor?.computerAccess != nil {
-                        GroupedSection("Bereich am Mac", footer: scopeFooter) {
+                        GroupedSection(String(localized: "task.scope.section", defaultValue: "Bereich am Mac", comment: "Abschnitt: Zugriffsbereich am Mac"), footer: scopeFooter) {
                             GroupedLabelRow(icon: (access?.accessScope ?? actor?.computerAccess?.accessScope ?? .workspace).icon,
-                                            title: "Bereich") {
+                                            title: LocalizedStringResource("task.scope", defaultValue: "Bereich",
+                                                                           comment: "Zugriffsbereich am Mac (englisch „Scope“)")) {
                                 TaskScopeMenu(choice: $access, bot: actor)
                             }
                         }
@@ -112,20 +113,26 @@ struct TaskFormView: View {
                 HStack(spacing: 10) {
                     if let actor {
                         MascotView(mascot: actor.mascot, size: 26, seed: actor.id, animated: false)
-                        Text(actor.name).font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                        Text(actor.name).appFont(15).foregroundStyle(theme.textPrimary)
                     } else {
-                        Text("Scoop wählen").font(.system(size: 15)).foregroundStyle(theme.textSecondary)
+                        Text("Scoop wählen").appFont(15).foregroundStyle(theme.textSecondary)
                     }
                     Spacer(minLength: 8)
-                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "chevron.up.chevron.down").appFont(11, weight: .semibold)
                         .foregroundStyle(theme.textTertiary)
                 }
                 .groupedRow()
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
-            .accessibilityLabel("Scoop: \(actor?.name ?? "keiner gewählt")")
+            .accessibilityLabel(scoopLabel)
         }
+    }
+
+    /// Vorlesetext der Scoop-Auswahl
+    private var scoopLabel: String {
+        guard let actor else { return String(localized: "Scoop: keiner gewählt") }
+        return String(localized: "Scoop: \(actor.name)")
     }
 
     private var footer: some View {
@@ -152,11 +159,12 @@ struct TaskFormView: View {
 
     private var scopeFooter: String {
         let mode = actor?.computerAccess?.accessMode ?? .auto
-        return "Wo die Aufgabe auf dem Mac lesen und schreiben darf. Modus des Scoops: \(mode.title)."
+        let modeTitle = mode.title
+        return String(localized: "Wo die Aufgabe auf dem Mac lesen und schreiben darf. Modus des Scoops: \(modeTitle).")
     }
 
     private var saveTitle: String {
-        if editing != nil { return "Sichern" }
+        if editing != nil { return String(localized: "Sichern") }
         return startMode.saveTitle
     }
 
@@ -203,9 +211,14 @@ struct TaskFormView: View {
                               scheduledAt: startMode == .scheduled ? date : nil, backlog: startMode == .open ? true : nil,
                               access: access)
         if let created = await board.create(draft) {
-            store.showToast(created.isOpen ? "Unter „Offen“ gesammelt"
-                            : created.isScheduled ? "Aufgabe geplant: \(Formatting.dayTime(created.scheduledAt ?? date))"
-                            : "Aufgabe gestartet")
+            if created.isOpen {
+                store.showToast(String(localized: "Unter „Offen“ gesammelt"))
+            } else if created.isScheduled {
+                let when = Formatting.dayTime(created.scheduledAt ?? date)
+                store.showToast(String(localized: "Aufgabe geplant: \(when)"))
+            } else {
+                store.showToast(String(localized: "Aufgabe gestartet"))
+            }
             dismiss()
         }
     }
@@ -219,9 +232,9 @@ enum TaskStartMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .now: "Sofort"
-        case .scheduled: "Termin"
-        case .open: "Offen"
+        case .now: String(localized: "Sofort", comment: "Aufgabe startet sofort")
+        case .scheduled: String(localized: "Termin", comment: "Aufgabe startet zu einem Termin")
+        case .open: String(localized: "Offen", comment: "Aufgabe/Spalte im Board: noch nicht gestartet")
         }
     }
 
@@ -235,17 +248,17 @@ enum TaskStartMode: String, CaseIterable, Identifiable {
 
     var saveTitle: String {
         switch self {
-        case .now: "Starten"
-        case .scheduled: "Planen"
-        case .open: "Sammeln"
+        case .now: String(localized: "Starten")
+        case .scheduled: String(localized: "Planen")
+        case .open: String(localized: "Sammeln")
         }
     }
 
     var footer: String {
         switch self {
-        case .now: "Die Aufgabe startet sofort."
-        case .scheduled: "Die Aufgabe startet zu diesem Zeitpunkt von selbst (auch nach einem Neustart des Servers)."
-        case .open: "Die Aufgabe wartet unter „Offen“, bis du sie startest oder planst. Der Scoop fängt nicht von selbst an."
+        case .now: String(localized: "Die Aufgabe startet sofort.")
+        case .scheduled: String(localized: "Die Aufgabe startet zu diesem Zeitpunkt von selbst (auch nach einem Neustart des Servers).")
+        case .open: String(localized: "Die Aufgabe wartet unter „Offen“, bis du sie startest oder planst. Der Scoop fängt nicht von selbst an.")
         }
     }
 }
@@ -260,9 +273,23 @@ struct TaskModelMenu: View {
     var pill = false
     @Environment(\.theme) private var theme
 
+    /// „Wie Scoop (Haiku)“ bzw. „Wie Scoop“
+    private var sameAsScoopTitle: String {
+        guard let scoopModelName = scoopModel.map({ BotModel.displayName(for: $0) }) else { return String(localized: "Wie Scoop") }
+        return String(localized: "Wie Scoop (\(scoopModelName))")
+    }
+
+    private var modelName: String { model.map { BotModel.displayName(for: $0) } ?? String(localized: "Wie Scoop") }
+
+    private var modelLabel: String {
+        guard let model else { return String(localized: "Modell: wie Scoop") }
+        let name = BotModel.displayName(for: model)
+        return String(localized: "Modell: \(name)")
+    }
+
     var body: some View {
         Menu {
-            choice(nil, "Wie Scoop" + (scoopModel.map { " (\(BotModel.displayName(for: $0)))" } ?? ""))
+            choice(nil, sameAsScoopTitle)
             ForEach(ModelProvider.allCases) { provider in
                 Section(provider.title) {
                     ForEach(BotModel.choices(of: provider)) { m in choice(m.id, m.label) }
@@ -270,21 +297,20 @@ struct TaskModelMenu: View {
             }
         } label: {
             if pill {
-                TaskPillLabel(icon: "cpu", text: model.map { BotModel.displayName(for: $0) } ?? "Wie Scoop",
-                              active: model != nil)
+                TaskPillLabel(icon: "cpu", text: modelName, active: model != nil)
             } else {
                 HStack(spacing: 4) {
-                    Text(model.map { BotModel.displayName(for: $0) } ?? "Wie Scoop")
-                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
+                    Text(modelName)
+                    Image(systemName: "chevron.up.chevron.down").appFont(10, weight: .semibold)
                 }
-                .font(.system(size: 14.5))
+                .appFont(14.5)
                 .foregroundStyle(theme.textSecondary)
             }
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
         .fixedSize()
-        .accessibilityLabel("Modell: \(model.map { BotModel.displayName(for: $0) } ?? "wie Scoop")")
+        .accessibilityLabel(modelLabel)
     }
 
     private func choice(_ id: String?, _ title: String) -> some View {
@@ -328,19 +354,17 @@ struct TaskSchedulePill: View {
             }
         } label: {
             if backlog {
-                TaskPillLabel(icon: "tray", text: "Offen", active: true)
+                TaskPillLabel(icon: "tray", text: String(localized: "Offen", comment: "Aufgabe/Spalte im Board: noch nicht gestartet"), active: true)
             } else {
                 TaskPillLabel(icon: date == nil ? "bolt.fill" : "calendar.badge.clock",
-                              text: date.map { Formatting.dayTime($0) } ?? "Jetzt", active: date != nil)
+                              text: date.map { Formatting.dayTime($0) } ?? String(localized: "Jetzt"), active: date != nil)
             }
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
         .fixedSize()
-        .help(backlog ? "Nur sammeln – startet erst, wenn du sie im Board startest"
-              : date == nil ? "Startet sofort – tippen für einen Termin" : "Geplanter Start")
-        .accessibilityLabel(backlog ? "Start: offen, nur sammeln"
-                            : date.map { "Start: \(Formatting.dayTime($0))" } ?? "Start: sofort")
+        .help(helpText)
+        .accessibilityLabel(spokenText)
         .sheet(isPresented: $showPicker) {
             TaskDateSheet(draft: $draft) {
                 backlog = false
@@ -352,7 +376,19 @@ struct TaskSchedulePill: View {
         }
     }
 
-    private func choice(_ title: String, icon: String, _ value: Date?) -> some View {
+    private var helpText: LocalizedStringKey {
+        if backlog { return "Nur sammeln – startet erst, wenn du sie im Board startest" }
+        return date == nil ? "Startet sofort – tippen für einen Termin" : "Geplanter Start"
+    }
+
+    private var spokenText: String {
+        if backlog { return String(localized: "Start: offen, nur sammeln") }
+        guard let date else { return String(localized: "Start: sofort") }
+        let when = Formatting.dayTime(date)
+        return String(localized: "Start: \(when)")
+    }
+
+    private func choice(_ title: LocalizedStringKey, icon: String, _ value: Date?) -> some View {
         Button {
             backlog = false
             date = value
@@ -376,7 +412,7 @@ struct TaskDateSheet: View {
                 Button("Abbrechen", action: onCancel)
                     .buttonStyle(PillButtonStyle(kind: .secondary))
                 Spacer()
-                Text("Wann starten?").font(.system(size: 16, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                Text("Wann starten?").appFont(16, weight: .semibold).foregroundStyle(theme.textPrimary)
                 Spacer()
                 Button("Übernehmen", action: onDone)
                     .buttonStyle(PillButtonStyle(kind: .primary))
@@ -392,7 +428,7 @@ struct TaskDateSheet: View {
                         #endif
                         .labelsHidden()
                     DatePicker("Uhrzeit", selection: $draft, displayedComponents: [.hourAndMinute])
-                        .font(.system(size: 15))
+                        .appFont(15)
                         .padding(.horizontal, 4)
                 }
                 .padding(.horizontal, 16)
@@ -420,9 +456,9 @@ struct TaskPillLabel: View {
     var body: some View {
         let tint = ComposerMode.task.color
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 10.5, weight: .bold))
-            Text(text).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-            Image(systemName: "chevron.down").font(.system(size: 8, weight: .heavy))
+            Image(systemName: icon).appFont(10.5, weight: .bold)
+            Text(text).appFont(13, weight: .semibold).adaptiveLineLimit(1)
+            Image(systemName: "chevron.down").appFont(8, weight: .heavy)
         }
         .foregroundStyle(active ? tint : theme.textSecondary)
         .padding(.horizontal, 8).padding(.vertical, 4)

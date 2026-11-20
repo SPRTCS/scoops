@@ -79,9 +79,11 @@ nonisolated enum ScoopsLive {
     static func headline(_ state: ScoopsLiveAttributes.ContentState) -> String {
         let running = state.running
         switch running.count {
-        case 0: return "Alle fertig"
-        case 1: return "\(running[0].name) arbeitet"
-        default: return "\(running.count) Scoops arbeiten"
+        case 0: return String(localized: "Alle fertig")
+        case 1: return String(localized: "\(running[0].name) arbeitet")
+        default:
+            let count = running.count
+            return String(localized: "\(count) Scoops arbeiten")
         }
     }
 
@@ -107,9 +109,9 @@ nonisolated enum ScoopsLive {
 
     static func endedText(_ entry: ScoopsLiveAttributes.Entry) -> String {
         switch entry.state {
-        case "failed": return "Fehlgeschlagen"
-        case "stopped": return "Angehalten"
-        default: return "Fertig"
+        case "failed": return String(localized: "Fehlgeschlagen", comment: "Zustand einer Aufgabe")
+        case "stopped": return String(localized: "Angehalten", comment: "Zustand einer Aufgabe")
+        default: return String(localized: "Fertig", comment: "Lauf eines Scoops beendet")
         }
     }
 }
@@ -229,9 +231,9 @@ extension ScoopsLiveAttributes.ContentState {
             .init(id: "b_mila", name: "Mila", label: "MLP", mascot: Mascot(shape: "bean", color: "#FF5FA8", eyes: "dots", accessory: "beret"),
                   state: "running", statusLine: "Vergleicht drei Angebote", steps: 4, startedAt: now.addingTimeInterval(-94)),
             .init(id: "b_theo", name: "Theo", label: nil, mascot: Mascot(shape: "cloud", color: "#3D84F5", eyes: "ovals", accessory: "glasses"),
-                  state: "running", statusLine: "Ist im Browser auf google.com", steps: 7, startedAt: now.addingTimeInterval(-312)),
+                  state: "running", statusLine: "Ist im Browser auf google.com", steps: 7, startedAt: now.addingTimeInterval(-312)),  // nicht übersetzen: nur Xcode-Vorschau
             .init(id: "b_tina", name: "Tina", label: nil, mascot: Mascot(shape: "egg", color: "#FFB524", eyes: "happy", accessory: "none"),
-                  state: "done", statusLine: "Fertig", steps: 3, startedAt: now.addingTimeInterval(-600), finishedAt: now.addingTimeInterval(-30)),
+                  state: "done", statusLine: "Fertig", steps: 3, startedAt: now.addingTimeInterval(-600), finishedAt: now.addingTimeInterval(-30)),  // nicht übersetzen: nur Xcode-Vorschau
         ], updatedAt: now)
     }
 }

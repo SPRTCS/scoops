@@ -17,7 +17,7 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
-    MARKETING_VERSION: "1.2"
+    MARKETING_VERSION: "1.3"
     # Build-Nummer: per Kommandozeile überschreibbar (CURRENT_PROJECT_VERSION=$N), gilt für App und Widget.
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: MYXQKK3T2Z
@@ -44,6 +44,8 @@ targets:
         CFBundleDisplayName: AIS Scoops
         CFBundleName: AIS Scoops
         CFBundleDevelopmentRegion: de
+        # Team-Präfix zur Laufzeit (SharedKeychain: Schlüsselbund-Gruppe für App und Teilen-Erweiterung)
+        AppIdentifierPrefix: $(AppIdentifierPrefix)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.productivity
@@ -67,6 +69,25 @@ targets:
               - aisbot
               # Einladungslinks geteilter Scoops (docs/sharing.md)
               - aisscoops
+        # Scoop-Vorlagen (docs/vorlagen.md): eigene Endung .scoop; AIS Scoops öffnet sie („Öffnen mit“, AirDrop,
+        # Doppelklick). Die App liest die Datei am Ort (nur lesen, nie ändern); macOS verlangt dafür `true`.
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.ais.aisbot.scoop-template
+            UTTypeDescription: Scoop-Vorlage
+            UTTypeConformsTo:
+              - public.json
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - scoop
+              public.mime-type:
+                - application/vnd.ais.scoop+json
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Scoop-Vorlage
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - com.ais.aisbot.scoop-template
+        LSSupportsOpeningDocumentsInPlace: true
         NSLocalNetworkUsageDescription: AIS Scoops verbindet sich mit deinem Bot-Server im lokalen Netzwerk.
         NSMicrophoneUsageDescription: AIS Scoops nutzt das Mikrofon, damit du Nachrichten diktieren und im Sprachmodus mit deinen Scoops sprechen kannst.
         NSSpeechRecognitionUsageDescription: AIS Scoops wandelt deine Sprache auf dem Gerät in Text um, damit du Nachrichten diktieren und im Sprachmodus sprechen kannst.
@@ -91,12 +112,16 @@ targets:
           - INSendMessageIntent
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: false
+        # Sprachen (App/README.md „Sprachen“): Texte in Shared/Localization/Localizable.xcstrings, Info.plist-Texte in
+        # AISBot/Resources/InfoPlist.xcstrings, Siri-Sätze in AppShortcuts.xcstrings. Deutsch ist Quellsprache.
         CFBundleLocalizations:
           - de
+          - en
     settings:
       base:
         PRODUCT_NAME: AIS Scoops
         PRODUCT_MODULE_NAME: AISBot
+        SWIFT_EMIT_LOC_STRINGS: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Alternative App-Symbole (nur iOS/iPadOS; auf dem Mac wird das Dock-Symbol zur Laufzeit gesetzt)
@@ -126,6 +151,9 @@ targets:
         embed: true
       - target: AISBotNotifications
         embed: true
+      # Teilen-Menü „An Scoop senden“ (docs/system.md)
+      - target: AISBotShare
+        embed: true
       # Apple-Watch-App (docs/watch.md): nur im iOS-Paket (Contents/Watch), nicht in der Mac-App
       - target: AISBotWatch
         embed: true
@@ -148,12 +176,16 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: de
+        CFBundleLocalizations:
+          - de
+          - en
         ITSAppUsesNonExemptEncryption: false
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
         PRODUCT_NAME: AISBotWidgets
+        SWIFT_EMIT_LOC_STRINGS: YES
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WIDGET_EXTENSION"
         PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.widgets
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -179,6 +211,7 @@ targets:
           - "**/*.entitlements"
           - "Info.plist"
       - path: Shared/Notifications
+      - path: Shared/Localization
     info:
       path: AISBotNotifications/Info.plist
       properties:
@@ -186,6 +219,9 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: de
+        CFBundleLocalizations:
+          - de
+          - en
         ITSAppUsesNonExemptEncryption: false
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
@@ -193,6 +229,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: AISBotNotifications
+        SWIFT_EMIT_LOC_STRINGS: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.notifications
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: YES
@@ -201,6 +238,71 @@ targets:
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": AISBotNotifications/AISBotNotifications-macOS.entitlements
         "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": AISBotNotifications/AISBotNotifications-iOS.entitlements
         "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": AISBotNotifications/AISBotNotifications-iOS.entitlements
+  # Teilen-Erweiterung „An Scoop senden“ (docs/system.md): Text, Links, Bilder, PDFs und andere Dateien aus dem
+  # Teilen-Menü an einen Scoop oder eine Gruppe. iPhone/iPad: sendet selbst (Zugangsdaten aus der Schlüsselbund-Gruppe
+  # `$(AppIdentifierPrefix)com.ais.aisbot.shared`), sonst Ablage in der App-Gruppe. Mac: legt ab, die App sendet.
+  AISBotShare:
+    type: app-extension
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: AISBotShare
+        excludes:
+          - "**/*.entitlements"
+          - "Info.plist"
+      - path: Shared/Models
+        excludes:
+          - "**/* 2.swift"
+      - path: Shared/Mascot
+      - path: Shared/Support
+      - path: Shared/Theme
+      - path: Shared/System
+      - path: Shared/Widget/WidgetSnapshot.swift
+      - path: Shared/Localization
+    info:
+      path: AISBotShare/Info.plist
+      properties:
+        CFBundleDisplayName: An Scoop senden
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: de
+        CFBundleLocalizations:
+          - de
+          - en
+        # Team-Präfix zur Laufzeit (SharedKeychain: Schlüsselbund-Gruppe für App und Teilen-Erweiterung)
+        AppIdentifierPrefix: $(AppIdentifierPrefix)
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            ts.net:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            # Alles, was sich als Daten weitergeben lässt (Text, Links, Bilder, PDFs, Videos, andere Dateien), bis zu
+            # 20 Anhänge. Als Prädikat, weil die einfachen Schlüssel z. B. eine PDF aus Safari nicht abdecken.
+            NSExtensionActivationRule: >-
+              SUBQUERY(extensionItems, $item,
+              $item.attachments.@count >= 1 AND $item.attachments.@count <= 20 AND
+              SUBQUERY($item.attachments, $attachment,
+              ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.data"
+              ).@count == $item.attachments.@count
+              ).@count >= 1
+    settings:
+      base:
+        PRODUCT_NAME: AISBotShare
+        SWIFT_EMIT_LOC_STRINGS: YES
+        # Wie die Widgets: Maskottchen ohne Zwischenspeicher, kleine Scoop-Bilder (knapper Speicher in Erweiterungen)
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WIDGET_EXTENSION"
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.share
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        SUPPORTS_MACCATALYST: NO
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": AISBotShare/AISBotShare-macOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": AISBotShare/AISBotShare-iOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": AISBotShare/AISBotShare-iOS.entitlements
   # Apple-Watch-App „AIS Scoops“ (docs/watch.md): Scoops, Chats, Eingabe per Diktat, Freigaben. Wird mit der
   # iOS-App ausgeliefert. Spricht selbst per URLSession mit dem Server (Zugangsdaten per WatchConnectivity).
   AISBotWatch:
@@ -220,6 +322,7 @@ targets:
       - path: Shared/Theme
       - path: Shared/Watch
       - path: Shared/Notifications/ApprovalActions.swift
+      - path: Shared/Localization
     info:
       path: AISBotWatch/Info.plist
       properties:
@@ -244,10 +347,12 @@ targets:
               NSExceptionAllowsInsecureHTTPLoads: true
         CFBundleLocalizations:
           - de
+          - en
     settings:
       base:
         PRODUCT_NAME: AIS Scoops
         PRODUCT_MODULE_NAME: AISBotWatch
+        SWIFT_EMIT_LOC_STRINGS: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.watchkitapp
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -270,6 +375,8 @@ targets:
           - "**/*.entitlements"
           - "Info.plist"
       - path: Shared/Watch/WatchWidgetData.swift
+      - path: Shared/Support/AppLanguage.swift
+      - path: Shared/Localization
     info:
       path: AISBotWatchWidgets/Info.plist
       properties:
@@ -277,12 +384,16 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: de
+        CFBundleLocalizations:
+          - de
+          - en
         ITSAppUsesNonExemptEncryption: false
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
         PRODUCT_NAME: AISBotWatchWidgets
+        SWIFT_EMIT_LOC_STRINGS: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.watchkitapp.widgets
         TARGETED_DEVICE_FAMILY: "4"
         SKIP_INSTALL: YES
@@ -304,6 +415,9 @@ targets:
       - path: Shared/Theme
       - path: Shared/Watch
       - path: Shared/Notifications/ApprovalActions.swift
+      # Systemintegration (docs/system.md): tiefe Links, Verzeichnis, Ablage
+      - path: Shared/System
+      - path: Shared/Widget/WidgetSnapshot.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ais.aisbot.watchlogictests
@@ -321,6 +435,7 @@ targets:
       - path: ScoopsConnect
         excludes:
           - "Tests/**"
+          - "RenderTests/**"
           - "**/*.entitlements"
           - "Info.plist"
     info:
@@ -348,8 +463,11 @@ targets:
             ts.net:
               NSIncludesSubdomains: true
               NSExceptionAllowsInsecureHTTPLoads: true
+        # Sprachen (docs/sprache-serverapp.md): Texte in ScoopsConnect/Resources/Localizable.xcstrings, Info.plist-Texte
+        # in InfoPlist.xcstrings. Deutsch ist Quellsprache und Rückfall für alle anderen Systemsprachen.
         CFBundleLocalizations:
           - de
+          - en
         # Sparkle (docs/updates.md): Feed im öffentlichen Release-Repo SPRTCS/ais-scoops-server, automatisch
         # prüfen und laden, still installieren, sobald kein Scoop arbeitet (App/AppUpdater.swift).
         SUFeedURL: https://github.com/SPRTCS/ais-scoops-server/releases/latest/download/appcast.xml
@@ -373,6 +491,7 @@ targets:
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: YES
         COMBINE_HIDPI_IMAGES: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
   # Unit-Tests für die reine Logik (Tasten-Mapping, JSON, SSE, Zeitgrenzen, Dateizugriff) ohne App-Host.
   ScoopsConnectTests:
     type: bundle.unit-test
@@ -392,6 +511,29 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.ais.scoopsconnect.tests
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_IDENTITY: Apple Development
+  # Sprachen der Server-App ohne Start der App (docs/sprache-serverapp.md): übersetzt die App-Quellen ohne den
+  # Einstieg (@main) und ohne Sparkle noch einmal, prüft den String Catalog und rendert die wichtigsten Ansichten auf
+  # Deutsch und Englisch (Bilder nur mit SCOOPS_RENDER_DIR, sonst in einen temporären Ordner). Kein Server, kein Updater.
+  ScoopsConnectRenderTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: ScoopsConnect
+        excludes:
+          - "Tests/**"
+          - "**/*.entitlements"
+          - "Info.plist"
+          - "App/ScoopsConnectApp.swift"
+          - "App/AppUpdater.swift"
+          - "Resources/InfoPlist.xcstrings"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ais.scoopsconnect.rendertests
+        PRODUCT_MODULE_NAME: ScoopsConnectRenderTests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: Apple Development
+        ENABLE_HARDENED_RUNTIME: NO
   # Oberflächentests der Einführung (docs/onboarding.md): tippen den Ablauf im iOS-Simulator durch und legen
   # Screenshots als Testanhänge ab. Gegen den Demo-Modus und optional gegen einen lokalen Testserver.
   AISBotUITests:
@@ -444,3 +586,4 @@ schemes:
     test:
       targets:
         - ScoopsConnectTests
+        - ScoopsConnectRenderTests

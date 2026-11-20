@@ -1,0 +1,213 @@
+{
+  "sourceLanguage" : "de",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops"
+          }
+        }
+      },
+      "comment" : "Name unter dem App-Symbol (Produktname, bleibt gleich)"
+    },
+    "CFBundleName" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops"
+          }
+        }
+      },
+      "comment" : "Produktname, bleibt gleich"
+    },
+    "NSAlarmKitUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Damit deine Scoops Wecker und Timer für dich stellen können."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets your Scoops set alarms and timers for you."
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops schützt deinen Tresor mit Face ID, damit nur du die gespeicherten Logins sehen und ändern kannst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops uses Face ID to protect your Vault, so only you can see and change your saved logins."
+          }
+        }
+      }
+    },
+    "NSHomeKitUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Damit deine Scoops Licht, Steckdosen, Heizung und Szenen in Apple Home schalten können. Schlösser, Türen, Garagentore und die Alarmanlage nur mit deiner Freigabe."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets your Scoops control lights, outlets, heating, and scenes in Apple Home. Locks, doors, garage doors, and the alarm system always need your approval."
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops verbindet sich mit deinem Bot-Server im lokalen Netzwerk."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops connects to your server on your local network."
+          }
+        }
+      }
+    },
+    "NSLocationAlwaysAndWhenInUseUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Damit dich deine Scoops an Orte erinnern können („wenn ich im Büro bin“), auch wenn AIS Scoops geschlossen ist. Der Standort wird nur dafür genutzt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets your Scoops remind you when you arrive somewhere (“when I get to the office”), even when AIS Scoops is closed. Your location is used only for this."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Damit deine Scoops auf Nachfrage wissen, wo du gerade bist (z. B. für Wege oder Orte in der Nähe)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lets your Scoops know where you are when you ask, like for directions or places nearby."
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops nutzt das Mikrofon, damit du Nachrichten diktieren und im Sprachmodus mit deinen Scoops sprechen kannst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops uses the microphone so you can dictate messages and talk to your Scoops in voice mode."
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops braucht Zugriff auf deine Fotos, wenn du Bilder an eine Nachricht anhängen möchtest."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops needs access to your photos so you can attach images to messages."
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops wandelt deine Sprache auf dem Gerät in Text um, damit du Nachrichten diktieren und im Sprachmodus sprechen kannst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops turns your speech into text on your device so you can dictate messages and talk in voice mode."
+          }
+        }
+      }
+    },
+    "Scoop-Vorlage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoop-Vorlage"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoop Template"
+          }
+        }
+      },
+      "comment" : "Dateityp .scoop (UTTypeDescription und CFBundleTypeName), z. B. in Finder und „Öffnen mit“"
+    }
+  },
+  "version" : "1.0"
+}

@@ -21,7 +21,7 @@ struct TaskDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetHeader(task?.title ?? "Aufgabe", icon: "checklist") { dismiss() }
+            SheetHeader(task?.title ?? String(localized: "Aufgabe"), icon: "checklist") { dismiss() }
             if let task {
                 ScrollView {
                     GroupedStack {
@@ -32,7 +32,7 @@ struct TaskDetailView: View {
                         if let p = task.prompt, !p.isEmpty {
                             GroupedSection("Auftrag") {
                                 Text(p)
-                                    .font(.system(size: 14))
+                                    .appFont(14)
                                     .foregroundStyle(theme.textPrimary)
                                     .textSelection(.enabled)
                                     .groupedRow()
@@ -48,7 +48,7 @@ struct TaskDetailView: View {
                         }
                         if let e = task.error, !e.isEmpty {
                             GroupedSection("Fehler") {
-                                Text(e).font(.system(size: 13)).foregroundStyle(theme.danger).textSelection(.enabled)
+                                Text(e).appFont(13).foregroundStyle(theme.danger).textSelection(.enabled)
                                     .groupedRow()
                             }
                         }
@@ -94,14 +94,14 @@ struct TaskDetailView: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(bot?.name ?? "Scoop")
-                            .font(.system(size: 15, weight: .semibold))
+                            .appFont(15, weight: .semibold)
                             .foregroundStyle(theme.textPrimary)
                         HStack(spacing: 5) {
                             Image(systemName: task.stateSymbol)
                                 .symbolEffect(.rotate, isActive: task.state == "running")
                             Text(task.stateLabel)
                         }
-                        .font(.system(size: 13, weight: .medium))
+                        .appFont(13, weight: .medium)
                         .foregroundStyle(TaskStyle.color(for: task, theme: theme))
                     }
                     Spacer(minLength: 0)
@@ -109,22 +109,22 @@ struct TaskDetailView: View {
                 if task.isRoutine {
                     TaskRoutineBadge(title: task.routineTitle)
                     Text("Läufe einer Routine kommen fertig direkt unter „Abgeschlossen“. Verbessern lässt sich die Routine selbst.")
-                        .font(.system(size: 12))
+                        .appFont(12)
                         .foregroundStyle(theme.textTertiary)
                 }
                 if task.isScheduled, let at = task.scheduledAt {
                     Label("Startet \(Formatting.dayTime(at))", systemImage: "calendar.badge.clock")
-                        .font(.system(size: 13.5, weight: .medium))
+                        .appFont(13.5, weight: .medium)
                         .foregroundStyle(theme.accent)
                 }
                 if task.isActive, let note = task.note, !note.isEmpty {
-                    Text(note).font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                    Text(note).appFont(13).foregroundStyle(theme.textSecondary)
                 }
                 TaskFacts(task: task, size: 12.5)
                 if let access = task.access { TaskAccessDetail(access: access) }
                 if let b = task.budgetUsd, !task.isNotStarted {
-                    Text("Limit \(Formatting.usd(b))" + (task.maxMinutes.map { " · \($0) min Arbeitszeit" } ?? ""))
-                        .font(.system(size: 11.5))
+                    Text(limitText(b, maxMinutes: task.maxMinutes))
+                        .appFont(11.5)
                         .foregroundStyle(theme.textTertiary)
                 }
             }
@@ -132,15 +132,22 @@ struct TaskDetailView: View {
         }
     }
 
+    /// „Limit 2,00 $ · 30 min Arbeitszeit“
+    private func limitText(_ budget: Double, maxMinutes: Int?) -> String {
+        let limit = Formatting.usd(budget)
+        guard let minutes = maxMinutes else { return String(localized: "Limit \(limit)", comment: "Kostenlimit einer Aufgabe") }
+        return String(localized: "Limit \(limit) · \(minutes) min Arbeitszeit", comment: "Kostenlimit und Zeitlimit einer Aufgabe")
+    }
+
     // MARK: Wartet auf Arman
 
     private func waitingSection(_ task: BotTask) -> some View {
-        GroupedSection(task.waitingKind == "frage" ? "Rückfrage" : "Freigabe",
-                       footer: task.waitingKind == "frage" ? "Deine Antwort geht direkt an die Aufgabe, sie arbeitet dann weiter."
-                       : "Die Freigabe-Karte steht im Chat.") {
+        GroupedSection(task.waitingKind == "frage" ? String(localized: "Rückfrage") : String(localized: "Freigabe"),
+                       footer: task.waitingKind == "frage" ? String(localized: "Deine Antwort geht direkt an die Aufgabe, sie arbeitet dann weiter.")
+                       : String(localized: "Die Freigabe-Karte steht im Chat.")) {
             VStack(alignment: .leading, spacing: 10) {
                 if let w = task.waitingFor, !w.isEmpty {
-                    Text(w).font(.system(size: 14)).foregroundStyle(theme.textPrimary).textSelection(.enabled)
+                    Text(w).appFont(14).foregroundStyle(theme.textPrimary).textSelection(.enabled)
                 }
                 if task.waitingKind == "frage" {
                     HStack(alignment: .bottom, spacing: 8) {
@@ -204,7 +211,7 @@ struct TaskDetailView: View {
         .disabled(busy)
     }
 
-    private func pill(_ title: String, _ icon: String, _ kind: PillButtonStyle.Kind,
+    private func pill(_ title: LocalizedStringKey, _ icon: String, _ kind: PillButtonStyle.Kind,
                       _ action: @escaping () async -> Void) -> some View {
         Button { Task { await action() } } label: { Label(title, systemImage: icon) }
             .buttonStyle(PillButtonStyle(kind: kind))
@@ -212,7 +219,8 @@ struct TaskDetailView: View {
 
     private func reworkSection(_ task: BotTask) -> some View {
         GroupedSection("Nacharbeiten", footer: "Der Scoop setzt die Aufgabe mit deinem Hinweis im selben Arbeitsordner fort.") {
-            HStack(alignment: .bottom, spacing: 8) {
+            // Große Schrift: Knopf unter dem Eingabefeld
+            AdaptiveStack(horizontalAlignment: .trailing, verticalAlignment: .bottom, spacing: 8) {
                 TextField("Was fehlt oder soll anders sein?", text: $hint, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...6)
@@ -236,23 +244,23 @@ struct TaskDetailView: View {
         let lines = task.lines ?? []
         if !lines.isEmpty {
             let shown = showAllLines || lines.count <= 12 ? lines : Array(lines.suffix(12))
-            GroupedSection("Verlauf · \(lines.count == 1 ? "1 Schritt" : "\(lines.count) Schritte")") {
+            GroupedSection(String(localized: "Verlauf · \(lines.count) Schritte", comment: "Überschrift: Schritte einer Aufgabe")) {
                 VStack(alignment: .leading, spacing: 6) {
                     if shown.count < lines.count {
                         Button("Alle \(lines.count) Schritte zeigen") { showAllLines = true }
                             .buttonStyle(.borderless)
-                            .font(.system(size: 12.5, weight: .medium))
+                            .appFont(12.5, weight: .medium)
                     }
                     ForEach(Array(shown.enumerated()), id: \.offset) { idx, line in
                         let current = task.isRunning && idx == shown.count - 1
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: current ? "circle.dotted" : "checkmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .appFont(10, weight: .bold)
                                 .foregroundStyle(current ? theme.accent : theme.textTertiary)
-                                .frame(width: 14)
+                                .scaledFrame(width: 14)
                                 .symbolEffect(.rotate, isActive: current)
                             Text(line)
-                                .font(.system(size: 13))
+                                .appFont(13)
                                 .foregroundStyle(current ? theme.textPrimary : theme.textSecondary)
                         }
                     }
@@ -291,9 +299,9 @@ struct TaskDetailView: View {
         }
     }
 
-    private func row(_ title: String, _ date: Date) -> some View {
+    private func row(_ title: LocalizedStringResource, _ date: Date) -> some View {
         GroupedLabelRow(title: title) {
-            Text(Formatting.dayTime(date)).font(.system(size: 14)).foregroundStyle(theme.textSecondary)
+            Text(Formatting.dayTime(date)).appFont(14).foregroundStyle(theme.textSecondary)
         }
     }
 }

@@ -80,14 +80,14 @@ final class LumeManager {
     /// Installiert Lume über Homebrew (`brew install lume`).
     func installLume() {
         guard let brew = Self.brewPath else {
-            phase = .failed("Homebrew fehlt. Installiere es von brew.sh oder Lume von cua.ai/docs/lume.")
+            phase = .failed(String(localized: "Homebrew fehlt. Installiere es von brew.sh oder Lume von cua.ai/docs/lume."))
             return
         }
-        runJob("Installiere Lume …") { [weak self] in
+        runJob(String(localized: "Installiere Lume …")) { [weak self] in
             let r = await ProcessRunner.run(brew, ["install", "lume"], timeout: 1800, onLine: { line in
                 Task { @MainActor in self?.appendLog(line) }
             })
-            return r.status == 0 ? nil : "brew install lume ist fehlgeschlagen (Code \(r.status))."
+            return r.status == 0 ? nil : String(localized: "brew install lume ist fehlgeschlagen (Code \(String(r.status))).")
         }
     }
 
@@ -95,15 +95,15 @@ final class LumeManager {
     func createVM(named rawName: String) {
         guard let lume = lumePath else { return }
         let name = rawName.trimmingCharacters(in: .whitespaces)
-        guard Self.isValidName(name) else { phase = .failed("Ungültiger VM-Name (nur a–z, 0–9, - und _)."); return }
+        guard Self.isValidName(name) else { phase = .failed(String(localized: "Ungültiger VM-Name (nur a–z, 0–9, - und _).")); return }
         guard !Self.protectedNames.contains(name), !vms.contains(where: { $0.name == name }) else {
-            phase = .failed("Eine VM namens „\(name)“ gibt es schon."); return
+            phase = .failed(String(localized: "Eine VM namens „\(name)“ gibt es schon.")); return
         }
-        runJob("Lade Cua-macOS-Image (\(Self.cuaImage)) als „\(name)“ …") { [weak self] in
+        runJob(String(localized: "Lade Cua-macOS-Image (\(Self.cuaImage)) als „\(name)“ …")) { [weak self] in
             let r = await ProcessRunner.run(lume, ["pull", Self.cuaImage, name], timeout: 6 * 3600, onLine: { line in
                 Task { @MainActor in self?.appendLog(line) }
             })
-            return r.status == 0 ? nil : "lume pull ist fehlgeschlagen (Code \(r.status))."
+            return r.status == 0 ? nil : String(localized: "lume pull ist fehlgeschlagen (Code \(String(r.status))).")
         }
     }
 
@@ -113,23 +113,23 @@ final class LumeManager {
 
     /// Startet die VM (falls nötig) ohne Fenster und wartet auf den Computer-Server.
     func start(_ name: String) {
-        guard let lume = lumePath else { phase = .failed("Lume ist nicht installiert."); return }
+        guard let lume = lumePath else { phase = .failed(String(localized: "Lume ist nicht installiert.")); return }
         guard !Self.protectedNames.contains(name) else {
-            phase = .failed("„\(name)“ wird vom Server direkt genutzt und bleibt unangetastet.")
+            phase = .failed(String(localized: "„\(name)“ wird vom Server direkt genutzt und bleibt unangetastet."))
             return
         }
         task?.cancel()
         isBusy = true
-        phase = .working("Starte „\(name)“ …")
+        phase = .working(String(localized: "Starte „\(name)“ …"))
         task = Task { [weak self] in
             guard let self else { return }
             await self.refresh()
             let current = self.vms.first { $0.name == name }
-            if current == nil { self.finish(.failed("VM „\(name)“ nicht gefunden.")); return }
+            if current == nil { self.finish(.failed(String(localized: "VM „\(name)“ nicht gefunden."))); return }
             if current?.isRunning != true {
                 self.launch(lume: lume, name: name)
             }
-            self.phase = .working("Warte auf die IP-Adresse der VM …")
+            self.phase = .working(String(localized: "Warte auf die IP-Adresse der VM …"))
             var ip: String?
             for _ in 0..<120 where !Task.isCancelled {
                 let r = await ProcessRunner.run(lume, ["get", name, "--format", "json"], timeout: 15)
@@ -139,19 +139,19 @@ final class LumeManager {
                     if obj["status"]?.string == "running", let a = obj["ipAddress"]?.string, !a.isEmpty { ip = a; break }
                 }
                 if let p = self.runProcess, !p.isRunning, self.startedByUs == name {
-                    self.finish(.failed("Die VM hat sich direkt wieder beendet. Details: ~/Library/Logs/lume")); return
+                    self.finish(.failed(String(localized: "Die VM hat sich direkt wieder beendet. Details: ~/Library/Logs/lume"))); return
                 }
                 try? await Task.sleep(for: .seconds(3))
             }
             guard let ip, let base = URL(string: "http://\(ip):8000") else {
-                self.finish(.failed("Die VM hat keine IP-Adresse bekommen.")); return
+                self.finish(.failed(String(localized: "Die VM hat keine IP-Adresse bekommen."))); return
             }
-            self.phase = .working("Warte auf den Computer-Server in der VM (\(ip):8000) …")
+            self.phase = .working(String(localized: "Warte auf den Computer-Server in der VM (\(ip):8000) …"))
             for _ in 0..<200 where !Task.isCancelled {
                 if await Self.statusOK(base) { self.finish(.ready(base)); await self.refresh(); return }
                 try? await Task.sleep(for: .seconds(3))
             }
-            self.finish(.failed("Der Computer-Server in der VM antwortet nicht auf \(ip):8000/status."))
+            self.finish(.failed(String(localized: "Der Computer-Server in der VM antwortet nicht auf \(ip):8000/status.")))
         }
     }
 
@@ -174,7 +174,7 @@ final class LumeManager {
             runProcess = p
             startedByUs = name
         } catch {
-            phase = .failed("lume run konnte nicht gestartet werden: \(error.localizedDescription)")
+            phase = .failed(String(localized: "lume run konnte nicht gestartet werden: \(error.localizedDescription)"))
         }
     }
 
@@ -188,7 +188,7 @@ final class LumeManager {
     /// Prüft, ob eine bereits bereite VM noch antwortet; sonst zurück auf „idle“.
     func verify() async {
         guard let base = baseURL else { return }
-        if !(await Self.statusOK(base)) { phase = .failed("Der Computer-Server der VM antwortet nicht mehr.") }
+        if !(await Self.statusOK(base)) { phase = .failed(String(localized: "Der Computer-Server der VM antwortet nicht mehr.")) }
     }
 
     func cancel() {

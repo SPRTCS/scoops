@@ -15,6 +15,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 from .db import DATA_DIR
+from .i18n import tx
 
 AVATAR_DIR = DATA_DIR / "avatars"
 SIZE = 512
@@ -49,15 +50,15 @@ def _has_alpha(img: Image.Image) -> bool:
 def process(data: bytes, size: int = SIZE) -> tuple[bytes, str]:
     """Bilddaten → (quadratisches Bild, Endung). Wirft AvatarError bei kaputten/zu großen Bildern."""
     if not data:
-        raise AvatarError("Leeres Bild")
+        raise AvatarError(tx("Leeres Bild"))
     if len(data) > MAX_BYTES:
-        raise AvatarError("Bild ist größer als 15 MB")
+        raise AvatarError(tx("Bild ist größer als 15 MB"))
     try:
         Image.MAX_IMAGE_PIXELS = MAX_PIXELS
         img = Image.open(io.BytesIO(data))
         img.load()
     except Exception as e:  # noqa: BLE001
-        raise AvatarError("Kein lesbares Bild (JPEG, PNG, HEIC als JPEG, WebP, GIF)") from e
+        raise AvatarError(tx("Kein lesbares Bild (JPEG, PNG, HEIC als JPEG, WebP, GIF)")) from e
     img = ImageOps.exif_transpose(img)  # Handyfotos richtig herum
     alpha = _has_alpha(img)
     img = img.convert("RGBA" if alpha else "RGB")

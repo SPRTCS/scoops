@@ -29,7 +29,7 @@ final class ServerAuth {
         ServerAuth(kind: .account,
                    current: { [weak account] in account?.credentials?.token ?? "" },
                    valid: { [weak account] in
-                       guard let account else { throw CloudError(status: 401, message: "Nicht angemeldet") }
+                       guard let account else { throw CloudError(status: 401, message: String(localized: "Nicht angemeldet")) }
                        return try await account.validToken()
                    },
                    renew: { [weak account] in await account?.forceRefresh() ?? false })

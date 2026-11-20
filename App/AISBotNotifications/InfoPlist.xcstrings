@@ -1,0 +1,24 @@
+{
+  "sourceLanguage" : "de",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops Mitteilungen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIS Scoops Notifications"
+          }
+        }
+      },
+      "comment" : "Name der Mitteilungs-Erweiterung (selten sichtbar)"
+    }
+  },
+  "version" : "1.0"
+}

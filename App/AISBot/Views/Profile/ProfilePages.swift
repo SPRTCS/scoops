@@ -12,16 +12,16 @@ enum ProfilePage: String, Hashable, CaseIterable {
 
     var title: String {
         switch self {
-        case .library: "Bibliothek"
-        case .model: "Modell"
-        case .personality: "Persönlichkeit"
-        case .sharing: "Teilen"
-        case .guestTools: "Werkzeuge für Geteilte"
-        case .manage: "Verwalten"
-        case .routines: "Routinen"
-        case .skills: "Fähigkeiten"
-        case .memory: "Gedächtnis"
-        case .costs: "Kosten"
+        case .library: String(localized: "Bibliothek")
+        case .model: String(localized: "Modell", comment: "Profilseite: KI-Modell des Scoops")
+        case .personality: String(localized: "Persönlichkeit")
+        case .sharing: String(localized: "profile.page.sharing", defaultValue: "Teilen", comment: "Profilseite: Scoop mit anderen teilen (englisch „Sharing“)")
+        case .guestTools: String(localized: "Werkzeuge für Geteilte")
+        case .manage: String(localized: "Verwalten")
+        case .routines: String(localized: "Routinen")
+        case .skills: String(localized: "Fähigkeiten")
+        case .memory: String(localized: "Gedächtnis")
+        case .costs: String(localized: "Kosten")
         }
     }
 
@@ -85,7 +85,7 @@ final class ProfileRouter {
 
     /// Titel des Zurück-Knopfs: die Seite darunter
     func backTitle(for page: ProfilePage?) -> String {
-        guard let page, let i = path.lastIndex(of: page), i > 0 else { return "Profil" }
+        guard let page, let i = path.lastIndex(of: page), i > 0 else { return String(localized: "Profil") }
         return path[i - 1].title
     }
 }
@@ -199,7 +199,7 @@ struct ProfileScaffold<Content: View>: View {
         .background(theme.groupedBackground.ignoresSafeArea())
     }
 
-    private var backTitle: String { router?.backTitle(for: page) ?? "Profil" }
+    private var backTitle: String { router?.backTitle(for: page) ?? String(localized: "Profil") }
 
     /// Maße wie eine Navigationsleiste des Systems: 44-pt-Knöpfe auf iPhone/iPad (Mindest-Trefferfläche),
     /// 36 pt auf dem Mac (Größe der Glas-Knöpfe in der Fenster-Symbolleiste), Titel 17 pt halbfett.
@@ -221,7 +221,7 @@ struct ProfileScaffold<Content: View>: View {
         ZStack {
             if let page {
                 Text(page.title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .appFont(17, weight: .semibold)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -230,11 +230,11 @@ struct ProfileScaffold<Content: View>: View {
             }
             HStack(spacing: 8) {
                 if page != nil {
-                    glassButton("chevron.left", label: "Zurück zu \(backTitle)") { router?.back() }
+                    glassButton("chevron.left", label: String(localized: "Zurück zu \(backTitle)")) { router?.back() }
                         .keyboardShortcut("[", modifiers: .command)
                 }
                 Spacer(minLength: 0)
-                glassButton("xmark", label: "Schließen") { router?.close() }
+                glassButton("xmark", label: String(localized: "Schließen")) { router?.close() }
             }
         }
         .padding(.horizontal, Self.sideInset)
@@ -250,7 +250,7 @@ struct ProfileScaffold<Content: View>: View {
     private func glassButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: Self.buttonSize * 0.4, weight: .semibold))
+                .font(.fixed(Self.buttonSize * 0.4, weight: .semibold))
                 .foregroundStyle(theme.textPrimary)
                 .frame(width: Self.buttonSize, height: Self.buttonSize)
                 .contentShape(Circle())
@@ -270,18 +270,42 @@ struct ProfileNavRow: View {
     var title: String?
     @Environment(ProfileRouter.self) private var router: ProfileRouter?
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Button { router?.path.append(page) } label: {
             // Eigene Zeile statt `GroupedLabelRow`: Der Titel hat Vorrang (einzeilig, nie mitten im Wort umbrochen),
             // die Kurzinfo kürzt sich in schmalen Spalten zuerst.
+            if dynamicTypeSize.isAccessibilitySize {
+                // Große Schrift: Kurzinfo unter dem Titel, beide dürfen umbrechen
+                HStack(spacing: 12) {
+                    Image(systemName: page.symbol)
+                        .appFont(15, weight: .medium)
+                        .foregroundStyle(theme.textSecondary)
+                        .scaledFrame(width: 22)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title ?? page.title)
+                            .appFont(15)
+                            .foregroundStyle(theme.textPrimary)
+                        if let value {
+                            Text(value)
+                                .appFont(14.5)
+                                .foregroundStyle(theme.textSecondary)
+                                .monospacedDigit()
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    DisclosureChevron()
+                }
+                .groupedRow()
+            } else {
             HStack(spacing: 12) {
                 Image(systemName: page.symbol)
-                    .font(.system(size: 15, weight: .medium))
+                    .appFont(15, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
-                    .frame(width: 22)
+                    .scaledFrame(width: 22)
                 Text(title ?? page.title)
-                    .font(.system(size: 15))
+                    .appFont(15)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.9)
@@ -291,9 +315,9 @@ struct ProfileNavRow: View {
                 HStack(spacing: 6) {
                     if let value {
                         Text(value)
-                            .font(.system(size: 14.5))
+                            .appFont(14.5)
                             .foregroundStyle(theme.textSecondary)
-                            .lineLimit(1)
+                            .adaptiveLineLimit(1)
                             .monospacedDigit()
                     }
                     DisclosureChevron()
@@ -302,6 +326,7 @@ struct ProfileNavRow: View {
                 .layoutPriority(0.5)
             }
             .groupedRow()
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel([title ?? page.title, value].compactMap { $0 }.joined(separator: ", "))
@@ -356,29 +381,29 @@ enum ProfileSummary {
     /// Bibliothek: Anzahl Dateien und Links (nil, solange nicht geladen)
     static func library(store: AppStore, chatID: String) -> String? {
         guard let files = store.files[chatID] else { return nil }
-        return files.isEmpty ? "Leer" : "\(files.count)"
+        return files.isEmpty ? String(localized: "Leer", comment: "Bibliothek ohne Dateien") : "\(files.count)"
     }
 
     /// Persönlichkeit: gewählte Stimme
     static func voice(_ bot: Bot) -> String {
         let choice = VoiceChoice(bot.voice)
         if let live = choice.live {
-            return live.isEmpty ? "Standard" : live.prefix(1).uppercased() + live.dropFirst()
+            return live.isEmpty ? String(localized: "Standard", comment: "Standardstimme") : live.prefix(1).uppercased() + live.dropFirst()
         }
         if let id = choice.deviceID, let v = AVSpeechSynthesisVoice(identifier: id) { return v.name }
-        return "Gerätestimme"
+        return String(localized: "Gerätestimme")
     }
 
     static func routines(store: AppStore, botID: String) -> String? {
         guard let list = store.routines[botID] else { return nil }
         let active = list.filter(\.enabled).count
-        if list.isEmpty { return "Keine" }
-        return active == list.count ? "\(active)" : "\(active) von \(list.count) an"
+        if list.isEmpty { return String(localized: "Keine", comment: "Kurzinfo: keine Einträge") }
+        return active == list.count ? "\(active)" : String(localized: "\(active) von \(list.count) an", comment: "Routinen: aktive von allen")
     }
 
     static func count<T>(_ items: [T]?) -> String? {
         guard let items else { return nil }
-        return items.isEmpty ? "Keine" : "\(items.count)"
+        return items.isEmpty ? String(localized: "Keine", comment: "Kurzinfo: keine Einträge") : "\(items.count)"
     }
 }
 
@@ -454,39 +479,45 @@ struct ModelEscalationSection: View {
     }
 
     var body: some View {
-        GroupedSection("Verstärkung", footer: footer) {
-            GroupedLabelRow(icon: "arrow.up.forward.circle", title: "Gibt ab an", subtitle: subtitle) {
+        GroupedSection(String(localized: "Verstärkung"), footer: footer) {
+            GroupedLabelRow(icon: "arrow.up.forward.circle", title: String(localized: "Gibt ab an"), subtitle: subtitle) {
                 Text(value)
-                    .font(.system(size: 14.5))
+                    .appFont(14.5)
                     .foregroundStyle(theme.textSecondary)
-                    .lineLimit(1)
+                    .adaptiveLineLimit(1)
             }
         }
     }
 
     private var value: String {
-        guard let chain else { return "Aus" }
+        guard let chain else { return String(localized: "Aus", comment: "Verstärkung ausgeschaltet") }
         return chain.first.map(BotModel.displayName(for:)) ?? "–"
     }
 
     private var subtitle: String? {
         guard let chain else { return nil }
-        if chain.isEmpty { return "Schon das stärkste Modell" }
+        if chain.isEmpty { return String(localized: "Schon das stärkste Modell") }
         let rest = chain.dropFirst().map(BotModel.displayName(for:))
-        return rest.isEmpty ? nil : "danach " + rest.joined(separator: ", dann ")
+        guard let first = rest.first else { return nil }
+        // „danach B, dann C, dann D“
+        let steps = [String(localized: "danach \(first)", comment: "Nächste Stufe der Verstärkung")]
+            + rest.dropFirst().map { name in String(localized: "dann \(name)", comment: "Weitere Stufe der Verstärkung") }
+        return steps.joined(separator: ", ")
     }
 
     private var footer: String {
         let name = BotModel.displayName(for: current)
-        guard let chain else { return "\(bot.name) arbeitet immer mit \(name)." }
-        if chain.isEmpty { return "\(name) ist schon das stärkste Modell; \(bot.name) arbeitet immer damit." }
+        guard let chain else { return String(localized: "\(bot.name) arbeitet immer mit \(name).") }
+        if chain.isEmpty { return String(localized: "\(name) ist schon das stärkste Modell; \(bot.name) arbeitet immer damit.") }
         if isOpenAI {
             let names = catalog.selectable(of: .openai).map { $0.label.split(separator: " ").last.map(String.init) ?? $0.label }
-            return "Bei schwierigen Aufgaben gibt \(bot.name) selbst an das nächststärkere Modell ab: "
-                + names.joined(separator: " → ") + "."
+            let steps = names.joined(separator: " → ")
+            return String(localized: "Bei schwierigen Aufgaben gibt \(bot.name) selbst an das nächststärkere Modell ab: \(steps).")
         }
-        return "\(name) reicht für die meisten Aufgaben. Wird es schwierig, gibt \(bot.name) selbst an "
-            + "\(chain.first.map(BotModel.displayName(for:)) ?? "das stärkere Modell") ab."
+        guard let target = chain.first.map(BotModel.displayName(for:)) else {
+            return String(localized: "\(name) reicht für die meisten Aufgaben. Wird es schwierig, gibt \(bot.name) selbst an das stärkere Modell ab.")
+        }
+        return String(localized: "\(name) reicht für die meisten Aufgaben. Wird es schwierig, gibt \(bot.name) selbst an \(target) ab.")
     }
 }
 
@@ -506,7 +537,7 @@ struct ProfilePersonalityPage: View {
             } label: {
                 HStack(spacing: 12) {
                     MascotView(mascot: bot.mascot, size: 30, seed: bot.id, animated: false)
-                    Text("Aussehen bearbeiten").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                    Text("Aussehen bearbeiten").appFont(15).foregroundStyle(theme.textPrimary)
                     Spacer()
                     DisclosureChevron()
                 }
@@ -530,7 +561,7 @@ struct ProfileSharingPage: View {
         ShareSection(bot: bot)
         if store.sharingUnavailableReason == nil {
             GroupedSection(footer: "Welche Werkzeuge Läufe von Gästen nutzen dürfen.") {
-                ProfileNavRow(page: .guestTools, value: GuestToolsSection.summary(store: store, bot: bot), title: "Werkzeuge")
+                ProfileNavRow(page: .guestTools, value: GuestToolsSection.summary(store: store, bot: bot), title: String(localized: "Werkzeuge"))
             }
             .task(id: bot.id) {
                 await store.loadSharingSettings(botID: bot.id)
@@ -564,7 +595,7 @@ struct ProfileManagePage: View {
                 GroupedSection("Haupt-Scoop", footer: "Dein erster Ansprechpartner. Meldet sich von selbst, wenn etwas wichtig ist.") {
                     PrimaryToggleRows(bot: bot)
                 }
-                GroupedSection("Aufsicht", footer: ReviewToggleRow.footer(bot)) {
+                GroupedSection(String(localized: "Aufsicht"), footer: ReviewToggleRow.footer(bot)) {
                     ReviewToggleRow(bot: bot)
                 }
             }
@@ -578,6 +609,8 @@ struct ProfileManagePage: View {
                 ProfileNavRow(page: .costs, value: CostSection.summary(store: store, bot: bot))
             }
             if guest == nil { sidebarSection } else { leaveSection }
+            // Als Vorlage weitergeben (nur eigene Scoops; Gäste können nicht exportieren)
+            if store.canExportTemplate(bot.id) { TemplateExportSection(bot: bot) }
             if guest == nil { dangerSection }
         }
         .task(id: bot.id) { await store.loadBotUsage(botID: bot.id) }
@@ -599,9 +632,9 @@ struct ProfileManagePage: View {
     private var sidebarSection: some View {
         GroupedSection("Seitenleiste", dividerInset: 50) {
             HStack(spacing: 12) {
-                Image(systemName: "pin").font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(theme.textSecondary).frame(width: 22)
-                Text("Angeheftet").font(.system(size: 15)).foregroundStyle(theme.textPrimary)
+                Image(systemName: "pin").appFont(15, weight: .medium)
+                    .foregroundStyle(theme.textSecondary).scaledFrame(width: 22)
+                Text("Angeheftet").appFont(15).foregroundStyle(theme.textPrimary)
                 Spacer()
                 Toggle("Angeheftet", isOn: Binding(get: { bot.pinned }, set: { on in
                     guard on != bot.pinned else { return }
@@ -612,11 +645,13 @@ struct ProfileManagePage: View {
                 .tint(theme.accent)
             }
             .groupedRow(vertical: 6)
-            HStack(spacing: 12) {
-                Image(systemName: "folder").font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(theme.textSecondary).frame(width: 22)
-                Text("Bereich").font(.system(size: 15)).foregroundStyle(theme.textPrimary).fixedSize()
-                Spacer(minLength: 8)
+            AdaptiveRow(spacing: 12, stackedSpacing: 2, trailingIndent: 34) {
+                HStack(spacing: 12) {
+                    Image(systemName: "folder").appFont(15, weight: .medium)
+                        .foregroundStyle(theme.textSecondary).scaledFrame(width: 22)
+                    Text("Bereich").appFont(15).foregroundStyle(theme.textPrimary).fixedSizeUnlessAccessibility()
+                }
+            } trailing: {
                 Picker("Bereich", selection: Binding(get: { bot.trimmedSection ?? "" }, set: { name in
                     Task { await store.move(chatID: bot.id, toSection: name.isEmpty ? nil : name) }
                 })) {
@@ -626,7 +661,7 @@ struct ProfileManagePage: View {
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .tint(theme.textSecondary)
-                .lineLimit(1)
+                .adaptiveLineLimit(1)
             }
             .groupedRow(vertical: 6)
         }

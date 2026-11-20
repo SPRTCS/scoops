@@ -16,11 +16,18 @@ from typing import Callable
 
 import httpx
 
+from .i18n import N_, translate, tx
+
 ROLE_RANK = {"read": 1, "write": 2, "edit": 3}
 COMPUTER_RANK = {"none": 0, "view": 1, "control": 2}
-ROLE_LABEL = {"read": "Lesen", "write": "Schreiben", "edit": "Bearbeiten", "admin": "Admin"}
+ROLE_LABEL = {"read": N_("Lesen"), "write": N_("Schreiben"), "edit": N_("Bearbeiten"), "admin": N_("Admin")}  # deutsch (Prompts)
 MISS_REFRESH_EVERY = 5.0   # höchstens so oft neu laden, wenn ein Gast etwas Unbekanntes anfragt
 SYNC_TIMEOUT = 10.0
+
+def role_label(role: str) -> str:
+    """Beschriftung einer Rolle in der aktuellen Sprache (Fehlermeldungen, Ansichten); Prompts nehmen ROLE_LABEL."""
+    return translate(ROLE_LABEL.get(role, role))
+
 
 # „Werkzeuge für Geteilte“ (pro Scoop, Admin-Einstellung). Standard: nur Websuche und Antworten.
 DEFAULT_GUEST_TOOLS = {"web": True, "computer": False, "apps": [], "mcp": [], "phone": False, "mail": False}
@@ -214,11 +221,12 @@ class ShareCache:
                                headers={"Authorization": f"Bearer {secret}"})
                 data = r.json() if r.content else {}
             except Exception as e:  # noqa: BLE001
-                self.last_error = f"Shares laden: {e}"
+                self.last_error = tx("Shares laden: {error}", error=e)
                 print("Geteilte Scoops:", self.last_error, flush=True)
                 return False
             if r.status_code != 200 or not isinstance(data, dict):
-                self.last_error = f"Shares laden: HTTP {r.status_code} {data.get('code', '') if isinstance(data, dict) else ''}"
+                self.last_error = tx("Shares laden: {error}", error=f"HTTP {r.status_code} "
+                                     f"{data.get('code', '') if isinstance(data, dict) else ''}")
                 print("Geteilte Scoops:", self.last_error, flush=True)
                 if r.status_code == 401:
                     self.clear()
@@ -281,14 +289,15 @@ def guest_message(m: dict, share: Share, owner_name: str) -> dict:
     text = m.get("text") or ""
     if role == "approval":
         state = meta.get("state") or "pending"
-        title = {"pending": f"Wartet auf Freigabe durch {owner_name}",
-                 "approved": f"Freigegeben durch {owner_name}",
-                 "declined": f"Abgelehnt durch {owner_name}"}.get(state, f"Freigabe durch {owner_name}")
+        title = {"pending": tx("Wartet auf Freigabe durch {name}", name=owner_name),
+                 "approved": tx("Freigegeben durch {name}", name=owner_name),
+                 "declined": tx("Abgelehnt durch {name}", name=owner_name)}.get(
+            state, tx("Freigabe durch {name}", name=owner_name))
         meta = {k: meta[k] for k in ("author_id",) if k in meta} | {"state": state, "title": title, "details": "",
                                                                        "guest_view": True}
         text = ""
     elif role == "status" and share.computer == "none" and meta.get("uses_computer"):
-        meta["lines"] = ["Arbeitet am Rechner"]
+        meta["lines"] = [tx("Arbeitet am Rechner")]
     return {**m, "text": text, "meta": meta}
 
 

@@ -9,8 +9,8 @@ final class AppModel {
     enum Mode: String, CaseIterable, Identifiable {
         case direct, vm
         var id: String { rawValue }
-        var title: String { self == .direct ? "Diesen Mac direkt steuern" : "Abgeschirmte VM" }
-        var short: String { self == .direct ? "Direkt" : "VM" }
+        var title: String { self == .direct ? String(localized: "Diesen Mac direkt steuern") : String(localized: "Abgeschirmte VM") }
+        var short: String { self == .direct ? String(localized: "Direkt", comment: "Modus, kurz") : "VM" }
     }
 
     enum LinkState: Equatable {
@@ -100,8 +100,16 @@ final class AppModel {
 
     /// Gerätename aus den Systemeinstellungen. Nicht `Host.current()`: das löst DNS auf und blockiert den Start.
     static var defaultName: String {
-        (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? "Mac"
+        #if DEBUG
+        if let previewName { return previewName }
+        #endif
+        return (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? "Mac"
     }
+
+    #if DEBUG
+    /// Nur für Renderings: Beispielname statt des echten Rechnernamens
+    nonisolated(unsafe) static var previewName: String?
+    #endif
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -134,7 +142,7 @@ final class AppModel {
                                             os: Self.osString, appVersion: Self.appVersion)
         let account = url.absoluteString
         guard Keychain.save(token: claim.token, account: account) else {
-            throw Pairing.Failure.network("Token konnte nicht im Schlüsselbund gespeichert werden.")
+            throw Pairing.Failure.network(String(localized: "Token konnte nicht im Schlüsselbund gespeichert werden."))
         }
         serverURL = account
         token = claim.token
@@ -208,7 +216,7 @@ final class AppModel {
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
         } catch {
-            notice = "Anmeldeobjekt: \(error.localizedDescription)"
+            notice = String(localized: "Anmeldeobjekt: \(error.localizedDescription)")
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }
@@ -238,6 +246,9 @@ final class AppModel {
 
     /// Freigaben neu lesen; bei Änderung `state` an den Server (Werkzeuge erscheinen/verschwinden sofort).
     func refreshApple() {
+        #if DEBUG
+        if previewFrozen { return }
+        #endif
         let now = AppleBridge.grants
         guard now != appleGrants else { return }
         appleGrants = now
@@ -294,18 +305,19 @@ final class AppModel {
             activeBotName = nil
             activityState = nil
             executor.reset()
-            var reason = "Verbindung getrennt"
+            var reason = String(localized: "Verbindung getrennt")
             switch end {
             case .bye(let r):
-                unpair(reason: "Der Server hat den Rechner entfernt" + (r.isEmpty ? "." : ": \(r)"))
+                unpair(reason: r.isEmpty ? String(localized: "Der Server hat den Rechner entfernt.")
+                                         : String(localized: "Der Server hat den Rechner entfernt: \(r)"))
                 return
             case .unauthorized:
                 failedAuth += 1
                 if failedAuth >= 3 {
-                    unpair(reason: "Der Server kennt dieses Token nicht mehr. Bitte neu koppeln.")
+                    unpair(reason: String(localized: "Der Server kennt dieses Token nicht mehr. Bitte neu koppeln."))
                     return
                 }
-                reason = "Server lehnt das Token ab"
+                reason = String(localized: "Server lehnt das Token ab")
             case .closed(let r):
                 reason = r
             }
@@ -318,12 +330,13 @@ final class AppModel {
 
     private func runSession(server: URL, token: String) async -> SessionEnd {
         guard var comps = URLComponents(url: server.appending(path: "api/nodes/link"), resolvingAgainstBaseURL: false) else {
-            return .closed("Ungültige Server-Adresse")
+            return .closed(String(localized: "Ungültige Server-Adresse"))
         }
         comps.scheme = comps.scheme == "https" ? "wss" : "ws"
-        guard let url = comps.url else { return .closed("Ungültige Server-Adresse") }
+        guard let url = comps.url else { return .closed(String(localized: "Ungültige Server-Adresse")) }
         var req = URLRequest(url: url)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
         let ws = wsSession.webSocketTask(with: req)
         ws.maximumMessageSize = 64 * 1024 * 1024
         socket = ws
@@ -349,7 +362,7 @@ final class AppModel {
             group.addTask { await self.receiveLoop(ws, queue) }
             group.addTask { await self.heartbeat(ws) }
             group.addTask { await self.commandLoop(ws, commands); return nil }
-            var end: SessionEnd = .closed("Verbindung getrennt")
+            var end: SessionEnd = .closed(String(localized: "Verbindung getrennt"))
             for await result in group {
                 if let result { end = result; break }
             }
@@ -368,15 +381,21 @@ final class AppModel {
     /// Verständlicher Grund für die Statuszeile, z. B. „Verbindung abgelehnt (Port 8787)“.
     static func describe(_ error: Error, server: URL?) -> String {
         let ns = error as NSError
-        let port = server?.port.map { " (Port \($0))" } ?? ""
+        let port = server?.port
         let host = server?.host() ?? "Server"
         guard ns.domain == NSURLErrorDomain else { return ns.localizedDescription }
         switch ns.code {
-        case NSURLErrorCannotConnectToHost: return "Verbindung abgelehnt\(port) – dort läuft kein Server"
-        case NSURLErrorTimedOut: return "Zeitüberschreitung bei \(host)\(port)"
-        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed: return "Adresse \(host) nicht gefunden"
-        case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost: return "Keine Netzwerkverbindung"
-        case NSURLErrorBadServerResponse: return "Unerwartete Antwort vom Server\(port)"
+        case NSURLErrorCannotConnectToHost:
+            return port.map { String(localized: "Verbindung abgelehnt (Port \(String($0))) – dort läuft kein Server") }
+                ?? String(localized: "Verbindung abgelehnt – dort läuft kein Server")
+        case NSURLErrorTimedOut:
+            return port.map { String(localized: "Zeitüberschreitung bei \(host) (Port \(String($0)))") }
+                ?? String(localized: "Zeitüberschreitung bei \(host)")
+        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed: return String(localized: "Adresse \(host) nicht gefunden")
+        case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost: return String(localized: "Keine Netzwerkverbindung")
+        case NSURLErrorBadServerResponse:
+            return port.map { String(localized: "Unerwartete Antwort vom Server (Port \(String($0)))") }
+                ?? String(localized: "Unerwartete Antwort vom Server")
         default: return ns.localizedDescription
         }
     }
@@ -422,11 +441,11 @@ final class AppModel {
                 message = try await ws.receive()
             } catch {
                 // 4401 = Token unbekannt (Server hat den Rechner entfernt).
-                if ws.closeCode.rawValue == 4401 { return .bye("Token ungültig") }
+                if ws.closeCode.rawValue == 4401 { return .bye(String(localized: "Token ungültig")) }
                 if let code = ws.closeReason.flatMap({ String(data: $0, encoding: .utf8) }), !code.isEmpty {
                     return .closed(code)
                 }
-                return .closed("Verbindung vom Server geschlossen")
+                return .closed(String(localized: "Verbindung vom Server geschlossen"))
             }
             lastSeen = Date()
             let text: String
@@ -482,7 +501,7 @@ final class AppModel {
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(5))
             if Task.isCancelled { return nil }
-            if Date().timeIntervalSince(lastSeen) > 60 { return .closed("Keine Antwort vom Server seit 60 s") }
+            if Date().timeIntervalSince(lastSeen) > 60 { return .closed(String(localized: "Keine Antwort vom Server seit 60 s")) }
             if Date().timeIntervalSince(lastPingSent) >= 20 {
                 lastPingSent = Date()
                 try? await ws.send(.string(#"{"type":"ping"}"#))
@@ -552,23 +571,47 @@ final class AppModel {
         await lume.stopIfStartedByUs()
     }
 
+    // MARK: Vorschau
+
+    #if DEBUG
+    /// Nur für Renderings (Render-Tests, `-rendersetup`): eingefrorener Beispielzustand ohne Kopplung, Verbindung und
+    /// Abfrage der echten Apple-Freigaben.
+    @ObservationIgnored private(set) var previewFrozen = false
+
+    func applyPreview(paired: Bool, linkState: LinkState, serverURL: String = "", nodeID: String = "",
+                      paused: Bool = false, botName: String? = nil, apple: [AppleService: String] = [:],
+                      lastApple: String? = nil, notice: String? = nil) {
+        previewFrozen = true
+        isPaired = paired
+        self.linkState = linkState
+        self.serverURL = serverURL
+        self.nodeID = nodeID
+        self.paused = paused
+        activeBotName = botName
+        activityState = botName == nil ? nil : "busy"
+        appleGrants = apple
+        lastAppleCommand = lastApple.map { ($0, Date(timeIntervalSince1970: 1_795_000_000)) }
+        self.notice = notice
+    }
+    #endif
+
     // MARK: Anzeige
 
     var statusTitle: String {
-        if paused, isPaired { return "Pausiert" }
+        if paused, isPaired { return String(localized: "Pausiert") }
         switch linkState {
-        case .unpaired: return "Nicht gekoppelt"
-        case .connecting: return "Verbinde …"
-        case .connected: return "Verbunden"
-        case .waiting(let s, _): return "Getrennt – neuer Versuch in \(s) s"
+        case .unpaired: return String(localized: "Nicht gekoppelt")
+        case .connecting: return String(localized: "Verbinde …")
+        case .connected: return String(localized: "Verbunden")
+        case .waiting(let s, _): return String(localized: "Getrennt – neuer Versuch in \(s) s")
         }
     }
 
     /// Kurzform für die Statuszeile der Server-App: „Getrennt: Verbindung abgelehnt (Port 8787)“.
     var statusLine: String {
-        if paused, isPaired { return "Pausiert" }
+        if paused, isPaired { return String(localized: "Pausiert") }
         switch linkState {
-        case .waiting(_, let reason): return "Getrennt: \(reason)"
+        case .waiting(_, let reason): return String(localized: "Getrennt: \(reason)")
         default: return statusTitle
         }
     }
@@ -584,9 +627,9 @@ final class AppModel {
     }
 
     var controlTitle: String {
-        if let n = activeBotName { return "\(n) arbeitet gerade" }
-        if activityState == "user" { return "Wird über AIS Scoops gesteuert" }
-        return "Ein Scoop steuert gerade"
+        if let n = activeBotName { return String(localized: "\(n) arbeitet gerade") }
+        if activityState == "user" { return String(localized: "Wird über AIS Scoops gesteuert") }
+        return String(localized: "Ein Scoop steuert gerade")
     }
 
     var menuBarSymbol: String {

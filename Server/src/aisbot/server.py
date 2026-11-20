@@ -20,14 +20,16 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, 
 from fastapi.responses import FileResponse, JSONResponse, Response
 from PIL import Image
 
-from .bots import BotService, load_config, save_config
-from .db import DB
+from .bots import BotService, load_config, save_config, _next_cron as next_cron
+from .db import DB, now_iso as db_now_iso
 from .engine import COMPUTER_URL, USER_HOLDER, ComputerHub
 from .nodes import DEAD_AFTER, PING_EVERY, VM_ID, Computers
 from .push import Pusher
 from . import vault as vault_mod
 from .cloud import Cloud
 from . import sharing
+from . import ruhe as ruhe_mod
+from . import vorlagen
 from .sharing import OWNER, Principal, ShareCache
 from .version import VERSION
 from . import config, demo, profile
@@ -35,6 +37,10 @@ from . import notion_mcp
 from . import custom_mcp
 from . import workspace
 from . import usage_report
+from . import chat_edit, suche  # Nachricht bearbeiten und Suche über alle Chats (App 1.3)
+from . import today
+from . import i18n  # Sprache pro Person, Übersetzungen (docs/sprache.md)
+from .i18n import N_, tx
 from .usage_limits import Limits
 from .usage_logs import LogScanner
 from .profile import feature, kc
@@ -57,7 +63,7 @@ def _model_param(value) -> str:
     """Modell aus einer Anfrage: abgelöste Kennungen (ältere Apps) → Nachfolger; unbekannt → 400."""
     m = config.resolve_model(str(value or "").strip())
     if m not in MODELS:
-        raise HTTPException(400, "Unbekanntes Modell")
+        raise HTTPException(400, tx("Unbekanntes Modell"))
     return m
 
 
@@ -186,6 +192,8 @@ def api_token() -> str:
 
 events = Hub()
 db = DB()
+i18n.init(db)  # gespeicherte Sprache pro Person (Inhaber, Gäste); vor allem, was Texte erzeugt
+suche.ensure(db)  # Volltext-Index der Nachrichten für GET /api/search (Trigger; einmaliger Aufbau bei Bedarf)
 computer_hub = ComputerHub(os.environ.get("AISBOT_COMPUTER_URL", COMPUTER_URL))  # Bot-Rechner (VM)
 computers = Computers(db, computer_hub)  # + Scoops-Connect-Rechner
 pusher = Pusher(db, load_config)
@@ -287,6 +295,9 @@ def _shared_bot_info(bot_ids: list[str]) -> list[dict]:
 
 shares = ShareCache(cloud, _shared_bot_info)  # geteilte Scoops (sharing.py, docs/sharing.md)
 service.shares = shares
+ruhe = ruhe_mod.Ruhe(db)  # Stummschalten und Ruhezeiten pro Person (ruhe.py, docs/ruhe.md)
+service.ruhe = ruhe
+pusher.ruhe = ruhe
 
 
 def _cloud_changed() -> None:
@@ -306,8 +317,33 @@ app = FastAPI(title="AIS Scoops", version=VERSION)
 async def demo_guard(request: Request, call_next):
     """Demo-Server (docs/demo-server.md): Einstellungen, die den Mac oder Konten berühren, sind gesperrt."""
     if demo.blocked(request.method, request.url.path):
-        return JSONResponse({"error": demo.DISABLED_TEXT}, status_code=403)
+        return JSONResponse({"error": i18n.translate(demo.DISABLED_TEXT)}, status_code=403)
     return await call_next(request)
+
+
+@app.middleware("http")
+async def language(request: Request, call_next):
+    """Sprache der Antwort (docs/sprache.md): gespeicherte Sprache der anfragenden Person, sonst `Accept-Language`,
+    sonst Deutsch; `?lang=` geht vor. Die Einrichtung (`/api/setup…`, Mac-App) richtet sich zuerst nach der Kopfzeile.
+    Liegt als äußerste Middleware um alles, damit auch Fehlermeldungen und die Demo-Sperre übersetzt werden."""
+    path = request.url.path
+    header = request.headers.get("accept-language")
+    param = request.query_params.get("lang")
+    if path.startswith("/api/setup"):
+        lang = i18n.request_lang(None, param=param, header=header, header_first=True)
+    else:
+        uid = None
+        try:
+            p = principal_of(_given(request, request.query_params.get("token")))
+            uid = p.user_id if p is not None and not p.is_owner else None
+        except Exception:  # noqa: BLE001 – ungültiges Token: Antwort trotzdem nach Kopfzeile
+            p = None
+        lang = i18n.request_lang(uid, param=param, header=header)
+    token = i18n.set_current(lang)
+    try:
+        return await call_next(request)
+    finally:
+        i18n.reset_current(token)
 
 
 def _given(request_or_ws, token: str | None) -> str | None:
@@ -339,14 +375,14 @@ def token_ok(given: str | None) -> bool:
     return p is not None and p.is_owner
 
 
-FORBIDDEN_GUEST = "Kein Zugriff: Dieser Bereich gehört dem Admin des Servers."
+FORBIDDEN_GUEST = N_("Kein Zugriff: Dieser Bereich gehört dem Admin des Servers.")  # übersetzt im Fehlerhandler
 
 
 def auth(request: Request, token: str | None = Query(default=None)) -> Principal:
     """Standard für alle Endpunkte: nur der Inhaber. Gäste (geteilte Scoops) → 403, ohne gültiges Token → 401."""
     p = principal_of(_given(request, token))
     if p is None:
-        raise HTTPException(401, "Nicht angemeldet")
+        raise HTTPException(401, tx("Nicht angemeldet"))
     if not p.is_owner:
         raise HTTPException(403, FORBIDDEN_GUEST)
     return p
@@ -381,10 +417,11 @@ def guest_principal(p: Principal, bot_id: str | None, role: str = "read", comput
         raise HTTPException(403, FORBIDDEN_GUEST)
     sh = shares.share(p.user_id, bot_id)
     if sh is None:
-        raise HTTPException(403, "Dieser Scoop ist nicht (mehr) mit dir geteilt.")
+        raise HTTPException(403, tx("Dieser Scoop ist nicht (mehr) mit dir geteilt."))
     if not sh.allows(role, computer):
-        need = f"Rechner-Zugriff „{computer}“" if computer and sh.allows(role) else f"Rolle „{sharing.ROLE_LABEL[role]}“"
-        raise HTTPException(403, f"Dafür brauchst du {need}.")
+        if computer and sh.allows(role):
+            raise HTTPException(403, tx("Dafür brauchst du Rechner-Zugriff „{level}“.", level=computer))
+        raise HTTPException(403, tx("Dafür brauchst du Rolle „{role}“.", role=sharing.role_label(role)))
     return p.with_share(sh)
 
 
@@ -396,12 +433,12 @@ def shared(role: str = "read", computer: str | None = None, via: str = "bot_id")
     def dep(request: Request, token: str | None = Query(default=None)) -> Principal:
         p = principal_of(_given(request, token))
         if p is None:
-            raise HTTPException(401, "Nicht angemeldet")
+            raise HTTPException(401, tx("Nicht angemeldet"))
         if p.is_owner:
             return p
         if via == "any":
             if not shares.for_user(p.user_id):
-                raise HTTPException(403, "Mit dir ist auf diesem Server kein Scoop geteilt.")
+                raise HTTPException(403, tx("Mit dir ist auf diesem Server kein Scoop geteilt."))
             return p
         return guest_principal(p, BOT_OF[via](request), role, computer)
 
@@ -411,7 +448,8 @@ def shared(role: str = "read", computer: str | None = None, via: str = "bot_id")
 
 @app.exception_handler(HTTPException)
 async def http_error(_req, exc: HTTPException):
-    return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
+    # Fehlertexte als feste Konstanten (N_) werden hier übersetzt; tx(...) ist schon in der Sprache der Anfrage
+    return JSONResponse({"error": i18n.translate(exc.detail)}, status_code=exc.status_code)
 
 
 @app.on_event("startup")
@@ -450,6 +488,10 @@ def scheduler_loop() -> None:
         except Exception as e:  # noqa: BLE001
             print("Aufgaben-Planer-Fehler:", e, flush=True)
         computers.release_if_idle()  # Übernahme endet nach 10 Minuten ohne Eingabe
+        try:
+            ruhe_tick()  # abgelaufene Stummschaltungen aufräumen (ruhe.py)
+        except Exception as e:  # noqa: BLE001
+            print("Ruhe-Fehler:", e, flush=True)
         try:
             cloud.heartbeat_tick()  # alle 60 s, nur wenn mit einem Konto gekoppelt
         except Exception as e:  # noqa: BLE001
@@ -544,19 +586,33 @@ def run_initiative(bot_id: str, zeit: str, first_of_day: bool) -> None:
     service.enqueue(bot_id, bot_id, opts={"quiet": True, "prompt": personalize(prompt, service.user_name)})
 
 
-def initiative_tick() -> None:
+def initiative_tick(n=None) -> None:
     from .db import now
 
     cfg = initiative_settings()
     p = db.primary_bot()
     if not cfg.get("enabled") or not p:
         return
-    n = now()
+    n = n or now()
     hhmm = n.strftime("%H:%M")
-    if hhmm not in cfg["times"]:
-        return
     qs, qe = cfg.get("quiet_start", "22:00"), cfg.get("quiet_end", "07:00")
     in_quiet = (qs <= hhmm or hhmm < qe) if qs > qe else (qs <= hhmm < qe)
+    # Ruhezeit des Inhabers (docs/ruhe.md): In der Ruhezeit meldet sich der Haupt-Scoop nicht von selbst. Ein Check,
+    # der hineinfällt, wird einmal direkt nach ihrem Ende nachgeholt (höchstens 12 Stunden später).
+    user_quiet = ruhe.in_quiet(None, n)
+    if not in_quiet and not user_quiet and (late := db.setting("initiative_deferred")):
+        db.set_setting("initiative_deferred", "")
+        try:
+            d = json.loads(late)
+            fresh = (n - datetime.fromisoformat(d["at"])).total_seconds() < 12 * 3600
+        except (ValueError, KeyError, TypeError):
+            d, fresh = {}, False
+        if fresh:
+            db.set_setting("initiative_last", f"{n:%Y-%m-%d} {hhmm}")
+            run_initiative(p["id"], hhmm, bool(d.get("first")))
+            return
+    if hhmm not in cfg["times"]:
+        return
     if in_quiet:
         return
     key = f"{n:%Y-%m-%d} {hhmm}"
@@ -564,13 +620,20 @@ def initiative_tick() -> None:
         return
     db.set_setting("initiative_last", key)
     first = hhmm == sorted(cfg["times"])[0]
+    if user_quiet:
+        try:
+            first = first or bool(json.loads(db.setting("initiative_deferred") or "{}").get("first"))
+        except ValueError:
+            pass
+        db.set_setting("initiative_deferred", json.dumps({"at": n.isoformat(timespec="seconds"), "first": first}))
+        return
     run_initiative(p["id"], hhmm, first)
 
 
 def bot_or_404(bot_id: str) -> dict:
     b = service.bot_json(bot_id)
     if not b:
-        raise HTTPException(404, "Bot nicht gefunden")
+        raise HTTPException(404, tx("Bot nicht gefunden"))
     return b
 
 
@@ -579,7 +642,25 @@ def bot_or_404(bot_id: str) -> dict:
 def health():
     return {"ok": True, "version": VERSION, "user_name": service.user_name, "push_enabled": pusher.enabled,
             "push_mode": pusher.mode(), "active_runs": len(service.runs), "active_tasks": tasks.active_count(),
-            "edition": profile.edition(), "usage_details": True, "models_catalog": catalog.status()["version"]}
+            "edition": profile.edition(), "usage_details": True, "models_catalog": catalog.status()["version"],
+            # Fähigkeiten für App 1.3 (ältere Server melden sie nicht, die App blendet die Funktionen dann aus):
+            # Suche über alle Chats (GET /api/search, …/messages/around/…), Nachricht bearbeiten (PATCH),
+            # Seite „Heute“ und Freigaben-Postfach (today.py), Stummschalten, Ruhezeiten (ruhe.py),
+            # Scoop-Vorlagen (vorlagen.py, höchste lesbare Formatversion), Bilder über das ChatGPT-Abo (bilder.py)
+            "search": True, "message_edit": True, "today": True,
+            "mute": True, "quiet_hours": True, "templates": vorlagen.FORMAT, "images": _images_health(),
+            # Sprachen (docs/sprache.md): GET/PATCH /api/settings/language, Antworten nach Accept-Language
+            "languages": list(i18n.LANGS), "language": i18n.current()}
+
+
+def _images_health() -> dict:
+    """Bilder über das ChatGPT-Abo (docs/bilder.md, ab 1.39): {supported, available, via, hint}. Ältere Server haben
+    das Feld nicht; die App zeigt dann nichts dazu."""
+    try:
+        from . import bilder
+        return bilder.health()
+    except Exception as e:  # noqa: BLE001
+        return {"supported": True, "available": False, "via": "chatgpt_abo", "hint": str(e)[:200]}
 
 
 def close_interrupted_runs() -> None:
@@ -596,12 +677,14 @@ def close_interrupted_runs() -> None:
 close_interrupted_runs()
 
 
+# Start-Scoop der frischen Installation. Label, Charakter und Begrüßung in der Sprache des Inhabers (i18n): Beim ersten
+# Start ist sie meist noch unbekannt (Deutsch); setzt der Inhaber danach seine Sprache, stellt localize_seed um.
 WELCOME_SCOOP = {
-    "name": "Pip", "label": "Start", "section": None, "pinned": True,
+    "name": "Pip", "label": N_("Start"), "section": None, "pinned": True,
     "mascot": {"shape": "bean", "color": "#FF8FB1", "eyes": "dots", "accessory": "none"},
-    "character": "fröhlich, geduldig und neugierig; erklärt einfach und ohne Fachbegriffe",
+    "character": N_("fröhlich, geduldig und neugierig; erklärt einfach und ohne Fachbegriffe"),
 }
-WELCOME_TEXT = (
+WELCOME_TEXT = N_(
     "Hallo! Ich bin **Pip**, dein erster Scoop. 🍦\n\n"
     "Scoops sind kleine Helfer, die für dich recherchieren, Texte schreiben, an Dinge erinnern und – wenn du willst – "
     "an deinem Mac klicken und tippen. Probier zum Beispiel:\n"
@@ -618,15 +701,46 @@ def seed_fresh_install() -> None:
     if profile.is_personal() or db.setting("seeded") or db.bots():
         return
     from .db import now_iso
-    bid = db.create_bot(model="claude-haiku-5-5", escalation_model="claude-sonnet-5-5", **WELCOME_SCOOP)
+    lang = i18n.owner_lang()
+    fields = {**WELCOME_SCOOP, "label": i18n.translate(WELCOME_SCOOP["label"], lang),
+              "character": i18n.translate(WELCOME_SCOOP["character"], lang)}
+    bid = db.create_bot(model="claude-haiku-5-5", escalation_model="claude-sonnet-5-5", **fields)
     db.set_primary(bid)
-    db.add_message(bid, "bot", WELCOME_TEXT, {})
+    # meta.welcome: sprachunabhängiges Kennzeichen der Begrüßung (App-Einführung, docs/sprache.md)
+    db.add_message(bid, "bot", i18n.translate(WELCOME_TEXT, lang), {"welcome": True})
     db.set_setting("seeded", now_iso())
     db.set_setting("seed_bot", bid)
     print("Neue Installation: Start-Scoop angelegt", flush=True)
 
 
 seed_fresh_install()
+
+
+def localize_seed() -> None:
+    """Nach dem Setzen der Sprache des Inhabers: Start-Scoop umstellen, solange sein Chat nur aus der unveränderten
+    Begrüßung besteht. Label und Charakter nur, wenn sie noch dem Original (in einer der Sprachen) entsprechen."""
+    bid = db.setting("seed_bot")
+    b = db.bot_row(bid) if bid else None
+    if not b:
+        return
+    lang = i18n.owner_lang()
+
+    def variants(text: str) -> set[str]:
+        return {i18n.translate(text, x) for x in i18n.LANGS}
+
+    rows = db.q("SELECT id, role, text FROM messages WHERE bot_id=? ORDER BY seq LIMIT 2", (bid,))
+    if len(rows) != 1 or rows[0]["role"] != "bot" or rows[0]["text"] not in variants(WELCOME_TEXT):
+        return
+    new_text = i18n.translate(WELCOME_TEXT, lang)
+    if rows[0]["text"] != new_text:
+        events.publish("message.updated", db.update_message(rows[0]["id"], text=new_text, meta={"welcome": True}))
+    fields = {k: i18n.translate(WELCOME_SCOOP[k], lang) for k in ("label", "character")
+              if b[k] in variants(WELCOME_SCOOP[k]) and b[k] != i18n.translate(WELCOME_SCOOP[k], lang)}
+    if fields:
+        db.update_bot(bid, fields)
+        bj = service.bot_json(bid)
+        if bj:
+            events.publish("bot.updated", bj)
 
 
 # -- Gast-Ansichten (geteilte Scoops) ----------------------------------------------------
@@ -651,19 +765,29 @@ def guest_bot_view(bot_id: str, sh, b: dict | None = None) -> dict | None:
     b = b or service.bot_json(bot_id)
     if not b:
         return None
-    return sharing.guest_bot(b, sh, owner_name=service.user_name, server_name=server_display_name(),
-                             owner_id=cloud.owner_id(), unread=db.guest_unread(sh.user_id, bot_id),
-                             last_message=guest_msg(b.get("last_message"), sh))
+    out = sharing.guest_bot(b, sh, owner_name=service.user_name, server_name=server_display_name(),
+                            owner_id=cloud.owner_id(), unread=db.guest_unread(sh.user_id, bot_id),
+                            last_message=guest_msg(b.get("last_message"), sh))
+    out["mute"] = ruhe.mute_json(sh.user_id, bot_id)  # Stummschaltung des Gasts, nicht die des Admins
+    return out
 
 
 def guest_event(typ: str, data: dict, p: Principal):
-    """WebSocket-Filter für Gäste: nur Ereignisse geteilter Scoops, umgeformt wie die REST-Antworten. None = nicht senden."""
+    """WebSocket-Filter für Gäste: nur Ereignisse geteilter Scoops, umgeformt wie die REST-Antworten. None = nicht senden.
+    Umgeformte Texte (z. B. „Wartet auf Freigabe durch …“) in der Sprache des Gasts (docs/sprache.md)."""
+    with i18n.for_user(p.user_id):
+        return _guest_event(typ, data, p)
+
+
+def _guest_event(typ: str, data: dict, p: Principal):
     def share_for(bot_id):
         return shares.share(p.user_id, bot_id, refresh_on_miss=False) if bot_id else None
 
     if typ in ("message.created", "message.updated"):
         sh = share_for(data.get("bot_id"))
         return (typ, guest_msg(data, sh)) if sh else None
+    if typ == "message.deleted":  # nach dem Bearbeiten verworfene Antwort (chat_edit.py): nur ID und Chat
+        return (typ, data) if share_for(data.get("bot_id")) else None
     if typ == "bot.updated":
         sh = share_for(data.get("id"))
         return (typ, guest_bot_view(sh.bot_id, sh, data)) if sh else None
@@ -706,11 +830,23 @@ def _shares_changed(users: set[str], bots: set[str]) -> None:
 
 shares.on_change = _shares_changed
 
+# Stummschalten und Ruhezeiten (docs/ruhe.md): `PUT /api/chats/{id}/mute`, `GET`/`PATCH /api/settings/quiet-hours`
+ruhe_tick = ruhe_mod.register(app, ruhe=ruhe, shared=shared, service=service, events=events, pusher=pusher,
+                              guest_bot_view=guest_bot_view)
+# Scoop-Vorlagen (docs/vorlagen.md): `GET /api/bots/{id}/template`, `POST /api/templates/check|import` (nur Inhaber)
+vorlagen.register(app, auth=auth, service=service, connections=connections, bot_or_404=bot_or_404, models=MODELS)
+# Sprache pro Person (docs/sprache.md): `GET`/`PATCH /api/settings/language` (Inhaber und Gäste getrennt)
+i18n.register(app, shared=shared, events=events, on_owner_change=lambda: localize_seed())
+
 
 @app.get("/api/shared/me")
 def shared_me(p: Principal = Depends(shared(via="any"))):
     """Wer bin ich auf diesem Server? Gast: eigene Shares (lädt bei leerem Cache einmal neu)."""
-    base = {"server_name": server_display_name(), "owner_name": service.user_name, "version": VERSION}
+    # Fähigkeiten wie in /api/health (das nur der Inhaber abfragen darf), soweit sie für Gäste gelten (App 1.3):
+    # Suche, Bearbeiten, Stummschalten und Ruhezeiten. „Heute“ und Vorlagen gibt es nur für den Inhaber.
+    base = {"server_name": server_display_name(), "owner_name": service.user_name, "version": VERSION,
+            "search": True, "message_edit": True, "mute": True, "quiet_hours": True,
+            "languages": list(i18n.LANGS), "language": i18n.current()}
     if p.is_owner:
         return {"role": "owner", "user_id": cloud.owner_id(), "name": service.user_name, **base, "shares": []}
     mine = shares.for_user(p.user_id)
@@ -722,15 +858,15 @@ def shared_me(p: Principal = Depends(shared(via="any"))):
 def shared_register_device(body: dict, p: Principal = Depends(shared(via="any"))):
     """Push-Token eines Gasts (getrennt von /api/devices des Inhabers)."""
     if p.is_owner:
-        raise HTTPException(400, "Für den Inhaber: POST /api/devices")
+        raise HTTPException(400, tx("Für den Inhaber: POST /api/devices"))
     tok = str(body.get("apns_token") or "").strip()
     if not re.fullmatch(r"[0-9a-fA-F]{32,400}", tok):
-        raise HTTPException(400, "apns_token fehlt oder ist ungültig")
+        raise HTTPException(400, tx("apns_token fehlt oder ist ungültig"))
     platform = str(body.get("platform") or "ios")[:20]
     if platform not in ("ios", "ipados", "macos", "visionos"):
-        raise HTTPException(400, "platform: ios, ipados, macos oder visionos")
+        raise HTTPException(400, tx("platform: ios, ipados, macos oder visionos"))
     if db.one("SELECT 1 FROM devices WHERE token=?", (tok,)):
-        raise HTTPException(409, "Dieses Gerät ist schon als Gerät des Inhabers gemeldet")
+        raise HTTPException(409, tx("Dieses Gerät ist schon als Gerät des Inhabers gemeldet"))
     db.q("INSERT OR REPLACE INTO guest_devices(token,user_id,platform,name,created_at) VALUES(?,?,?,?,datetime('now'))",
          (tok, p.user_id, platform, str(body.get("name") or "")[:100]))
     pusher.note_guest_token(tok, platform, p.user_id)
@@ -740,7 +876,7 @@ def shared_register_device(body: dict, p: Principal = Depends(shared(via="any"))
 @app.delete("/api/shared/devices")
 def shared_delete_device(body: dict, p: Principal = Depends(shared(via="any"))):
     if p.is_owner:
-        raise HTTPException(400, "Für den Inhaber nicht vorgesehen")
+        raise HTTPException(400, tx("Für den Inhaber nicht vorgesehen"))
     db.q("DELETE FROM guest_devices WHERE token=? AND user_id=?", (str(body.get("apns_token") or ""), p.user_id))
     return {"ok": True}
 
@@ -750,7 +886,7 @@ def shares_refresh():
     """Admin-App nach einer Änderung in Convex: Shares sofort neu laden."""
     ok = shares.sync()
     if not ok:
-        raise HTTPException(502, shares.last_error or "Shares konnten nicht geladen werden (Server nicht gekoppelt?)")
+        raise HTTPException(502, shares.last_error or tx("Shares konnten nicht geladen werden (Server nicht gekoppelt?)"))
     return {"ok": True, "shares": len(shares.shares), "version": shares.version}
 
 
@@ -769,7 +905,7 @@ def get_sharing(bot_id: str):
     except Exception:  # noqa: BLE001 – Composio nicht eingerichtet/erreichbar
         pass
     from .mcp_client import LABELS
-    mcp = [{"id": n, "name": {"teamapp": "Team App", "atrium": "Atrium", "notion": "Notion (direkt)"}.get(n)
+    mcp = [{"id": n, "name": {"teamapp": "Team App", "atrium": "Atrium", "notion": tx("Notion (direkt)")}.get(n)
             or LABELS.get(n) or n.replace("_", " ").title()}
            for n in service.mcp_hub.servers if n != "composio"]
     return {**st, "members": [s.public() for s in shares.for_bot(bot_id)],
@@ -803,7 +939,7 @@ def bot_usage(bot_id: str, p: Principal = Depends(shared("read"))):
                        "budget_left_usd": round(max(0.0, budget - db.guest_spent_today(s.user_id)), 4)})
     for u, r in rows.items():  # frühere Gäste (Share entfernt) mit Kosten
         if u and u != owner and not any(x["user_id"] == u for x in people):
-            people.append({"user_id": u, "name": "Ehemaliger Gast", "is_owner": False, "role": None, **r})
+            people.append({"user_id": u, "name": tx("Ehemaliger Gast"), "is_owner": False, "role": None, **r})
     if not p.is_owner:
         people = [x for x in people if x["user_id"] == p.user_id]
     tot = {k: round(sum(x[k] for x in people), 4) for k in zero}
@@ -821,7 +957,7 @@ def list_bots(p: Principal = Depends(shared(via="any"))):
 async def create_bot(body: dict):
     name = (body.get("name") or "").strip()
     if not name:
-        raise HTTPException(400, "Der Bot braucht einen Namen")
+        raise HTTPException(400, tx("Der Bot braucht einen Namen"))
     if body.get("model"):
         body["model"] = _model_param(body["model"])
     fields = {k: body[k] for k in ("name", "label", "mascot", "character", "model", "section", "pinned") if k in body}
@@ -842,7 +978,7 @@ def patch_bot(bot_id: str, body: dict, p: Principal = Depends(shared("edit"))):
     if not p.is_owner:
         extra = set(body) - sharing.GUEST_EDITABLE
         if extra:
-            raise HTTPException(403, f"Nur der Admin darf ändern: {', '.join(sorted(extra))}")
+            raise HTTPException(403, tx("Nur der Admin darf ändern: {fields}", fields=", ".join(sorted(extra))))
         db.update_bot(bot_id, body)
         _workspace_renamed(bot_id, old_name)
         b = bot_or_404(bot_id)
@@ -858,7 +994,7 @@ def patch_bot(bot_id: str, body: dict, p: Principal = Depends(shared("edit"))):
     if body.get("model"):
         body["model"] = _model_param(body["model"])
     if body.get("computer_node") and not computers.get(body["computer_node"]):
-        raise HTTPException(400, "Unbekannter Rechner")
+        raise HTTPException(400, tx("Unbekannter Rechner"))
     if isinstance(body.get("computer_access"), dict):
         # Rechner-Zugriff (1.29, docs/rechnerzugriff.md): Modus und Standard-Bereich, nur der Admin
         from . import access as access_mod
@@ -890,9 +1026,12 @@ def delete_bot(bot_id: str):
 
 
 @app.get("/api/bots/{bot_id}/messages")
-def get_messages(bot_id: str, before: str | None = None, limit: int = 50, p: Principal = Depends(shared("read"))):
+def get_messages(bot_id: str, before: str | None = None, limit: int = 50, after: str | None = None,
+                 p: Principal = Depends(shared("read"))):
     bot_or_404(bot_id)
-    msgs = db.messages(bot_id, before, max(1, min(limit, 200)))
+    limit = max(1, min(limit, 200))
+    # `after` (App 1.3): die nächsten Nachrichten nach dieser, aufsteigend (Verlauf ab einer Fundstelle weiterladen)
+    msgs = suche.after(db, bot_id, after, limit) if after else db.messages(bot_id, before, limit)
     return msgs if p.is_owner else [guest_msg(m, p.share) for m in msgs]
 
 
@@ -907,9 +1046,9 @@ def _post(chat_id: str, body: dict, guest=None):
     text = (body.get("text") or "").strip()
     file_ids = body.get("file_ids") or []
     if not text and not file_ids:
-        raise HTTPException(400, "Leere Nachricht")
+        raise HTTPException(400, tx("Leere Nachricht"))
     if not isinstance(file_ids, list):
-        raise HTTPException(400, "file_ids muss eine Liste sein")
+        raise HTTPException(400, tx("file_ids muss eine Liste sein"))
     # reply_to: ID einer Nachricht desselben Chats (sonst ignoriert, siehe BotService.reply_ref)
     # task: Optionen des Aufgaben-Chips im Eingabefeld (1.22) für „/aufgabe …“: {"model": …, "scheduled_at": …}
     opts = body.get("task") if isinstance(body.get("task"), dict) and not guest else None
@@ -936,14 +1075,82 @@ def read_bot(bot_id: str, p: Principal = Depends(shared("read"))):
     return {"ok": True}
 
 
+def _drop_open_approvals(chat_id: str) -> None:
+    """Verlauf geleert: Die Freigabe-Karten sind weg, also wartet dort nichts mehr auf den Nutzer (rotes „?“,
+    Freigaben-Postfach). Die Einträge gelten als abgelehnt, ohne dass etwas ausgeführt wird."""
+    db.q("UPDATE approvals SET state='declined' WHERE COALESCE(chat_id, bot_id)=? AND state='pending'", (chat_id,))
+
+
 @app.post("/api/bots/{bot_id}/reset", dependencies=[Depends(auth)])
 def reset_bot(bot_id: str):
     bot_or_404(bot_id)
     service.stop(bot_id)
     db.q("DELETE FROM messages WHERE bot_id=?", (bot_id,))
     db.q("DELETE FROM search_fts WHERE bot_id=? AND kind='nachricht'", (bot_id,))
+    _drop_open_approvals(bot_id)
     events.publish("bot.updated", bot_or_404(bot_id))
     return {"ok": True}
+
+
+# -- Suche und Chat-Komfort (App 1.3): suche.py, chat_edit.py ------------------------------------
+def _search_hit(row, snippet: str, marks: list) -> dict:
+    """Treffer der Suche: Chat, Nachricht, Rolle, Zeit und Ausschnitt mit markierter Fundstelle."""
+    m = db.msg_dict(row)
+    meta, chat_id = m["meta"] or {}, m["bot_id"]
+    group = chat_id.startswith("g_")
+    chat = db.group_row(chat_id) if group else db.bot_row(chat_id)
+    author_id = meta.get("author_id") or (None if group else chat_id)
+    if m["role"] == "user":
+        author_id = meta.get("author_user_id")
+        author = meta.get("author_name") or service.user_name
+    else:
+        a = db.bot_row(author_id) if author_id else None
+        author = a["name"] if a else (chat["name"] if chat else "Scoop")
+    return {"message_id": m["id"], "chat_id": chat_id, "chat_kind": "group" if group else "bot",
+            "chat_name": chat["name"] if chat else "", "role": m["role"], "author_id": author_id, "author_name": author,
+            "created_at": m["created_at"], "snippet": snippet, "marks": marks}
+
+
+@app.get("/api/search")
+def search_messages(q: str = "", limit: int = 30, chat: str | None = None, before: str | None = None,
+                    p: Principal = Depends(shared(via="any"))):
+    """Volltextsuche über alle Chats (neueste zuerst). `chat`: nur dieser Chat. Gäste finden nur Nachrichten der
+    mit ihnen geteilten Scoops und nichts aus Freigabe-Karten (deren Inhalt sehen sie auch im Chat nicht)."""
+    if p.is_owner:
+        if chat:
+            chat_or_404(chat)
+        chats, roles = ([chat] if chat else None), suche.ROLES
+    else:
+        if chat:
+            guest_principal(p, chat, "read")  # 403 ohne Share für diesen Scoop
+        chats = [chat] if chat else [s.bot_id for s in shares.for_user(p.user_id)]
+        roles = suche.GUEST_ROLES
+    res = suche.search(db, q, chats=chats, roles=roles, limit=limit, before=before)
+    return {"query": q, "hits": [_search_hit(r, s, marks) for r, s, marks in res["rows"]],
+            "total": res["total"], "truncated": res["truncated"], "index": suche.mode(db)}
+
+
+@app.get("/api/chats/{chat_id}/messages/around/{mid}")
+def messages_around(chat_id: str, mid: str, before: int = 25, after: int = 25,
+                    p: Principal = Depends(shared("read", via="chat_id"))):
+    """Ausschnitt des Verlaufs rund um eine Nachricht (Sprung zu einer Fundstelle, die noch nicht geladen ist)."""
+    chat_or_404(chat_id)
+    out = suche.around(db, chat_id, mid, before, after)
+    if out is None:
+        raise HTTPException(404, tx("Nachricht nicht gefunden"))
+    if not p.is_owner:
+        out["messages"] = [guest_msg(m, p.share) for m in out["messages"]]
+    return out
+
+
+@app.patch("/api/messages/{mid}")
+def edit_message(mid: str, body: dict, p: Principal = Depends(shared("write", via="mid"))):
+    """Jüngste eigene Nachricht bearbeiten: Der Scoop antwortet auf die neue Fassung (chat_edit.py)."""
+    try:
+        m = chat_edit.edit_message(service, mid, body.get("text"), guest=p.share)
+    except chat_edit.EditError as e:
+        raise HTTPException(e.status, e.message) from None
+    return m if p.is_owner else guest_msg(m, p.share)
 
 
 @app.get("/api/bots/{bot_id}/memories")
@@ -968,16 +1175,24 @@ def patch_routine(rid: str, body: dict, p: Principal = Depends(shared("edit", vi
     if "model" in body:
         # Eigenes Modell der Routine (null / "" = wie der Scoop); kostet den Admin Geld, darum nur der Admin
         if not p.is_owner:
-            raise HTTPException(403, "Nur der Admin darf ändern: model")
+            raise HTTPException(403, tx("Nur der Admin darf ändern: model"))
         model = _model_param(body["model"]) if body["model"] else None
         if not db.one("SELECT 1 FROM routines WHERE id=?", (rid,)):
-            raise HTTPException(404, "Routine nicht gefunden")
+            raise HTTPException(404, tx("Routine nicht gefunden"))
         db.q("UPDATE routines SET model=? WHERE id=?", (model, rid))
     if "enabled" in body:
         db.q("UPDATE routines SET enabled=? WHERE id=?", (int(bool(body["enabled"])), rid))
+        # Wieder eingeschaltet (oder aus einer Vorlage pausiert angelegt): Ein verstrichener Termin würde sofort
+        # feuern. Routinen laufen stattdessen zum nächsten Termin laut Zeitplan; Erinnerungen bleiben unverändert.
+        cur = db.one("SELECT kind, schedule, next_run FROM routines WHERE id=?", (rid,))
+        if body["enabled"] and cur and cur["kind"] == "routine" and (cur["next_run"] or "") <= db_now_iso():
+            try:
+                db.q("UPDATE routines SET next_run=? WHERE id=?", (next_cron(cur["schedule"]), rid))
+            except Exception as e:  # noqa: BLE001 – kaputter Zeitplan: Termin bleibt, wie er ist
+                print("Routine: nächster Termin nicht berechenbar:", e, flush=True)
     r = db.one("SELECT * FROM routines WHERE id=?", (rid,))
     if not r:
-        raise HTTPException(404, "Routine nicht gefunden")
+        raise HTTPException(404, tx("Routine nicht gefunden"))
     d = db.routine_dict(r)
     events.publish("routine.updated", d)
     return d
@@ -993,7 +1208,7 @@ def delete_routine(rid: str, p: Principal = Depends(shared("edit", via="rid"))):
 def run_routine(rid: str):
     r = db.one("SELECT * FROM routines WHERE id=?", (rid,))
     if not r:
-        raise HTTPException(404, "Routine nicht gefunden")
+        raise HTTPException(404, tx("Routine nicht gefunden"))
     service.fire_routine(db.routine_dict(r))
     return {"ok": True}
 
@@ -1008,20 +1223,36 @@ def get_standing_approvals(bot_id: str):
 @app.delete("/api/bots/{bot_id}/standing-approvals/{sid}", dependencies=[Depends(auth)])
 def delete_standing_approval(bot_id: str, sid: str):
     if not service.delete_standing(bot_id, sid):
-        raise HTTPException(404, "Dauerhafte Freigabe nicht gefunden")
+        raise HTTPException(404, tx("Dauerhafte Freigabe nicht gefunden"))
     return {"ok": True}
 
 
 @app.post("/api/approvals/{aid}", dependencies=[Depends(auth)])
 def decide(aid: str, body: dict):
     if body.get("decision") not in ("approve", "decline", "approve_always"):
-        raise HTTPException(400, "decision muss approve, decline oder approve_always sein")
+        raise HTTPException(400, tx("decision muss approve, decline oder approve_always sein"))
     try:
         return service.decide(aid, body["decision"], body.get("note"), body.get("edits"))
     except KeyError as e:
         raise HTTPException(404, str(e)) from e
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+
+
+@app.get("/api/approvals", dependencies=[Depends(auth)])
+def list_approvals():
+    """Freigaben-Postfach: offene Freigaben über alle Chats, Gruppen und Aufgaben, neueste zuerst (today.py).
+    Nur der Admin (Gäste: 403) – Freigaben aus Gast-Läufen landen ohnehin bei ihm."""
+    items = today.pending_approvals(service)
+    return {"approvals": items, "count": len(items)}
+
+
+@app.get("/api/today", dependencies=[Depends(auth)])
+def today_overview(since: str | None = None):
+    """Seite „Heute“ in einer Antwort: offene Freigaben, Aufgaben (wartend, zu prüfen, laufend, heute geplant,
+    erledigt), laufende Chat-Läufe, heute fällige Routinen und Erinnerungen, gelaufene Routinen. `since` = letzter
+    Besuch der Seite (ISO-8601). Nur der Admin (Gäste: 403)."""
+    return today.overview(service, since)
 
 
 # -- Aufgabenmodus (docs/aufgaben.md) ---------------------------------------------------------------------------
@@ -1035,10 +1266,10 @@ def start_task(bot_id: str, body: dict):
     """Aufgabe ausdrücklich starten. In Gruppen (g_…) ist `actor_id` der arbeitende Scoop."""
     prompt = str(body.get("prompt") or "").strip()
     if not prompt:
-        raise HTTPException(400, "prompt fehlt")
+        raise HTTPException(400, tx("prompt fehlt"))
     actor = body.get("actor_id") or bot_id
     if not service.chat_exists(bot_id) or not db.bot_row(actor):
-        raise HTTPException(404, "Chat oder Scoop nicht gefunden")
+        raise HTTPException(404, tx("Chat oder Scoop nicht gefunden"))
     from .bots import _task_title
     try:
         return tasks.start(bot_id, actor, str(body.get("title") or _task_title(prompt)), prompt, origin="user",
@@ -1065,12 +1296,12 @@ def create_task(body: dict):
     chat_id = str(body.get("chat_id") or body.get("actor_id") or "").strip()
     prompt = str(body.get("prompt") or "").strip()
     if not prompt:
-        raise HTTPException(400, "prompt fehlt")
+        raise HTTPException(400, tx("prompt fehlt"))
     actor = str(body.get("actor_id") or chat_id)
     if not chat_id or not service.chat_exists(chat_id) or not db.bot_row(actor):
-        raise HTTPException(404, "Chat oder Scoop nicht gefunden")
+        raise HTTPException(404, tx("Chat oder Scoop nicht gefunden"))
     if chat_id.startswith("g_") and actor not in ((service.group_json(chat_id) or {}).get("member_ids") or []):
-        raise HTTPException(400, "Der Scoop ist kein Mitglied dieser Gruppe")
+        raise HTTPException(400, tx("Der Scoop ist kein Mitglied dieser Gruppe"))
     from .bots import _task_title
     try:
         return tasks.start(chat_id, actor, str(body.get("title") or "").strip() or _task_title(prompt), prompt,
@@ -1096,9 +1327,9 @@ def patch_task_settings(body: dict):
         if k in body:
             v = body[k]
             if k == "task_mode" and not (v in ("all", "off") or (isinstance(v, list) and all(isinstance(x, str) for x in v))):
-                raise HTTPException(400, "task_mode: \"all\", \"off\" oder Liste von Scoop-IDs")
+                raise HTTPException(400, tx("task_mode: \"all\", \"off\" oder Liste von Scoop-IDs"))
             if k == "task_openai_engine" and v not in ("auto", "codex", "responses"):
-                raise HTTPException(400, "task_openai_engine: auto, codex oder responses")
+                raise HTTPException(400, tx("task_openai_engine: auto, codex oder responses"))
             cfg[k] = v
     save_config(cfg)
     return task_cfg(cfg)
@@ -1109,13 +1340,13 @@ def get_task(task_id: str):
     """Eine Aufgabe mit Schritt-Verlauf (`lines`) und Ergebnisdateien (`file_items`)."""
     t = tasks.row(task_id)
     if not t:
-        raise HTTPException(404, "Aufgabe nicht gefunden")
+        raise HTTPException(404, tx("Aufgabe nicht gefunden"))
     return tasks.public(t, detail=True)
 
 
 def _task_call(task_id: str, fn):
     if not tasks.row(task_id):
-        raise HTTPException(404, "Aufgabe nicht gefunden")
+        raise HTTPException(404, tx("Aufgabe nicht gefunden"))
     try:
         out = fn()
     except TaskError as e:
@@ -1166,14 +1397,14 @@ def restore_task(task_id: str):
 def stop_task(task_id: str):
     t = tasks.stop(task_id)
     if not t:
-        raise HTTPException(404, "Aufgabe nicht gefunden")
+        raise HTTPException(404, tx("Aufgabe nicht gefunden"))
     return t
 
 
 @app.post("/api/tasks/{task_id}/continue", dependencies=[Depends(auth)])
 def continue_task(task_id: str, body: dict | None = None):
     try:
-        return tasks.continue_task(task_id, str((body or {}).get("message") or "Mach weiter, wo du aufgehört hast."))
+        return tasks.continue_task(task_id, str((body or {}).get("message") or tx("Mach weiter, wo du aufgehört hast.")))
     except TaskError as e:
         raise HTTPException(400, str(e)) from e
 
@@ -1218,7 +1449,7 @@ def _abos_patch(body: dict) -> dict:
         if isinstance(v, dict):
             v = v.get("enabled")
         if not isinstance(v, bool):
-            raise HTTPException(400, "codex_computer_use: true oder false")
+            raise HTTPException(400, tx("codex_computer_use: true oder false"))
         from . import codex_cu
         codex_cu.set_setting(v)
     for p in abos.PROVIDERS:
@@ -1227,7 +1458,7 @@ def _abos_patch(body: dict) -> dict:
             if isinstance(v, dict):
                 v = v.get("mode")
             if v not in abos.MODES:
-                raise HTTPException(400, f"{p}: api, abo oder abo_api")
+                raise HTTPException(400, tx("{provider}: api, abo oder abo_api", provider=p))
             abos.set_mode(p, v)
     return abos.status()
 
@@ -1235,7 +1466,7 @@ def _abos_patch(body: dict) -> dict:
 def _abos_login(provider: str) -> dict:
     from . import abos
     if provider not in abos.PROVIDERS:
-        raise HTTPException(404, "Anbieter claude oder openai")
+        raise HTTPException(404, tx("Anbieter claude oder openai"))
     try:
         out = abos.start_login(provider)
     except RuntimeError as e:
@@ -1264,7 +1495,7 @@ def abos_login(provider: str):
 def put_reaction(mid: str, body: dict, p: Principal = Depends(shared("write", via="mid"))):
     emoji = (body.get("emoji") or "").strip() or None
     if emoji and len(emoji) > 8:
-        raise HTTPException(400, "Nur ein Emoji")
+        raise HTTPException(400, tx("Nur ein Emoji"))
     try:
         m = service.set_reaction(mid, "user" if p.is_owner else f"user:{p.user_id}", emoji)
     except KeyError as e:
@@ -1277,7 +1508,7 @@ def hub_or_404(node: str | None):
         node = computers.default_id()  # ohne VM-Bot-Rechner: „Bot-Rechner“ der App = Standard-Rechner
     hub = computers.get(node or VM_ID)
     if not hub:
-        raise HTTPException(404, "Rechner nicht gefunden")
+        raise HTTPException(404, tx("Rechner nicht gefunden"))
     return hub
 
 
@@ -1288,7 +1519,7 @@ def node_for(p: Principal, request: Request, node: str) -> str:
     b = service.bot_json(p.share.bot_id)
     mine = (b or {}).get("computer_node") or VM_ID
     if "node" in request.query_params and request.query_params["node"] != mine:
-        raise HTTPException(403, "Dieser Rechner gehört nicht zu deinem geteilten Scoop.")
+        raise HTTPException(403, tx("Dieser Rechner gehört nicht zu deinem geteilten Scoop."))
     return mine
 
 
@@ -1323,8 +1554,9 @@ async def computer_screen(request: Request, scale: float = 1.0, q: int = 60, nod
             cache["img"] = await asyncio.to_thread(grab)
             cache["t"] = time.time()
         except Exception as e:  # noqa: BLE001
-            label = "Bot-Rechner" if hub.node_id == VM_ID else f"Rechner „{hub.name}“"
-            raise HTTPException(503, f"{label} nicht erreichbar: {e}") from e
+            if hub.node_id == VM_ID:
+                raise HTTPException(503, tx("Bot-Rechner nicht erreichbar: {error}", error=e)) from e
+            raise HTTPException(503, tx("Rechner „{name}“ nicht erreichbar: {error}", name=hub.name, error=e)) from e
     im = cache["img"]
     scale = min(max(scale, 0.25), 1.0)
     if scale < 1.0:
@@ -1350,16 +1582,16 @@ async def transcribe(request: Request, name: str = Query("diktat.m4a"), language
         from .db import now
         k = (p.user_id, now().strftime("%Y-%m-%d"))
         if _guest_dictation.get(k, 0) >= GUEST_DICTATIONS_PER_DAY:
-            raise HTTPException(429, "Tageslimit für Diktate erreicht")
+            raise HTTPException(429, tx("Tageslimit für Diktate erreicht"))
         _guest_dictation[k] = _guest_dictation.get(k, 0) + 1
     key = _keychain(kc("openai"), "api-key")
     if not key:
-        raise HTTPException(503, "Kein OpenAI-Schlüssel hinterlegt")
+        raise HTTPException(503, tx("Kein OpenAI-Schlüssel hinterlegt"))
     data = await request.body()
     if not data:
-        raise HTTPException(400, "Keine Audiodaten")
+        raise HTTPException(400, tx("Keine Audiodaten"))
     if len(data) > MAX_UPLOAD:
-        raise HTTPException(413, "Aufnahme ist größer als 25 MB")
+        raise HTTPException(413, tx("Aufnahme ist größer als 25 MB"))
     import httpx
 
     mime = request.headers.get("content-type") or "audio/m4a"
@@ -1371,7 +1603,7 @@ async def transcribe(request: Request, name: str = Query("diktat.m4a"), language
         r = httpx.post("https://api.openai.com/v1/audio/transcriptions", headers={"Authorization": f"Bearer {key}"},
                        data=form, files={"file": (name, data, mime)}, timeout=120)
         if r.status_code >= 400:
-            raise HTTPException(502, f"Transkription fehlgeschlagen: {r.text[:200]}")
+            raise HTTPException(502, tx("Transkription fehlgeschlagen: {error}", error=r.text[:200]))
         return r.json()
 
     d = await asyncio.to_thread(call)
@@ -1385,8 +1617,11 @@ async def computer_takeover(request: Request, node: str = VM_ID,
     ok = await asyncio.to_thread(hub.take_over, 15)
     if not ok:
         holder = hub.holder
-        name = (db.bot_row(holder) or {"name": "Ein Scoop"})["name"] if holder else "Ein Scoop"
-        raise HTTPException(409, f"{name} arbeitet gerade am Rechner. Halte ihn an oder versuch es gleich nochmal.")
+        name = (db.bot_row(holder) or {"name": None})["name"] if holder else None
+        if not name:
+            raise HTTPException(409, tx("Ein Scoop arbeitet gerade am Rechner. Halte ihn an oder versuch es gleich nochmal."))
+        raise HTTPException(409, tx("{name} arbeitet gerade am Rechner. Halte ihn an oder versuch es gleich nochmal.",
+                                    name=name))
     return guest_computer_state(p, await asyncio.to_thread(hub.state))
 
 
@@ -1402,7 +1637,7 @@ async def computer_input(request: Request, body: dict, node: str = VM_ID,
                          p: Principal = Depends(shared("read", computer="control", via="query"))):
     hub = hub_or_404(node_for(p, request, node))
     if hub.holder != USER_HOLDER:
-        raise HTTPException(409, "Erst übernehmen")
+        raise HTTPException(409, tx("Erst übernehmen"))
     hub.user_seen = time.time()
     c = hub.computer
     t = body.get("type")
@@ -1423,7 +1658,7 @@ async def computer_input(request: Request, body: dict, node: str = VM_ID,
         elif t == "key":
             c.key(body.get("text", ""), int(body.get("repeat", 1)))
         else:
-            raise ValueError("Unbekannte Eingabe")
+            raise ValueError(tx("Unbekannte Eingabe"))
 
     try:
         await asyncio.to_thread(run)
@@ -1474,7 +1709,7 @@ def patch_apple(body: dict):
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
     except KeyError as e:
-        raise HTTPException(404, "Rechner nicht gefunden") from e
+        raise HTTPException(404, tx("Rechner nicht gefunden")) from e
     events.publish("apple.updated", out)
     return out
 
@@ -1484,7 +1719,7 @@ def patch_apple(body: dict):
 def _device_id(body: dict) -> str:
     did = str((body or {}).get("device_id") or "").strip()
     if not apple_devices.get(did):
-        raise HTTPException(404, "Gerät unbekannt – bitte AIS Scoops öffnen")
+        raise HTTPException(404, tx("Gerät unbekannt – bitte AIS Scoops öffnen"))
     return did
 
 
@@ -1518,7 +1753,7 @@ def apple_device_event(body: dict):
 @app.delete("/api/apple/device/{device_id}", dependencies=[Depends(auth)])
 def apple_device_delete(device_id: str):
     if not apple_devices.remove(device_id):
-        raise HTTPException(404, "Gerät unbekannt")
+        raise HTTPException(404, tx("Gerät unbekannt"))
     return apple.status()
 
 
@@ -1543,16 +1778,16 @@ async def patch_node(node_id: str, body: dict):
 @app.delete("/api/nodes/{node_id}", dependencies=[Depends(auth)])
 async def delete_node(node_id: str):
     if node_id == VM_ID:
-        raise HTTPException(400, "Der Bot-Rechner kann nicht entfernt werden")
+        raise HTTPException(400, tx("Der Bot-Rechner kann nicht entfernt werden"))
     try:
         tr, bot_ids = computers.remove(node_id)
     except KeyError as e:
-        raise HTTPException(404, "Rechner nicht gefunden") from e
+        raise HTTPException(404, tx("Rechner nicht gefunden")) from e
     ws = tr.ws
     tr.detach(ws, f"Rechner „{tr.name}“ wurde entfernt")
     if ws is not None:
         try:
-            await tr.send_json({"type": "bye", "reason": "Dieser Rechner wurde in AIS Scoops entfernt."}, ws=ws)
+            await tr.send_json({"type": "bye", "reason": tx("Dieser Rechner wurde in AIS Scoops entfernt.")}, ws=ws)
             await ws.close(code=4401)
         except Exception:  # noqa: BLE001
             pass
@@ -1576,10 +1811,10 @@ def pair_node(request: Request):
 def claim_node(body: dict, request: Request):
     """Ohne Auth: Scoops Connect löst den Code ein und bekommt sein Rechner-Token (nur einmal sichtbar)."""
     if computers.claim_rate_limited():
-        raise HTTPException(429, "Zu viele Fehlversuche. Bitte in einer Minute erneut versuchen.")
+        raise HTTPException(429, tx("Zu viele Fehlversuche. Bitte in einer Minute erneut versuchen."))
     out = computers.claim(body or {})
     if not out:
-        raise HTTPException(404, "Code ungültig oder abgelaufen")
+        raise HTTPException(404, tx("Code ungültig oder abgelaufen"))
     drop, bots = out.pop("_drop", []), out.pop("_bots", [])
     out["server_url"] = load_config().get("public_url") or str(request.base_url).rstrip("/")
     hub = computers.get(out["node_id"])
@@ -1602,7 +1837,8 @@ def _nodes_replaced(keep_id: str, old_ids: list[str], transports: list, bot_ids:
         async def close(ws=ws, tr=tr, gone=gone):
             try:
                 if gone:
-                    await tr.send_json({"type": "bye", "reason": "Dieser Rechner wurde durch eine neue Kopplung ersetzt."}, ws=ws)
+                    await tr.send_json({"type": "bye", "reason": tx("Dieser Rechner wurde durch eine neue Kopplung ersetzt.")},
+                                       ws=ws)
                 await ws.close(code=4401 if gone else 4000)
             except Exception:  # noqa: BLE001
                 pass
@@ -1630,7 +1866,7 @@ async def node_link(websocket: WebSocket, token: str = ""):
     if hub is None:
         # Token unbekannt (Rechner entfernt): Scoops Connect löscht daraufhin sein Token.
         try:
-            await websocket.send_text(json.dumps({"type": "bye", "reason": "Dieser Rechner ist nicht (mehr) gekoppelt."}))
+            await websocket.send_text(json.dumps({"type": "bye", "reason": tx("Dieser Rechner ist nicht (mehr) gekoppelt.")}))
             await websocket.close(code=4401)
         except Exception:  # noqa: BLE001
             pass
@@ -1757,7 +1993,7 @@ def usage_limits(refresh: int = 0):
 def register_device(body: dict):
     tok = body.get("apns_token")
     if not tok:
-        raise HTTPException(400, "apns_token fehlt")
+        raise HTTPException(400, tx("apns_token fehlt"))
     db.q("INSERT OR REPLACE INTO devices(token,platform,name,created_at) VALUES(?,?,?,datetime('now'))",
          (tok, body.get("platform"), body.get("name")))
     pusher.note_token(tok, body.get("platform"))  # Relay-Modus: Token bei AIS Scoops Cloud melden
@@ -1768,15 +2004,15 @@ def register_device(body: dict):
 def group_or_404(gid: str) -> dict:
     g = service.group_json(gid)
     if not g:
-        raise HTTPException(404, "Gruppe nicht gefunden")
+        raise HTTPException(404, tx("Gruppe nicht gefunden"))
     return g
 
 
 def _check_members(ids) -> list[str]:
     if not isinstance(ids, list) or not 2 <= len(ids) <= 6:
-        raise HTTPException(400, "Eine Gruppe braucht 2 bis 6 Scoops")
+        raise HTTPException(400, tx("Eine Gruppe braucht 2 bis 6 Scoops"))
     if any(not db.bot_row(i) for i in ids):
-        raise HTTPException(400, "Unbekannter Scoop in der Gruppe")
+        raise HTTPException(400, tx("Unbekannter Scoop in der Gruppe"))
     return list(dict.fromkeys(ids))
 
 
@@ -1789,7 +2025,7 @@ def list_groups():
 def create_group(body: dict):
     name = (body.get("name") or "").strip()
     if not name:
-        raise HTTPException(400, "Die Gruppe braucht einen Namen")
+        raise HTTPException(400, tx("Die Gruppe braucht einen Namen"))
     return service.create_group(name, _check_members(body.get("member_ids")))
 
 
@@ -1817,9 +2053,10 @@ def delete_group(gid: str):
 
 
 @app.get("/api/groups/{gid}/messages", dependencies=[Depends(auth)])
-def group_messages(gid: str, before: str | None = None, limit: int = 50):
+def group_messages(gid: str, before: str | None = None, limit: int = 50, after: str | None = None):
     group_or_404(gid)
-    return db.messages(gid, before, max(1, min(limit, 200)))
+    limit = max(1, min(limit, 200))
+    return suche.after(db, gid, after, limit) if after else db.messages(gid, before, limit)
 
 
 @app.post("/api/groups/{gid}/messages", dependencies=[Depends(auth)])
@@ -1847,6 +2084,7 @@ def group_reset(gid: str):
     group_or_404(gid)
     service.stop(gid)
     db.q("DELETE FROM messages WHERE bot_id=?", (gid,))
+    _drop_open_approvals(gid)
     events.publish("group.updated", group_or_404(gid))
     return {"ok": True}
 
@@ -1854,7 +2092,7 @@ def group_reset(gid: str):
 # -- Bibliothek --------------------------------------------------------------
 def chat_or_404(chat_id: str) -> None:
     if not service.chat_exists(chat_id):
-        raise HTTPException(404, "Chat nicht gefunden")
+        raise HTTPException(404, tx("Chat nicht gefunden"))
 
 
 @app.get("/api/chats/{chat_id}/files")
@@ -1869,9 +2107,9 @@ async def upload_file(chat_id: str, request: Request, name: str = Query(...),
     chat_or_404(chat_id)
     data = await request.body()
     if not data:
-        raise HTTPException(400, "Leere Datei")
+        raise HTTPException(400, tx("Leere Datei"))
     if len(data) > MAX_UPLOAD:
-        raise HTTPException(413, "Datei ist größer als 25 MB")
+        raise HTTPException(413, tx("Datei ist größer als 25 MB"))
     mime = request.headers.get("content-type") or None
     if mime in (None, "application/octet-stream"):
         import mimetypes
@@ -1883,7 +2121,7 @@ async def upload_file(chat_id: str, request: Request, name: str = Query(...),
 def download_file(fid: str, p: Principal = Depends(shared("read", via="fid"))):
     r = db.file_row(fid)
     if not r or not r["path"] or not os.path.exists(r["path"]):
-        raise HTTPException(404, "Datei nicht gefunden")
+        raise HTTPException(404, tx("Datei nicht gefunden"))
     return FileResponse(r["path"], media_type=r["mime"] or "application/octet-stream", filename=r["name"],
                         content_disposition_type="inline")
 
@@ -1900,7 +2138,7 @@ def register_live_activity(body: dict):
     """Update-Token der gemeinsamen Live-Aktivität (run_id = Sitzung aus /api/live-activity)."""
     tok = body.get("push_token")
     if not tok:
-        raise HTTPException(400, "push_token nötig")
+        raise HTTPException(400, tx("push_token nötig"))
     pusher.board.register_token(tok, body.get("run_id"))
     return {"ok": True}
 
@@ -1959,7 +2197,7 @@ def put_sections(body: dict):
 def rename_section(body: dict):
     old, new = (body.get("from") or "").strip(), (body.get("to") or "").strip()[:40]
     if not old or not new:
-        raise HTTPException(400, "from und to nötig")
+        raise HTTPException(400, tx("from und to nötig"))
     db.q("UPDATE bots SET section=? WHERE section=?", (new, old))
     db.q("UPDATE groups SET section=? WHERE section=?", (new, old))
     secs = [dict(x, name=new) if x["name"] == old else x for x in sections_state()]
@@ -2014,7 +2252,7 @@ def get_workspace():
 @app.patch("/api/settings/workspace", dependencies=[Depends(auth)])
 def patch_workspace(body: dict):
     if not isinstance(body.get("path"), str):
-        raise HTTPException(400, "path fehlt")
+        raise HTTPException(400, tx("path fehlt"))
     return set_workspace(body["path"])
 
 
@@ -2050,7 +2288,7 @@ def patch_initiative(body: dict):
     if "times" in body:
         times = sorted({t for t in body["times"] if isinstance(t, str) and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", t)})
         if len(times) > 8:
-            raise HTTPException(400, "Höchstens 8 Zeiten")
+            raise HTTPException(400, tx("Höchstens 8 Zeiten"))
         cfg["times"] = times
     for k in ("quiet_start", "quiet_end"):
         if k in body and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", str(body[k])):
@@ -2063,7 +2301,7 @@ def patch_initiative(body: dict):
 def initiative_now():
     p = db.primary_bot()
     if not p:
-        raise HTTPException(400, "Kein Haupt-Scoop festgelegt")
+        raise HTTPException(400, tx("Kein Haupt-Scoop festgelegt"))
     from .db import now
     run_initiative(p["id"], now().strftime("%H:%M"), False)
     return {"ok": True}
@@ -2086,7 +2324,7 @@ def bot_skills(bot_id: str, p: Principal = Depends(shared("edit"))):
 def patch_skill(sid: str, body: dict, p: Principal = Depends(shared("edit", via="sid"))):
     r = db.skill_row(sid)
     if not r:
-        raise HTTPException(404, "Fähigkeit nicht gefunden")
+        raise HTTPException(404, tx("Fähigkeit nicht gefunden"))
     from .db import now_iso
     db.q("UPDATE skills SET name=?, description=?, steps=?, updated_at=? WHERE id=?",
          (body.get("name", r["name"]), body.get("description", r["description"]), body.get("steps", r["steps"]), now_iso(), sid))
@@ -2116,10 +2354,10 @@ def create_vault(body: dict):
     from .db import new_id, now_iso
     title, url = (body.get("title") or "").strip(), (body.get("url") or "").strip()
     if not title or not url:
-        raise HTTPException(400, "Titel und Webseite sind nötig")
+        raise HTTPException(400, tx("Titel und Webseite sind nötig"))
     domain = vault_mod.domain_of(url)
     if not domain or "." not in domain:
-        raise HTTPException(400, "Ungültige Webseite")
+        raise HTTPException(400, tx("Ungültige Webseite"))
     vid = new_id("v")
     ts = now_iso()
     db.q("INSERT INTO vault(id,title,url,domain,username,note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)",
@@ -2133,7 +2371,7 @@ def create_vault(body: dict):
 def patch_vault(vid: str, body: dict):
     r = db.vault_row(vid)
     if not r:
-        raise HTTPException(404, "Eintrag nicht gefunden")
+        raise HTTPException(404, tx("Eintrag nicht gefunden"))
     from .db import now_iso
     url = body.get("url", r["url"])
     db.q("UPDATE vault SET title=?, url=?, domain=?, username=?, note=?, updated_at=? WHERE id=?",
@@ -2152,10 +2390,10 @@ def delete_vault(vid: str):
 
 
 # -- Apps verbinden ----------------------------------------------------------------
-BUILTIN = [("teamapp", "Team App", "MLP-Team, Recruiting, Kennzahlen", "person.3.fill"),
-           ("atrium", "Atrium", "Dein Kontext-Vault (lokal)", "building.columns.fill"),
-           ("atrium_berlin", "Atrium · Team Berlin", "Berater-Kontexte (Cloud)", "person.2.wave.2.fill"),
-           ("atrium_koeln", "Atrium · Team Köln", "Berater-Kontexte (Cloud)", "person.2.wave.2.fill")]
+BUILTIN = [("teamapp", "Team App", N_("MLP-Team, Recruiting, Kennzahlen"), "person.3.fill"),
+           ("atrium", "Atrium", N_("Dein Kontext-Vault (lokal)"), "building.columns.fill"),
+           ("atrium_berlin", "Atrium · Team Berlin", N_("Berater-Kontexte (Cloud)"), "person.2.wave.2.fill"),
+           ("atrium_koeln", "Atrium · Team Köln", N_("Berater-Kontexte (Cloud)"), "person.2.wave.2.fill")]
 
 
 def _builtin_status() -> list[dict]:
@@ -2168,14 +2406,14 @@ def _builtin_status() -> list[dict]:
             state = "off"
         else:
             state = "ok" if srv._tools else "error"
-        out.append({"id": name, "name": title, "detail": detail, "symbol": symbol, "status": state,
+        out.append({"id": name, "name": title, "detail": i18n.translate(detail), "symbol": symbol, "status": state,
                     "tools": len(srv._tools) if srv else 0})
     from . import t3 as t3mod
     if feature("t3"):
-        out.append({"id": "t3", "name": "T3 Code", "detail": "Programmieraufträge auf dem Air und Pro", "symbol": "terminal.fill",
+        out.append({"id": "t3", "name": "T3 Code", "detail": tx("Programmieraufträge auf dem Air und Pro"), "symbol": "terminal.fill",
                     "status": "ok" if t3mod.available() else "off", "tools": 0})
     if feature("lucy"):
-        out.append({"id": "lucy", "name": "Lucy Telefonie", "detail": "Anrufe nur mit Freigabe", "symbol": "phone.fill",
+        out.append({"id": "lucy", "name": tx("Lucy Telefonie"), "detail": tx("Anrufe nur mit Freigabe"), "symbol": "phone.fill",
                     "status": "ok", "tools": 0})
     return out
 
@@ -2252,7 +2490,7 @@ def _notion_call(fn, *a):
     except notion_mcp.NotionAuthError as e:
         raise HTTPException(502, str(e))
     except Exception as e:  # noqa: BLE001 – Netzfehler o. Ä.
-        raise HTTPException(502, f"Notion ist gerade nicht erreichbar: {str(e)[:200]}")
+        raise HTTPException(502, tx("Notion ist gerade nicht erreichbar: {error}", error=str(e)[:200]))
 
 
 def _reload_mcp() -> None:
@@ -2274,7 +2512,7 @@ def _mcp_call(fn, *a):
     except custom_mcp.McpAuthError as e:
         raise HTTPException(502, str(e))
     except Exception as e:  # noqa: BLE001 – Netzfehler o. Ä.
-        raise HTTPException(502, f"Der MCP-Server ist gerade nicht erreichbar: {str(e)[:200]}")
+        raise HTTPException(502, tx("Der MCP-Server ist gerade nicht erreichbar: {error}", error=str(e)[:200]))
 
 
 def _mcp_list() -> dict:
@@ -2341,7 +2579,7 @@ def oauth_callback(body: dict):
     if custom_mcp.CustomMCP.owns_callback(url):  # eigener MCP-Server (aisscoops://oauth/mcp, ab 1.35)
         return _mcp_call(service.mcp_oauth_finished, url)
     if OFFLINE:
-        raise HTTPException(404, "Nicht verfügbar")
+        raise HTTPException(404, tx("Nicht verfügbar"))
     acc = _notion_call(notion_mcp.instance().finish, url)
     _reload_mcp()
     return acc
@@ -2352,7 +2590,7 @@ def connection_status(account_id: str):
     if account_id == notion_mcp.ACCOUNT_ID:
         acc = notion_mcp.instance().account()
         if not acc:
-            raise HTTPException(404, "Notion ist nicht direkt verbunden")
+            raise HTTPException(404, tx("Notion ist nicht direkt verbunden"))
         return acc
     return _conn_call(connections.status, account_id)
 
@@ -2422,7 +2660,7 @@ def get_avatar(bot_id: str, request: Request, v: int | None = None, size: int | 
     path = avatars.current_path(bot_id)
     current = (b.get("avatar") or {}).get("version")
     if not path or not current:
-        raise HTTPException(404, "Kein eigenes Bild")
+        raise HTTPException(404, tx("Kein eigenes Bild"))
     side = max(64, min(int(size), avatars.SIZE)) if size else None
     etag = f'"{bot_id}-{current}-{side or avatars.SIZE}"'
     cache = "private, max-age=31536000, immutable" if v == current else "private, no-cache"
@@ -2445,7 +2683,7 @@ def local_only(request: Request) -> None:
     setzt aber Weiterleitungs-Header – solche Anfragen werden abgelehnt."""
     host = request.client.host if request.client else ""
     if host not in ("127.0.0.1", "::1") or any(request.headers.get(h) for h in _PROXY_HEADERS):
-        raise HTTPException(403, "Nur lokal auf dem Server erreichbar")
+        raise HTTPException(403, tx("Nur lokal auf dem Server erreichbar"))
 
 
 @app.get("/api/setup", dependencies=[Depends(local_only)])
@@ -2458,6 +2696,7 @@ def setup_status():
         "error": pusher.relay.last_error if push_mode != "direct" else None}, "server": {
         "edition": profile.edition(cfg), "port": PORT, "home": str(profile.HOME),
         "user_name": service.user_name, "owner_name": cfg.get("owner_name"),
+        "language": i18n.stored_lang(None), "languages": list(i18n.LANGS),
         "server_name": cfg.get("server_name") or __import__("aisbot.cloud", fromlist=["server_name"]).server_name(),
         "public_url": cfg.get("public_url") or "", "tailnet_url": cfg.get("tailnet_url") or "",
         "host": HOST, "host_configured": cfg.get("host") or "127.0.0.1",
@@ -2509,15 +2748,22 @@ def setup_config(body: dict):
     `workspace_dir` (Arbeitsordner, Mac-App) wird geprüft und angelegt; bei Fehlern 400 mit Erklärung."""
     if isinstance(body.get("workspace_dir"), str):
         set_workspace(body["workspace_dir"])
+    if "language" in body:  # Sprache des Inhabers (docs/sprache.md); null = zurück auf Deutsch/Kopfzeile
+        if body["language"] is not None and not i18n.normalize(body["language"]):
+            raise HTTPException(400, i18n.tx("Unbekannte Sprache. Möglich: {langs}", langs=", ".join(i18n.LANGS)))
+        i18n.set_lang(None, body["language"])
+        with i18n.use(i18n.owner_lang()):
+            events.publish("language.updated", i18n.state(None))
+        localize_seed()
     cfg = load_config()
     urls_before = (cfg.get("public_url"), cfg.get("tailnet_url"))
     for k in SETUP_KEYS:
         if k in body:
             v = str(body[k] or "").strip()[:300]
             if k == "host" and v not in ("", "127.0.0.1", "0.0.0.0"):
-                raise HTTPException(400, "host: 127.0.0.1 (nur dieser Mac) oder 0.0.0.0 (lokales Netz)")
+                raise HTTPException(400, tx("host: 127.0.0.1 (nur dieser Mac) oder 0.0.0.0 (lokales Netz)"))
             if k in ("public_url", "tailnet_url", "lan_url") and v and not re.match(r"^https?://", v):
-                raise HTTPException(400, f"{k} muss mit http:// oder https:// beginnen")
+                raise HTTPException(400, tx("{field} muss mit http:// oder https:// beginnen", field=k))
             if v:
                 cfg[k] = v.rstrip("/") if k.endswith("_url") else v
             else:
@@ -2552,7 +2798,7 @@ def setup_this_mac(body: dict):
     Rechner außerdem Standard-Rechner, falls noch keiner (gültig) gesetzt ist."""
     nid = str(body.get("node_id") or "")
     if not computers.get(nid) or nid == VM_ID:
-        raise HTTPException(404, "Rechner nicht gefunden")
+        raise HTTPException(404, tx("Rechner nicht gefunden"))
     dev = str(body.get("device_id") or "").strip()[:80]
     if dev:
         computers.set_device(nid, dev)
@@ -2627,7 +2873,7 @@ def setup_link(body: dict | None = None):
     except RuntimeError as e:
         raise HTTPException(409, str(e)) from None
     except Exception as e:  # noqa: BLE001 – Convex nicht erreichbar
-        raise HTTPException(502, f"Konto-Dienst nicht erreichbar: {e}") from None
+        raise HTTPException(502, tx("Konto-Dienst nicht erreichbar: {error}", error=e)) from None
 
 
 @app.websocket("/api/ws")

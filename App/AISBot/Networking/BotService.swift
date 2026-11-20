@@ -332,7 +332,23 @@ protocol BotService: AnyObject {
 struct APIError: LocalizedError {
     var status: Int
     var message: String
+    /// Die Antwort trug eine Fehlermeldung des Servers (`{"error": …}`, z. B. „Nachricht nicht gefunden“) – im
+    /// Gegensatz zu einer fehlenden Route älterer Server (`{"detail": "Not Found"}`). Sprachunabhängig auswertbar.
+    var fromServer = false
     var errorDescription: String? { message }
+
+    init(status: Int, message: String, fromServer: Bool = false) {
+        self.status = status; self.message = message; self.fromServer = fromServer
+    }
+
+    /// Aus einer Fehlerantwort: Meldung des Servers (in der Sprache der App, docs/sprache.md), sonst der Statustext.
+    init(status: Int, body: Data, decoder: JSONDecoder) {
+        if let error = (try? decoder.decode(APIErrorBody.self, from: body))?.error {
+            self.init(status: status, message: error, fromServer: true)
+        } else {
+            self.init(status: status, message: HTTPURLResponse.localizedString(forStatusCode: status))
+        }
+    }
 }
 
 
@@ -341,27 +357,27 @@ extension BotService {
     func refreshShares() async throws {}
     func registerGuestDevice(_ registration: DeviceRegistration) async throws { try await registerDevice(registration) }
     func botUsage(botID: String) async throws -> BotUsage {
-        throw APIError(status: 404, message: "Der Server kennt die Kosten pro Scoop noch nicht.")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt die Kosten pro Scoop noch nicht."))
     }
     func sharingSettings(botID: String) async throws -> SharingSettings {
-        throw APIError(status: 404, message: "Der Server kennt das Teilen noch nicht.")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt das Teilen noch nicht."))
     }
     func unregisterGuestDevice(token: String) async throws {}
 
     // v1.20: ältere Server bzw. Dienste ohne diese Funktionen
     func decideAlways(approvalID: String, mailEdits: MailEdits?) async throws -> Message {
-        throw APIError(status: 404, message: "Der Server kennt „Immer erlauben“ noch nicht.")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt „Immer erlauben“ noch nicht."))
     }
     func standingApprovals(botID: String) async throws -> [StandingApproval] { [] }
     func deleteStandingApproval(botID: String, id: String) async throws {
-        throw APIError(status: 404, message: "Der Server kennt dauerhafte Freigaben noch nicht.")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt dauerhafte Freigaben noch nicht."))
     }
     func setRoutineModel(id: String, model: String?) async throws -> Routine {
-        throw APIError(status: 404, message: "Der Server kennt Modelle pro Routine noch nicht.")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt Modelle pro Routine noch nicht."))
     }
     /// Demo-Modus und Dienste ohne Katalog: eingebaute Liste
     func models() async throws -> ModelCatalog {
-        throw APIError(status: 404, message: "Der Server kennt den Modellkatalog noch nicht.")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt den Modellkatalog noch nicht."))
     }
     // v1.21: ohne bearbeiteten Text wie eine normale Freigabe
     func decideScoopUpdate(approvalID: String, approve: Bool, after: String?) async throws -> Message {
@@ -378,9 +394,9 @@ extension BotService {
 
     func liveVoiceInfo() async throws -> LiveVoiceInfo { .unavailable }
     func liveVoiceRequest(chatID: String) async throws -> URLRequest {
-        throw APIError(status: 503, message: "Im Demo-Modus nicht verfügbar.")
+        throw APIError(status: 503, message: String(localized: "Im Demo-Modus nicht verfügbar."))
     }
     func liveVoicePreview(voice: String) async throws -> Data {
-        throw APIError(status: 503, message: "Im Demo-Modus nicht verfügbar.")
+        throw APIError(status: 503, message: String(localized: "Im Demo-Modus nicht verfügbar."))
     }
 }

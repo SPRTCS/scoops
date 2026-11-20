@@ -200,6 +200,9 @@ struct OnboardingHeader: View {
             .frame(minWidth: 40, alignment: .trailing)
             .frame(height: 40)
         }
+        // Kopfzeile (Zurück, Fortschritt, Überspringen): wächst bis zur größten normalen Stufe mit, sonst überlappen
+        // Fortschritt und „Überspringen“
+        .dynamicTypeSize(...AppFont.controlCap)
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 6)

@@ -15,17 +15,17 @@ nonisolated enum ShareRole: String, Codable, CaseIterable, Identifiable, Hashabl
 
     var title: String {
         switch self {
-        case .read: "Lesen"
-        case .write: "Schreiben"
-        case .edit: "Bearbeiten"
+        case .read: String(localized: "Lesen", comment: "Geteilter Scoop: Rolle nur lesen")
+        case .write: String(localized: "share.role.write", defaultValue: "Schreiben", comment: "Geteilter Scoop: Rolle mitschreiben (englisch „Write“)")
+        case .edit: String(localized: "Bearbeiten", comment: "Geteilter Scoop: Rolle bearbeiten")
         }
     }
 
     var detail: String {
         switch self {
-        case .read: "Sieht den Chat, kann aber nichts schreiben."
-        case .write: "Schreibt mit, schickt Dateien und nutzt den Sprechmodus."
-        case .edit: "Wie Schreiben, ändert zusätzlich Name, Aussehen, Charakter, Stimme, Routinen und Gedächtnis."
+        case .read: String(localized: "Sieht den Chat, kann aber nichts schreiben.")
+        case .write: String(localized: "Schreibt mit, schickt Dateien und nutzt den Sprechmodus.")
+        case .edit: String(localized: "Wie Schreiben, ändert zusätzlich Name, Aussehen, Charakter, Stimme, Routinen und Gedächtnis.")
         }
     }
 
@@ -54,26 +54,26 @@ nonisolated enum ComputerAccess: String, Codable, CaseIterable, Identifiable, Ha
 
     var title: String {
         switch self {
-        case .noAccess: "Kein Zugriff"
-        case .view: "Zusehen"
-        case .control: "Steuern"
+        case .noAccess: String(localized: "Kein Zugriff")
+        case .view: String(localized: "Zusehen", comment: "Rechner-Zugriff: nur zusehen")
+        case .control: String(localized: "Steuern", comment: "Rechner-Zugriff: Maus und Tastatur")
         }
     }
 
     /// Kurz für Listen: „Kein Rechner“, „Zusehen“, „Steuern“
     var shortTitle: String {
         switch self {
-        case .noAccess: "Kein Rechner"
-        case .view: "Zusehen"
-        case .control: "Steuern"
+        case .noAccess: String(localized: "Kein Rechner")
+        case .view: String(localized: "Zusehen", comment: "Rechner-Zugriff: nur zusehen")
+        case .control: String(localized: "Steuern", comment: "Rechner-Zugriff: Maus und Tastatur")
         }
     }
 
     var detail: String {
         switch self {
-        case .noAccess: "Bildschirm und Rechner-Karten bleiben unsichtbar."
-        case .view: "Sieht den Live-Bildschirm des Rechners, nur lesend."
-        case .control: "Sieht zu und kann Maus und Tastatur übernehmen."
+        case .noAccess: String(localized: "Bildschirm und Rechner-Karten bleiben unsichtbar.")
+        case .view: String(localized: "Sieht den Live-Bildschirm des Rechners, nur lesend.")
+        case .control: String(localized: "Sieht zu und kann Maus und Tastatur übernehmen.")
         }
     }
 
@@ -122,7 +122,8 @@ nonisolated struct ShareMember: Codable, Hashable, Identifiable, Sendable {
         let rawName = ((try? c.decodeIfPresent(String.self, forKey: .name)))
             ?? ((try? c.decodeIfPresent(String.self, forKey: .granteeName)))
             ?? ((try? c.decodeIfPresent(String.self, forKey: .displayName)))
-        name = rawName.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } ?? "Unbekannt"
+        name = rawName.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
+            ?? String(localized: "Unbekannt", comment: "Name einer geteilten Person ohne Namen")
         pictureUrl = ((try? c.decodeIfPresent(String.self, forKey: .pictureUrl)))
             ?? ((try? c.decodeIfPresent(String.self, forKey: .avatarUrl)))
             ?? ((try? c.decodeIfPresent(String.self, forKey: .picture)))
@@ -199,23 +200,23 @@ nonisolated struct GuestTools: Codable, Hashable, Sendable {
 
         var title: String {
             switch self {
-            case .web: "Websuche"
-            case .computer: "Rechner"
-            case .apps: "Verbundene Apps"
-            case .mcp: "MCPs"
-            case .phone: "Telefon (Lucy)"
-            case .mail: "Mails"
+            case .web: String(localized: "Websuche")
+            case .computer: String(localized: "Rechner", comment: "Rechner (Computer)")
+            case .apps: String(localized: "Verbundene Apps")
+            case .mcp: String(localized: "MCPs")
+            case .phone: String(localized: "Telefon (Lucy)")
+            case .mail: String(localized: "Mails")
             }
         }
 
         var detail: String {
             switch self {
-            case .web: "Im Netz suchen und lesen"
-            case .computer: "Bildschirm, Browser, Terminal"
-            case .apps: "Deine Konten über Composio"
-            case .mcp: "Zum Beispiel Atrium, Team App"
-            case .phone: "Anrufe, nur mit deiner Freigabe"
-            case .mail: "Senden nur mit deiner Freigabe"
+            case .web: String(localized: "Im Netz suchen und lesen")
+            case .computer: String(localized: "Bildschirm, Browser, Terminal")
+            case .apps: String(localized: "Deine Konten über Composio")
+            case .mcp: String(localized: "Zum Beispiel Atrium, Team App")
+            case .phone: String(localized: "Anrufe, nur mit deiner Freigabe")
+            case .mail: String(localized: "Senden nur mit deiner Freigabe")
             }
         }
 

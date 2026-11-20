@@ -32,6 +32,7 @@ from typing import Callable
 
 from . import abos
 from .config import UsageBook
+from .i18n import tx
 from .engine import (HANDOFF_HINT, MAX_NUDGES, NUDGE, ComputerHub, Engine, ExtraTool, Outcome, announces_action,
                      handoff_due, hands_off, mcp_line, status_line)
 
@@ -97,7 +98,7 @@ class RunCtx:
     def get_computer(self):
         if self.computer is None:
             if self.hub.holder and self.hub.holder != self.holder:
-                self.line("Wartet, bis der Rechner frei ist")
+                self.line(tx("Wartet, bis der Rechner frei ist"))
             self.computer = self.hub.acquire(self.holder, self.cancel)
             self.used_computer = True
         return self.computer
@@ -182,7 +183,7 @@ def hub_tools(mcp_hub, line: Callable[[str], None]) -> dict[str, ExtraTool]:
             "name": "app_werkzeug_suchen", "description": "Sucht weitere Werkzeuge der verbundenen Apps (Team App, Gmail, "
             "Notion, Atrium …) nach Stichworten.", "input_schema": {"type": "object", "properties": {"suche": s},
                                                                    "required": ["suche"]}}, suchen,
-            lambda i: "Sucht das passende Werkzeug")
+            lambda i: tx("Sucht das passende Werkzeug"))
         out["app_werkzeug_nutzen"] = ExtraTool({
             "name": "app_werkzeug_nutzen", "description": "Führt ein mit app_werkzeug_suchen gefundenes Werkzeug aus. "
             "argumente_json = Argumente als JSON-Text.", "input_schema": {
@@ -240,7 +241,7 @@ def _escalate_tool(target: str) -> ExtraTool:
         "Übergibt die Aufgabe an ein stärkeres Modell, das mit dem bisherigen Verlauf weiterarbeitet. Nutze das, wenn die "
         "Aufgabe viele Schritte mit Abwägungen braucht oder du zweimal am selben Schritt gescheitert bist."),
         "input_schema": {"type": "object", "properties": {"grund": {"type": "string"}}, "required": ["grund"]}},
-        run, lambda i: "Holt sich Verstärkung")
+        run, lambda i: tx("Holt sich Verstärkung"))
 
 
 def prepare(extra_tools, mcp_hub, hub, allow_computer: bool, escalation_model: str | None, on_line, cancel, holder: str,
@@ -386,7 +387,7 @@ class ClaudeCodeEngine:
             self._reaper.start()
         st = abos.login_status("claude")
         if not st.get("subscription"):
-            raise abos.SubscriptionUnavailable("claude", "Claude Code ist nicht mit einem Claude-Abo angemeldet.")
+            raise abos.SubscriptionUnavailable("claude", tx("Claude Code ist nicht mit einem Claude-Abo angemeldet."))
         hub = hub or self.api.hub
         ctx, lines = prepare(extra_tools, mcp_hub, hub, allow_computer, escalation_model if escalation_model != model else None,
                              on_line, cancel, holder, access)
@@ -539,7 +540,7 @@ class ClaudeCodeEngine:
                 except Exception:  # noqa: BLE001
                     pass
                 if attempt > 1 or fresh:
-                    raise RuntimeError("Claude-Code-Sitzung ließ sich nicht starten.")
+                    raise RuntimeError(tx("Claude-Code-Sitzung ließ sich nicht starten."))
                 fresh, session_id = True, None
             except (ProcessError, ConnectionError, OSError) as e:
                 with self._plock:
@@ -586,32 +587,33 @@ class ClaudeCodeEngine:
                     if isinstance(m, SystemMessage) and m.subtype == "init":
                         sid = (m.data or {}).get("session_id") or sid
                         if (m.data or {}).get("apiKeySource") not in (None, "none"):
-                            raise abos.SubscriptionUnavailable("claude", "Claude Code nutzt einen API-Schlüssel statt "
-                                                               "des Abo-Logins.")
+                            raise abos.SubscriptionUnavailable("claude", tx("Claude Code nutzt einen API-Schlüssel "
+                                                                            "statt des Abo-Logins."))
                     elif isinstance(m, RateLimitEvent):
                         info = _limit_info(m.rate_limit_info.raw or {})
                         abos.note_info("claude", info)
                         if m.rate_limit_info.status == "rejected":
                             err_kind = "limit"
-                            err_text = err_text or f"Claude-Abo-Limit erreicht ({info.get('window') or 'Limit'})"
+                            err_text = err_text or tx("Claude-Abo-Limit erreicht ({window})",
+                                                      window=info.get("window") or tx("Limit"))
                             abos.note_limit("claude", err_text, m.rate_limit_info.resets_at)
                     elif isinstance(m, AssistantMessage):
                         sid = m.session_id or sid
                         if m.error in ("rate_limit", "billing_error"):
                             err_kind = "limit"
-                            err_text = err_text or f"Claude-Abo: {m.error}"
+                            err_text = err_text or tx("Claude-Abo: {error}", error=m.error)
                         elif m.error == "authentication_failed":
                             err_kind = "auth"
-                            err_text = err_text or "Claude-Code-Anmeldung abgelaufen"
+                            err_text = err_text or tx("Claude-Code-Anmeldung abgelaufen")
                         for b in m.content:
                             if isinstance(b, ToolUseBlock):
                                 if b.name == "WebSearch":
                                     q = str((b.input or {}).get("query") or "")
-                                    ctx.line(f"Sucht im Web: {q[:50]}" if q else "Sucht im Web")
+                                    ctx.line(tx("Sucht im Web: {query}", query=q[:50]) if q else tx("Sucht im Web"))
                                 elif b.name == "WebFetch":
-                                    ctx.line("Liest eine Webseite")
+                                    ctx.line(tx("Liest eine Webseite"))
                                 elif b.name in CLAUDE_TOOLS_READ:
-                                    ctx.line("Liest Dateien auf dem Mac")
+                                    ctx.line(tx("Liest Dateien auf dem Mac"))
                                 elif b.name == "mcp__scoops__eskalieren" and escalation:
                                     model_now = escalation
                                     try:
@@ -644,7 +646,7 @@ class ClaudeCodeEngine:
                                                                    started=ctx.used_tools > 0)
                             if m.subtype == "error_max_turns":
                                 stop = "max_steps"
-                                final = final or "Ich habe nach vielen Schritten abgebrochen."
+                                final = final or tx("Ich habe nach vielen Schritten abgebrochen.")
                                 break
                             raise RuntimeError(f"Claude Code: {text[:300]}")
                         if ctx.cancel and ctx.cancel.is_set():
@@ -782,7 +784,7 @@ class CodexChatEngine:
             except Exception as e:  # noqa: BLE001
                 print("Codex-Prozesse aufräumen:", e, flush=True)
 
-    def _overrides(self, allow_web: bool, cu: bool = False) -> tuple[str, ...]:
+    def _overrides(self, allow_web: bool, cu: bool = False, images: bool = False) -> tuple[str, ...]:
         url = f"http://127.0.0.1:{self.port}/mcp/abo"
         extra: tuple[str, ...] = ()
         if cu:  # Computer Use von Codex: nur dieser eine MCP-Server (codex_cu.py)
@@ -790,15 +792,16 @@ class CodexChatEngine:
             extra = codex_cu.overrides(abos.codex_home())
         return abos.codex_overrides() + extra + (
             "features.shell_tool=false", f'web_search="{"live" if allow_web else "disabled"}"',
+            f"features.image_generation={'true' if images else 'false'}",  # eingebautes Bildwerkzeug (docs/bilder.md)
             'shell_environment_policy.inherit="core"',
             f'mcp_servers.scoops.url="{url}"', 'mcp_servers.scoops.bearer_token_env_var="AISBOT_ABO_TOKEN"',
             "mcp_servers.scoops.tool_timeout_sec=900", "mcp_servers.scoops.startup_timeout_sec=20",
             'mcp_servers.scoops.default_tools_approval_mode="approve"')
 
     def _codex_for(self, key: str, allow_web: bool, tools: dict[str, ExtraTool], ctx: RunCtx,
-                   cu: bool = False) -> _WarmCodex:
+                   cu: bool = False, images: bool = False) -> _WarmCodex:
         from openai_codex import Codex, CodexConfig
-        okey = hashlib.sha256(json.dumps([allow_web, _schema_key(tools), cu]).encode()).hexdigest()
+        okey = hashlib.sha256(json.dumps([allow_web, _schema_key(tools), cu] + ([True] if images else [])).encode()).hexdigest()
         temp = key.startswith("once:")
         with self._plock:
             w = self.warm.get(key)
@@ -817,7 +820,7 @@ class CodexChatEngine:
         wd = str(abos.abo_dir() / "chats")
         Path(wd).mkdir(parents=True, exist_ok=True)
         try:
-            codex = Codex(CodexConfig(codex_bin=abos.codex_bin(), config_overrides=self._overrides(allow_web, cu), cwd=wd,
+            codex = Codex(CodexConfig(codex_bin=abos.codex_bin(), config_overrides=self._overrides(allow_web, cu, images), cwd=wd,
                                       env=abos.codex_env({"AISBOT_ABO_TOKEN": token})))
         except Exception:
             MCP_TOKENS.pop(token, None)
@@ -838,16 +841,17 @@ class CodexChatEngine:
             cancel: threading.Event | None = None, hub: ComputerHub | None = None, allow_computer: bool = True,
             allow_web: bool = True, session_key: str | None = None, session_id: str | None = None,
             fresh_messages: list[dict] | None = None, access=None, codex_cu: dict | None = None,
-            **_ignored) -> Outcome:
+            images=None, **_ignored) -> Outcome:
         """`codex_cu` (bots._abo_plan): {"use": bool, "reason": str|None, "ask_app", "on_unavailable", "user"} – Computer
-        Use von Codex statt `bildschirm` (codex_cu.py), nur am Server-Mac."""
+        Use von Codex statt `bildschirm` (codex_cu.py), nur am Server-Mac. `images` (bilder.ChatImages): eingebautes
+        Bildwerkzeug von Codex an; fertige Bilder speichert und zeigt der Server (docs/bilder.md)."""
         from openai_codex import ApprovalMode, ImageInput, Sandbox, TextInput
         if self._reaper is None:
             self._reaper = threading.Thread(target=self._reap_loop, daemon=True, name="codex-reaper")
             self._reaper.start()
         st = abos.login_status("openai")
         if not st.get("subscription"):
-            raise abos.SubscriptionUnavailable("openai", "Codex ist nicht mit ChatGPT angemeldet.")
+            raise abos.SubscriptionUnavailable("openai", tx("Codex ist nicht mit ChatGPT angemeldet."))
         hub = hub or self.api.hub
         ctx, lines = prepare(extra_tools, mcp_hub, hub, allow_computer, None, on_line, cancel, holder, None)
         tools = ctx.tools
@@ -869,9 +873,15 @@ class CodexChatEngine:
         if gate is not None:
             from .codex_cu import PROMPT
             sys_text += "\n\n" + PROMPT.format(user=cu.get("user") or "Arman", fallback="Das Werkzeug bildschirm")
+        if images is not None:  # eingebautes Bildwerkzeug statt bild_erstellen/bild_bearbeiten (docs/bilder.md)
+            from . import bilder
+            for n in bilder.IMAGE_TOOLS:
+                tools.pop(n, None)
+            sys_text += "\n\n" + bilder.native_prompt(images.svc.user_name)
         usage = UsageBook(billing="abo")
         try:
-            w = self._codex_for(session_key or f"once:{secrets.token_hex(4)}", allow_web, tools, ctx, cu=gate is not None)
+            w = self._codex_for(session_key or f"once:{secrets.token_hex(4)}", allow_web, tools, ctx, cu=gate is not None,
+                                images=images is not None)
         except Exception:
             if gate is not None:
                 gate.close()
@@ -912,7 +922,7 @@ class CodexChatEngine:
                     items.append(TextInput("(PDF-Anhang: mit datei_aus_bibliothek bzw. dem Anhang-Werkzeug lesen)"))
             nudges = 0
             while True:
-                text, err = self._turn(thread, items, work_effort or effort, ctx, usage, model, on_text, gate)
+                text, err = self._turn(thread, items, work_effort or effort, ctx, usage, model, on_text, gate, images)
                 if err:
                     kind = abos.classify(err)
                     if kind:
@@ -961,7 +971,8 @@ class CodexChatEngine:
 
     @staticmethod
     def _turn(thread, items, effort: str, ctx: RunCtx, usage: UsageBook, model: str, on_text,
-              gate=None) -> tuple[str, str]:
+              gate=None, images=None) -> tuple[str, str]:
+        from .bilder import is_image_item
         from .tasks import _codex_line
         handle = thread.turn(items, effort=effort if effort in ("low", "medium", "high") else "medium")
         stop_flag = {"done": False}
@@ -987,7 +998,10 @@ class CodexChatEngine:
                     kind = type(it).__name__
                     if "WebSearch" in kind:
                         q = str(getattr(it, "query", "") or "")
-                        ctx.line(f"Sucht im Web: {q[:50]}" if q else "Sucht im Web")
+                        ctx.line(tx("Sucht im Web: {query}", query=q[:50]) if q else tx("Sucht im Web"))
+                    elif is_image_item(it):
+                        if images is not None:
+                            images.started(ctx.line)
                     elif "Mcp" in kind:
                         if gate is not None:
                             gate.item_started(it)  # Computer Use: Zeile („Klickt in Safari“), Rechner belegt
@@ -997,6 +1011,8 @@ class CodexChatEngine:
                     it = p.item.root if hasattr(p.item, "root") else p.item
                     if gate is not None:
                         gate.item_completed(it)
+                    if images is not None and is_image_item(it):
+                        images.completed(it, ctx.line)  # Bibliothek, Arbeitsordner, Karte im Chat
                     if type(it).__name__ == "AgentMessageThreadItem":
                         final = getattr(it, "text", "") or final
                 elif ev.method == "thread/tokenUsage/updated":
@@ -1041,7 +1057,7 @@ def _screen_fallback(ex: ExtraTool, gate, reason: str | None, ctx: RunCtx) -> Ex
             gate.detach()  # ab jetzt belegt bildschirm den Rechner über ctx (dieselbe Belegung, kein Wechsel)
         if reason and not told["done"]:
             told["done"] = True
-            ctx.line(f"Bildschirm über Scoops statt Codex Computer Use ({reason})")
+            ctx.line(tx("Bildschirm über Scoops statt Codex Computer Use ({reason})", reason=reason))
         return ex.handler(i)
 
     return ExtraTool(ex.schema, fn, ex.status)

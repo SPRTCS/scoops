@@ -11,9 +11,9 @@ enum UsageTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .cost: "Kosten"
-        case .tokens: "Tokens"
-        case .limits: "Limits"
+        case .cost: String(localized: "Kosten")
+        case .tokens: String(localized: "Tokens")
+        case .limits: String(localized: "Limits")
         }
     }
 }
@@ -23,9 +23,9 @@ enum UsageBreakdown: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .model: "Modell"
-        case .day: "Tag"
-        case .app: "App"
+        case .model: String(localized: "Modell")
+        case .day: String(localized: "Tag", comment: "Nutzung: Aufschlüsselung nach Tag")
+        case .app: String(localized: "App")
         case .scoop: "Scoop"
         }
     }
@@ -130,9 +130,9 @@ struct UsageView: View {
     private var header: some View {
         HStack(spacing: 12) {
             Text("Nutzung und Verbrauch")
-                .font(.system(size: 17, weight: .semibold))
+                .appFont(17, weight: .semibold)
                 .foregroundStyle(theme.textPrimary)
-                .lineLimit(1)
+                .adaptiveLineLimit(1)
                 .layoutPriority(1)
             if wide && tab != .limits { sourceMenu }
             Spacer(minLength: 8)
@@ -161,7 +161,7 @@ struct UsageView: View {
                 if loadingDetails || loadingLimits {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: "arrow.clockwise").font(.system(size: 14, weight: .semibold))
+                    Image(systemName: "arrow.clockwise").appFont(14, weight: .semibold)
                         .foregroundStyle(theme.textSecondary)
                 }
             }
@@ -184,8 +184,8 @@ struct UsageView: View {
             .pickerStyle(.inline)
         } label: {
             HStack(spacing: 5) {
-                Text(source.title).font(.system(size: 14, weight: .medium)).foregroundStyle(theme.textPrimary)
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(theme.textTertiary)
+                Text(source.title).appFont(14, weight: .medium).foregroundStyle(theme.textPrimary)
+                Image(systemName: "chevron.down").appFont(10, weight: .semibold).foregroundStyle(theme.textTertiary)
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
@@ -219,7 +219,7 @@ struct UsageView: View {
     private var metricContent: some View {
         if let d = current {
             if d.logs?.state == "running" {
-                notice("Die Protokolle von Claude Code und Codex werden gerade eingelesen. Die Zahlen ergänzen sich gleich.",
+                notice(String(localized: "Die Protokolle von Claude Code und Codex werden gerade eingelesen. Die Zahlen ergänzen sich gleich."),
                        icon: "hourglass")
             }
             if wide { wideMetrics(d) } else { compactMetrics(d) }
@@ -237,7 +237,10 @@ struct UsageView: View {
 
     private func sessionsText(_ d: UsageDetails) -> String {
         let s = d.totals.sessions
-        return s == 1 ? "1 Sitzung" : "\(s.formatted(.number.locale(UsageFormat.locale))) Sitzungen"
+        // Zahl vorher formatieren (Tausendertrennzeichen), deshalb Einzahl als eigener Text
+        if s == 1 { return String(localized: "1 Sitzung") }
+        let count = s.formatted(.number.locale(UsageFormat.locale))
+        return String(localized: "\(count) Sitzungen")
     }
 
     // Breit: wie T3 Desktop
@@ -248,15 +251,15 @@ struct UsageView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text(mainValue(d))
-                            .font(.system(size: 46, weight: .bold))
+                            .appFont(46, weight: .bold)
                             .monospacedDigit()
                             .foregroundStyle(theme.textPrimary)
                             .minimumScaleFactor(0.5)
-                            .lineLimit(1)
-                        if isCost { Text("*").font(.system(size: 30, weight: .bold)).foregroundStyle(theme.textSecondary) }
+                            .adaptiveLineLimit(1)
+                        if isCost { Text("*").appFont(30, weight: .bold).foregroundStyle(theme.textSecondary) }
                     }
-                    Text(isCost ? "\(sessionsText(d)) · * zum API-Listenpreis (Schätzung)" : sessionsText(d))
-                        .font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                    Text(isCost ? String(localized: "\(sessionsText(d)) · * zum API-Listenpreis (Schätzung)") : sessionsText(d))
+                        .appFont(13.5).foregroundStyle(theme.textSecondary)
                 }
                 VStack(alignment: .leading, spacing: 18) {
                     ForEach(UsageProvider.allCases) { p in providerSummary(d, p) }
@@ -265,7 +268,7 @@ struct UsageView: View {
             }
             .frame(width: min(max(width * 0.3, 300), 380), alignment: .leading)
             VStack(alignment: .leading, spacing: 12) {
-                Text(chartTitle(d)).font(.system(size: 16, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                Text(chartTitle(d)).appFont(16, weight: .semibold).foregroundStyle(theme.textPrimary)
                 UsageTrendChart(points: d.series, metric: isCost ? .cost : .tokens, palette: palette, theme: theme,
                                 style: .area, hourly: d.bucket == "hour")
                     .frame(height: 300)
@@ -288,18 +291,18 @@ struct UsageView: View {
         UsageCard {
             VStack(alignment: .leading, spacing: 4) {
                 Text(isCost ? "Rohe Token-Kosten" : "Verarbeitete Tokens")
-                    .font(.system(size: 14)).foregroundStyle(theme.textSecondary)
+                    .appFont(14).foregroundStyle(theme.textSecondary)
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text(mainValue(d))
-                        .font(.system(size: 36, weight: .bold))
+                        .appFont(36, weight: .bold)
                         .monospacedDigit()
                         .foregroundStyle(theme.textPrimary)
                         .minimumScaleFactor(0.5)
-                        .lineLimit(1)
-                    if isCost { Text("*").font(.system(size: 26, weight: .bold)).foregroundStyle(theme.textPrimary) }
+                        .adaptiveLineLimit(1)
+                    if isCost { Text("*").appFont(26, weight: .bold).foregroundStyle(theme.textPrimary) }
                 }
                 Text(isCost ? "* bei vollem API-Preis (Schätzung)" : "Über \(sessionsText(d))")
-                    .font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                    .appFont(13.5).foregroundStyle(theme.textSecondary)
             }
             UsageTrendChart(points: d.series, metric: isCost ? .cost : .tokens, palette: palette, theme: theme,
                             style: .bars, hourly: d.bucket == "hour")
@@ -327,8 +330,8 @@ struct UsageView: View {
 
     private func chartTitle(_ d: UsageDetails) -> String {
         let hourly = d.bucket == "hour"
-        if isCost { return hourly ? "Kosten pro Stunde" : "Tägliche Kosten" }
-        return hourly ? "Verarbeitete Tokens pro Stunde" : "Täglich verarbeitete Tokens"
+        if isCost { return hourly ? String(localized: "Kosten pro Stunde") : String(localized: "Tägliche Kosten") }
+        return hourly ? String(localized: "Verarbeitete Tokens pro Stunde") : String(localized: "Täglich verarbeitete Tokens")
     }
 
     private var legend: some View {
@@ -336,7 +339,7 @@ struct UsageView: View {
             ForEach(UsageProvider.allCases) { p in
                 HStack(spacing: 6) {
                     Circle().fill(palette.color(p)).frame(width: 8, height: 8)
-                    Text(p == .claude ? "Claude" : "OpenAI").font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                    Text(p == .claude ? "Claude" : "OpenAI").appFont(13).foregroundStyle(theme.textSecondary)
                 }
             }
         }
@@ -347,16 +350,16 @@ struct UsageView: View {
         return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Circle().fill(palette.color(p)).frame(width: 9, height: 9).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
-                Text(row.label).font(.system(size: 17, weight: .medium)).foregroundStyle(theme.textPrimary)
-                Text(requestsText(row.requests)).font(.system(size: 12.5)).foregroundStyle(theme.textTertiary)
-                    .lineLimit(1)
+                Text(row.label).appFont(17, weight: .medium).foregroundStyle(theme.textPrimary)
+                Text(requestsText(row.requests)).appFont(12.5).foregroundStyle(theme.textTertiary)
+                    .adaptiveLineLimit(1)
                 Spacer(minLength: 6)
                 Text(isCost ? UsageFormat.usd(row.costUsd) : UsageFormat.tokens(row.tokens))
-                    .font(.system(size: 17, weight: .semibold)).monospacedDigit().foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
+                    .appFont(17, weight: .semibold).monospacedDigit().foregroundStyle(theme.textPrimary)
+                    .adaptiveLineLimit(1)
             }
             Text(providerDetail(row))
-                .font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+                .appFont(13).foregroundStyle(theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 17)
         }
@@ -368,29 +371,39 @@ struct UsageView: View {
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Circle().fill(palette.color(p)).frame(width: 9, height: 9)
-                Text(row.label).font(.system(size: 18, weight: .medium)).foregroundStyle(theme.textPrimary)
+                Text(row.label).appFont(18, weight: .medium).foregroundStyle(theme.textPrimary)
                 Spacer(minLength: 6)
                 Text(isCost ? UsageFormat.usd(row.costUsd) : UsageFormat.tokens(row.tokens))
-                    .font(.system(size: 18, weight: .medium)).monospacedDigit().foregroundStyle(theme.textPrimary)
+                    .appFont(18, weight: .medium).monospacedDigit().foregroundStyle(theme.textPrimary)
                     .lineLimit(1).minimumScaleFactor(0.7)
             }
             ShareBar(share: share, color: palette.color(p), track: theme.surfaceBorder)
-            Text(providerDetail(row)).font(.system(size: 13)).foregroundStyle(theme.textSecondary)
+            Text(providerDetail(row)).appFont(13).foregroundStyle(theme.textSecondary)
         }
     }
 
     private func requestsText(_ n: Int) -> String {
-        n == 1 ? "1 Anfrage" : "\(n.formatted(.number.locale(UsageFormat.locale))) Anfragen"
+        if n == 1 { return String(localized: "1 Anfrage") }
+        let count = n.formatted(.number.locale(UsageFormat.locale))
+        return String(localized: "\(count) Anfragen")
     }
 
     private func providerDetail(_ row: UsageDetails.Row) -> String {
         if isCost {
-            var s = "\(UsageFormat.percent(row.shareCost)) der Kosten · \(UsageFormat.tokens(row.tokens)) Tokens"
-            if row.scoopsUsd > 0 { s += " · davon Scoops \(UsageFormat.usd(row.scoopsUsd))" }
+            let share = UsageFormat.percent(row.shareCost), tokens = UsageFormat.tokens(row.tokens)
+            var s = String(localized: "\(share) der Kosten · \(tokens) Tokens")
+            if row.scoopsUsd > 0 {
+                let scoops = UsageFormat.usd(row.scoopsUsd)
+                s += " · " + String(localized: "davon Scoops \(scoops)")
+            }
             return s
         }
-        var s = "\(UsageFormat.percent(row.shareTokens)) der Tokens · \(UsageFormat.usd(row.costUsd))"
-        if row.scoopsTokens > 0 { s += " · davon Scoops \(UsageFormat.tokens(row.scoopsTokens))" }
+        let share = UsageFormat.percent(row.shareTokens), cost = UsageFormat.usd(row.costUsd)
+        var s = String(localized: "\(share) der Tokens · \(cost)")
+        if row.scoopsTokens > 0 {
+            let scoops = UsageFormat.tokens(row.scoopsTokens)
+            s += " · " + String(localized: "davon Scoops \(scoops)")
+        }
         return s
     }
 
@@ -405,24 +418,24 @@ struct UsageView: View {
                 keyValue(dot: palette.abo, "Über Abos abgedeckt", UsageFormat.usd(t.aboUsd), bold: false)
             }
             Text("Abo-Läufe kosten nichts extra; der Betrag zeigt, was sie über den API-Schlüssel gekostet hätten.")
-                .font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                .appFont(12).foregroundStyle(theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private func keyValue(dot: Color, _ title: String, _ value: String, bold: Bool) -> some View {
+    private func keyValue(dot: Color, _ title: LocalizedStringKey, _ value: String, bold: Bool) -> some View {
         HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2).fill(dot).frame(width: 8, height: 8)
-            Text(title).font(.system(size: 14)).foregroundStyle(theme.textSecondary).lineLimit(1).minimumScaleFactor(0.8)
+            Text(title).appFont(14).foregroundStyle(theme.textSecondary).lineLimit(1).minimumScaleFactor(0.8)
             Spacer(minLength: 8)
-            Text(value).font(.system(size: 14, weight: bold ? .semibold : .regular)).monospacedDigit()
-                .foregroundStyle(theme.textPrimary).lineLimit(1)
+            Text(value).appFont(14, weight: bold ? .semibold : .regular).monospacedDigit()
+                .foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
         }
     }
 
-    private func sectionTitle(_ s: String, trailing: AnyView? = nil) -> some View {
+    private func sectionTitle(_ s: LocalizedStringKey, trailing: AnyView? = nil) -> some View {
         HStack {
-            Text(s).font(.system(size: wide ? 17 : 16, weight: .semibold)).foregroundStyle(theme.textPrimary)
+            Text(s).appFont(wide ? 17 : 16, weight: .semibold).foregroundStyle(theme.textPrimary)
             Spacer()
             if let trailing { trailing }
         }
@@ -433,19 +446,19 @@ struct UsageView: View {
     private func totalsSection(_ d: UsageDetails, columns: Int) -> some View {
         let t = d.totals
         let items: [(String, String)] = [
-            ("Verarbeitete Tokens", UsageFormat.tokens(t.tokens)),
-            ("Cached Input", UsageFormat.tokens(t.cacheRead)),
-            ("Uncached Input", UsageFormat.tokens(t.input + t.cacheWrite)),
-            ("Output", UsageFormat.tokens(t.output)),
-            ("Cache-Ersparnis", UsageFormat.usd(t.cacheSavingsUsd)),
+            (String(localized: "Verarbeitete Tokens"), UsageFormat.tokens(t.tokens)),
+            (String(localized: "Cached Input"), UsageFormat.tokens(t.cacheRead)),
+            (String(localized: "Uncached Input"), UsageFormat.tokens(t.input + t.cacheWrite)),
+            (String(localized: "Output"), UsageFormat.tokens(t.output)),
+            (String(localized: "Cache-Ersparnis"), UsageFormat.usd(t.cacheSavingsUsd)),
         ]
         let grid = LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .leading), count: columns),
                              alignment: .leading, spacing: 18) {
             ForEach(items, id: \.0) { item in
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(item.0).font(.system(size: 13)).foregroundStyle(theme.textSecondary).lineLimit(1)
+                    Text(item.0).appFont(13).foregroundStyle(theme.textSecondary).lineLimit(1)
                         .minimumScaleFactor(0.8)
-                    Text(item.1).font(.system(size: wide ? 22 : 20, weight: .semibold)).monospacedDigit()
+                    Text(item.1).appFont(wide ? 22 : 20, weight: .semibold).monospacedDigit()
                         .foregroundStyle(theme.textPrimary).lineLimit(1).minimumScaleFactor(0.6)
                 }
             }
@@ -458,7 +471,8 @@ struct UsageView: View {
 
     private func typeSection(_ d: UsageDetails) -> some View {
         let t = d.totals
-        let names = ["Input", "Cache lesen", "Cache schreiben", "Output"]
+        let names = [String(localized: "Input"), String(localized: "Cache lesen"), String(localized: "Cache schreiben"),
+                     String(localized: "Output")]
         let values: [Double] = isCost
             ? [d.byType.input, d.byType.cacheRead, d.byType.cacheWrite, d.byType.output]
             : [Double(t.input), Double(t.cacheRead), Double(t.cacheWrite), Double(t.output)]
@@ -478,9 +492,9 @@ struct UsageView: View {
     private func splitSection(_ d: UsageDetails) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Abo und API").font(.system(size: 17, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                Text("Abo und API").appFont(17, weight: .semibold).foregroundStyle(theme.textPrimary)
                 Spacer()
-                Text("API \(UsageFormat.usd(d.totals.apiUsd))").font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                Text("API \(UsageFormat.usd(d.totals.apiUsd))").appFont(13.5).foregroundStyle(theme.textSecondary)
             }
             realCostBlock(d)
         }
@@ -494,13 +508,13 @@ struct UsageView: View {
             ValueSplitBar(parts: rows.map { ((isCost ? $0.costUsd : Double($0.tokens)) / sum, colors[$0.id] ?? palette.abo) },
                           height: 10)
             FlowLegend(items: rows.map { r in
-                (colors[r.id] ?? palette.abo, r.id == "other" ? "Andere Apps" : r.label, isCost ? UsageFormat.usd(r.costUsd) : UsageFormat.tokens(r.tokens))
+                (colors[r.id] ?? palette.abo, r.id == "other" ? String(localized: "Andere Apps") : r.label, isCost ? UsageFormat.usd(r.costUsd) : UsageFormat.tokens(r.tokens))
             })
             if let acc = d.account?.openai, !isCost {
                 HStack(spacing: 6) {
-                    Image(systemName: "globe").font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+                    Image(systemName: "globe").appFont(12).foregroundStyle(theme.textTertiary)
                     Text("OpenAI-Konto insgesamt: \(UsageFormat.tokens(acc.tokens)) Tokens (laut Codex, alle Geräte)")
-                        .font(.system(size: 12.5)).foregroundStyle(theme.textSecondary)
+                        .appFont(12.5).foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -537,14 +551,14 @@ struct UsageView: View {
             Group {
                 if wide {
                     HStack {
-                        Text("Aufschlüsselung").font(.system(size: 17, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                        Text("Aufschlüsselung").appFont(17, weight: .semibold).foregroundStyle(theme.textPrimary)
                         Spacer()
                         UsageSegments(items: breakdownOptions, selection: $breakdown) { $0.title }
                             .frame(maxWidth: 320)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Aufschlüsselung").font(.system(size: 16, weight: .semibold)).foregroundStyle(theme.textPrimary)
+                        Text("Aufschlüsselung").appFont(16, weight: .semibold).foregroundStyle(theme.textPrimary)
                             .padding(.horizontal, 4)
                         UsageSegments(items: breakdownOptions, selection: $breakdown) { $0.title }
                     }
@@ -556,7 +570,7 @@ struct UsageView: View {
                        nameTitle: breakdown.title)
             if rows.isEmpty {
                 Text(breakdown == .scoop ? "Keine Scoop-Läufe in diesem Zeitraum." : "Keine Nutzung in diesem Zeitraum.")
-                    .font(.system(size: 13.5)).foregroundStyle(theme.textSecondary).padding(.horizontal, 4)
+                    .appFont(13.5).foregroundStyle(theme.textSecondary).padding(.horizontal, 4)
             }
         }
     }
@@ -564,8 +578,7 @@ struct UsageView: View {
     private func notes(_ d: UsageDetails) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Label {
-                Text("Kosten und Tokens enthalten alle Programme auf dem Server-Mac (Claude Code, Codex, T3 Code, Scoops …). "
-                     + "Nutzung auf anderen Geräten oder in claude.ai/ChatGPT im Browser fehlt hier – in den Limits ist sie enthalten.")
+                Text("Kosten und Tokens enthalten alle Programme auf dem Server-Mac (Claude Code, Codex, T3 Code, Scoops …). Nutzung auf anderen Geräten oder in claude.ai/ChatGPT im Browser fehlt hier – in den Limits ist sie enthalten.")
             } icon: { Image(systemName: "info.circle") }
             Label {
                 Text("Abo-Verbrauch ist zum API-Listenpreis bewertet; echte Kosten entstehen nur über den API-Schlüssel.")
@@ -575,7 +588,7 @@ struct UsageView: View {
                     icon: { Image(systemName: "questionmark.circle") }
             }
         }
-        .font(.system(size: 12.5))
+        .appFont(12.5)
         .foregroundStyle(theme.textSecondary)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, wide ? 0 : 4)
@@ -584,14 +597,14 @@ struct UsageView: View {
     @ViewBuilder
     private func logsStatus(_ d: UsageDetails) -> some View {
         if let files = d.logs?.files, files > 0 {
-            Text("\(files) Protokolle").font(.system(size: 12)).foregroundStyle(theme.textTertiary)
+            Text("\(files) Protokolle").appFont(12).foregroundStyle(theme.textTertiary)
         }
     }
 
     private func notice(_ text: String, icon: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon).foregroundStyle(theme.textSecondary)
-            Text(text).font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+            Text(text).appFont(13.5).foregroundStyle(theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -607,8 +620,8 @@ struct UsageView: View {
         if let limits {
             HStack(spacing: 8) {
                 Image(systemName: "person.crop.circle.badge.checkmark").foregroundStyle(theme.textSecondary)
-                Text(limits.scopeNote ?? "Gesamtes Abo, alle Apps und Geräte")
-                    .font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                Text(limits.scopeNote ?? String(localized: "Gesamtes Abo, alle Apps und Geräte"))
+                    .appFont(13.5).foregroundStyle(theme.textSecondary)
             }
             .padding(.horizontal, wide ? 0 : 4)
             if let limitsMessage { notice(limitsMessage, icon: "exclamationmark.triangle") }
@@ -625,7 +638,7 @@ struct UsageView: View {
                     case "not_logged_in":
                         notLoggedIn(p)
                     default:
-                        notice(p.error.map { "Limits gerade nicht abrufbar (\($0))." } ?? "Limits gerade nicht abrufbar. Nach dem nächsten Lauf über das Abo erscheint hier der letzte Stand.",
+                        notice(p.error.map { String(localized: "Limits gerade nicht abrufbar (\($0)).") } ?? String(localized: "Limits gerade nicht abrufbar. Nach dem nächsten Lauf über das Abo erscheint hier der letzte Stand."),
                                icon: "clock.badge.questionmark")
                     }
                 }
@@ -648,12 +661,12 @@ struct UsageView: View {
     private func limitHeader(_ p: UsageLimits.Provider) -> some View {
         HStack(spacing: 9) {
             Image(systemName: p.id == "claude" ? "asterisk" : "hexagon")
-                .font(.system(size: 16, weight: .bold))
+                .appFont(16, weight: .bold)
                 .foregroundStyle(p.id == "claude" ? palette.claude : theme.textPrimary)
             Text(p.id == "claude" ? "Claude" : "Codex · ChatGPT")
-                .font(.system(size: 18, weight: .medium)).foregroundStyle(theme.textPrimary)
+                .appFont(18, weight: .medium).foregroundStyle(theme.textPrimary)
             if let plan = p.plan {
-                Text(plan).font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.textSecondary)
+                Text(plan).appFont(12, weight: .semibold).foregroundStyle(theme.textSecondary)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(theme.surface, in: Capsule())
             }
@@ -667,14 +680,27 @@ struct UsageView: View {
         let at = UsageFormat.date(p.at)
         let parts: [String] = [
             p.credits.flatMap { c in
-                if c.unlimited == true { return "Credits: unbegrenzt" }
-                return c.balance.map { "Credits: \($0.formatted(.number.precision(.fractionLength(0)).locale(UsageFormat.locale)))" }
+                if c.unlimited == true { return String(localized: "Credits: unbegrenzt") }
+                return c.balance.map { balance in
+                    let amount = balance.formatted(.number.precision(.fractionLength(0)).locale(UsageFormat.locale))
+                    return String(localized: "Credits: \(amount)")
+                }
             },
-            p.extra?.resetCredits.flatMap { $0 > 0 ? ($0 == 1 ? "1 Limit-Reset verfügbar" : "\($0) Limit-Resets verfügbar") : nil },
-            p.extraUsage.flatMap { $0.enabled == false ? "Zusatznutzung aus" : $0.usedPercent.map { "Zusatznutzung \(Int($0)) %" } },
+            p.extra?.resetCredits.flatMap { n in n > 0 ? String(localized: "\(n) Limit-Resets verfügbar") : nil },
+            p.extraUsage.flatMap { extra in
+                extra.enabled == false ? String(localized: "Zusatznutzung aus")
+                    : extra.usedPercent.map { used in
+                        let percent = Int(used)
+                        return String(localized: "Zusatznutzung \(percent) %")
+                    }
+            },
             at.map { d in
-                let src = p.source == "live" ? "live" : (p.source == "event" ? "aus dem letzten Scoops-Lauf" : "aus den Protokollen")
-                return "Stand \(Formatting.dayTime(d)) (\(src))"
+                let time = Formatting.dayTime(d)
+                switch p.source {
+                case "live": return String(localized: "Stand \(time) (live)")
+                case "event": return String(localized: "Stand \(time) (aus dem letzten Scoops-Lauf)")
+                default: return String(localized: "Stand \(time) (aus den Protokollen)")
+                }
             },
         ].compactMap { $0 }
         if !parts.isEmpty || p.error != nil {
@@ -684,7 +710,7 @@ struct UsageView: View {
                     Text("Live-Abfrage gerade nicht möglich – das ist der letzte bekannte Stand.")
                 }
             }
-            .font(.system(size: 12.5))
+            .appFont(12.5)
             .foregroundStyle(theme.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, wide ? 4 : 8)
@@ -695,17 +721,16 @@ struct UsageView: View {
         let name = p.id == "claude" ? "Claude" : "ChatGPT"
         return UsageCard {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "person.crop.circle.badge.questionmark").font(.system(size: 22))
+                Image(systemName: "person.crop.circle.badge.questionmark").appFont(22)
                     .foregroundStyle(theme.textSecondary)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Nicht mit \(name) angemeldet").font(.system(size: 15, weight: .semibold)).foregroundStyle(theme.textPrimary)
-                    Text("Melde dich in den Einstellungen unter „KI-Abos“ mit deinem \(name)-Abo an. Danach erscheinen hier "
-                         + "Wochenlimit, 5-Stunden-Fenster und Modellfenster.")
-                        .font(.system(size: 13.5)).foregroundStyle(theme.textSecondary)
+                    Text("Nicht mit \(name) angemeldet").appFont(15, weight: .semibold).foregroundStyle(theme.textPrimary)
+                    Text("Melde dich in den Einstellungen unter „KI-Abos“ mit deinem \(name)-Abo an. Danach erscheinen hier Wochenlimit, 5-Stunden-Fenster und Modellfenster.")
+                        .appFont(13.5).foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     #if os(iOS)
                     Button("Zu den KI-Abos") { dismiss() }
-                        .font(.system(size: 14, weight: .medium))
+                        .appFont(14, weight: .medium)
                         .padding(.top, 2)
                     #endif
                 }
@@ -725,7 +750,7 @@ struct UsageView: View {
     }
 
     private func loadDetails(force: Bool) async {
-        guard let service = store.service else { message = "Nur mit Verbindung zum Server verfügbar."; return }
+        guard let service = store.service else { message = String(localized: "Nur mit Verbindung zum Server verfügbar."); return }
         let k = key
         if details[k] != nil && !force { return }
         loadingDetails = true
@@ -743,7 +768,7 @@ struct UsageView: View {
                 details[k] = d
             }
         } catch let e as APIError where e.status == 404 {
-            message = "Der Server ist zu alt für diese Ansicht. Bitte „AIS Scoops Server“ aktualisieren (ab Version 1.31)."
+            message = String(localized: "Der Server ist zu alt für diese Ansicht. Bitte „AIS Scoops Server“ aktualisieren (ab Version 1.31).")
         } catch {
             if details[k] == nil { message = error.localizedDescription }
         }
@@ -759,7 +784,7 @@ struct UsageView: View {
             limitsMessage = nil
             AppStore.storeLimitsForWidget(l, mock: store.isMock)  // Widget „Abo-Limits“ aktuell halten
         } catch let e as APIError where e.status == 404 {
-            limitsMessage = "Der Server ist zu alt für diese Ansicht (ab Version 1.31)."
+            limitsMessage = String(localized: "Der Server ist zu alt für diese Ansicht (ab Version 1.31).")
         } catch {
             limitsMessage = error.localizedDescription
         }
@@ -810,7 +835,7 @@ struct UsageSegments<Item: Hashable & Identifiable>: View {
                     withAnimation(.snappy(duration: 0.22)) { selection = item }
                 } label: {
                     Text(title(item))
-                        .font(.system(size: large ? 15 : 13.5, weight: on ? .semibold : .regular))
+                        .appFont(large ? 15 : 13.5, weight: on ? .semibold : .regular)
                         .foregroundStyle(on ? theme.textPrimary : theme.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
@@ -880,11 +905,11 @@ struct FlowLegend: View {
             ForEach(items.indices, id: \.self) { i in
                 HStack(spacing: 6) {
                     RoundedRectangle(cornerRadius: 2).fill(items[i].0).frame(width: 9, height: 9)
-                    Text(items[i].1).font(.system(size: 13.5)).foregroundStyle(theme.textSecondary).lineLimit(1)
+                    Text(items[i].1).appFont(13.5).foregroundStyle(theme.textSecondary).lineLimit(1)
                         .minimumScaleFactor(0.85)
                     Spacer(minLength: 4)
-                    Text(items[i].2).font(.system(size: 13.5, weight: .medium)).monospacedDigit()
-                        .foregroundStyle(theme.textPrimary).lineLimit(1)
+                    Text(items[i].2).appFont(13.5, weight: .medium).monospacedDigit()
+                        .foregroundStyle(theme.textPrimary).adaptiveLineLimit(1)
                 }
             }
         }

@@ -18,7 +18,7 @@ extension AppStore {
     func replyRef(for m: Message) -> ReplyRef {
         var text = MarkdownText.plain(m.text)
         if text.count > 200 { text = String(text.prefix(199)).trimmingCharacters(in: .whitespaces) + "…" }
-        if text.isEmpty, m.meta.fileIds?.isEmpty == false { text = "Anhang" }
+        if text.isEmpty, m.meta.fileIds?.isEmpty == false { text = String(localized: "Anhang") }
         if m.role == .user {
             let name = isOwnMessage(m) ? (m.meta.authorName ?? userName) : authorName(of: m)
             return ReplyRef(id: m.id, role: "user", authorId: m.meta.authorUserId, authorName: name, text: text)
@@ -34,18 +34,12 @@ extension AppStore {
         composerFocusRequest += 1
     }
 
-    /// Zur zitierten Nachricht springen: ältere Seiten nachladen, bis sie da ist (höchstens 10 Seiten), dann
-    /// scrollt der Chat dorthin und hebt sie kurz hervor (`pendingScrollMessageID`).
+    /// Zur zitierten Nachricht springen: Ist sie noch nicht geladen, holt der Store sie gezielt nach
+    /// (`ensureMessageLoaded`, Search/AppStore+Suche.swift); dann scrollt der Chat dorthin und hebt sie kurz hervor
+    /// (`pendingScrollMessageID`).
     func jumpToMessage(_ id: String, chatID: String) async {
-        var pages = 0
-        while messages[chatID]?.contains(where: { $0.id == id }) != true, hasMoreHistory[chatID] == true, pages < 10 {
-            let before = messages[chatID]?.count ?? 0
-            await loadOlderMessages(chatID: chatID)
-            pages += 1
-            if (messages[chatID]?.count ?? 0) == before { break }
-        }
-        guard messages[chatID]?.contains(where: { $0.id == id }) == true else {
-            errorMessage = "Die Originalnachricht ist nicht mehr im Verlauf."
+        guard await ensureMessageLoaded(id, chatID: chatID) else {
+            errorMessage = String(localized: "Die Originalnachricht ist nicht mehr im Verlauf.")
             return
         }
         pendingScrollMessageID = nil
@@ -58,10 +52,16 @@ extension AppStore {
         return theme.accent
     }
 
+    /// Zitat einer eigenen Nachricht (Name „Du“, Beschriftung „Antwort auf deine Nachricht“).
+    func isOwnReply(_ ref: ReplyRef, chatID: String) -> Bool {
+        guard ref.role == "user", let m = messages[chatID]?.first(where: { $0.id == ref.id }) else { return false }
+        return isOwnMessage(m)
+    }
+
     /// Anzeigename im Zitat: eigene Nachrichten heißen „Du“.
     func replyName(_ ref: ReplyRef, chatID: String) -> String {
-        if ref.role == "user", let m = messages[chatID]?.first(where: { $0.id == ref.id }), isOwnMessage(m) { return "Du" }
-        return ref.authorName ?? (ref.role == "bot" ? "Scoop" : "Jemand")
+        if isOwnReply(ref, chatID: chatID) { return String(localized: "Du") }
+        return ref.authorName ?? (ref.role == "bot" ? "Scoop" : String(localized: "Jemand"))
     }
 }
 
@@ -75,7 +75,9 @@ struct ReplyQuote: View {
     /// Vorspann für VoiceOver-Beschriftungen von Blasen, die ihre Kinder zusammenfassen
     static func accessibilityPrefix(_ ref: ReplyRef?) -> String {
         guard let ref else { return "" }
-        return "Antwort auf \(ref.authorName ?? "Nachricht"): \(ref.text ?? ""). "
+        let name = ref.authorName ?? String(localized: "Nachricht")
+        let text = ref.text ?? ""
+        return String(localized: "Antwort auf \(name): \(text).") + " "
     }
     @Environment(AppStore.self) private var store
     @Environment(\.theme) private var theme
@@ -83,6 +85,7 @@ struct ReplyQuote: View {
     var body: some View {
         let color = store.replyColor(ref, theme: theme)
         let name = store.replyName(ref, chatID: chatID)
+        let own = store.isOwnReply(ref, chatID: chatID)
         Button {
             Task { await store.jumpToMessage(ref.id, chatID: chatID) }
         } label: {
@@ -90,13 +93,13 @@ struct ReplyQuote: View {
                 Capsule().fill(color).frame(width: 3)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .appFont(12.5, weight: .semibold)
                         .foregroundStyle(theme.textPrimary)
-                    Text(ref.text?.isEmpty == false ? ref.text! : "Nachricht")
-                        .font(.system(size: 13))
+                    Text(ref.text?.isEmpty == false ? ref.text! : String(localized: "Nachricht"))
+                        .appFont(13)
                         .foregroundStyle(theme.textSecondary)
                 }
-                .lineLimit(1)
+                .adaptiveLineLimit(1, large: 2, accessibility: 2)
             }
             .padding(.vertical, 5)
             .padding(.leading, 6)
@@ -109,7 +112,7 @@ struct ReplyQuote: View {
         .buttonStyle(.plain)
         .help("Zur Originalnachricht springen")
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(name == "Du" ? "Antwort auf deine Nachricht: \(ref.text ?? "")"
+        .accessibilityLabel(own ? "Antwort auf deine Nachricht: \(ref.text ?? "")"
                                          : "Antwort auf \(name): \(ref.text ?? "")")
         .accessibilityHint("Springt zur Originalnachricht")
         .accessibilityAddTraits(.isButton)
@@ -176,25 +179,26 @@ struct ReplyComposerBar: View {
     var body: some View {
         let color = store.replyColor(ref, theme: theme)
         let name = store.replyName(ref, chatID: chatID)
+        let own = store.isOwnReply(ref, chatID: chatID)
         HStack(spacing: 10) {
             Image(systemName: "arrowshape.turn.up.left.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .appFont(13, weight: .semibold)
                 .foregroundStyle(color)
-                .frame(width: 22)
+                .scaledFrame(width: 22)
                 .accessibilityHidden(true)
             Capsule().fill(color).frame(width: 3, height: 32)
             Button {
                 Task { await store.jumpToMessage(ref.id, chatID: chatID) }
             } label: {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(name == "Du" ? "Antwort auf deine Nachricht" : "Antwort an \(name)")
-                        .font(.system(size: 12.5, weight: .semibold))
+                    Text(own ? "Antwort auf deine Nachricht" : "Antwort an \(name)")
+                        .appFont(12.5, weight: .semibold)
                         .foregroundStyle(theme.textPrimary)
-                    Text(ref.text?.isEmpty == false ? ref.text! : "Nachricht")
-                        .font(.system(size: 13))
+                    Text(ref.text?.isEmpty == false ? ref.text! : String(localized: "Nachricht"))
+                        .appFont(13)
                         .foregroundStyle(theme.textSecondary)
                 }
-                .lineLimit(1)
+                .adaptiveLineLimit(1, large: 2, accessibility: 2)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
@@ -202,9 +206,9 @@ struct ReplyComposerBar: View {
             .help("Zur Originalnachricht springen")
             Button(action: onCancel) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .appFont(11, weight: .bold)
                     .foregroundStyle(theme.textSecondary)
-                    .frame(width: 26, height: 26)
+                    .scaledFrame(26)
                     .background(theme.hover, in: Circle())
                     .contentShape(Circle())
             }
@@ -219,7 +223,7 @@ struct ReplyComposerBar: View {
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(theme.surfaceBorder))
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(name == "Du" ? "Antwort auf deine Nachricht" : "Antwort an \(name)")
+        .accessibilityLabel(own ? "Antwort auf deine Nachricht" : "Antwort an \(name)")
     }
 }
 
@@ -265,9 +269,9 @@ struct ReplySwipeModifier: ViewModifier {
 
     private var arrow: some View {
         Image(systemName: "arrowshape.turn.up.left.fill")
-            .font(.system(size: 14, weight: .semibold))
+            .appFont(14, weight: .semibold)
             .foregroundStyle(locked ? theme.sendButtonIcon : theme.textSecondary)
-            .frame(width: 32, height: 32)
+            .scaledFrame(32)
             .background(locked ? theme.sendButton : theme.surfaceRaised, in: Circle())
             .overlay(Circle().strokeBorder(theme.surfaceBorder, lineWidth: locked ? 0 : 1))
             .scaleEffect(locked ? 1.12 : 0.55 + 0.45 * progress)

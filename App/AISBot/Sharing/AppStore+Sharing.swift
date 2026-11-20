@@ -134,14 +134,14 @@ extension AppStore {
 
     /// Name zu einem Reaktions-Akteur (`user`, `user:<id>`, `user:admin`, Scoop-ID)
     func reactionActorName(_ actor: String, chatID: String) -> String {
-        if actor == "user" { return "dir" }
-        if actor == "user:admin" { return ownerName(of: chatID) ?? "dem Admin" }
+        if actor == "user" { return String(localized: "dir", comment: "Reaktion für VoiceOver, Dativ nach „von“: „❤️ von dir“") }
+        if actor == "user:admin" { return ownerName(of: chatID) ?? String(localized: "dem Admin", comment: "Reaktion für VoiceOver, Dativ nach „von“") }
         if actor.hasPrefix("user:") {
             let id = String(actor.dropFirst(5))
             let members = shareLists[chatID]?.members ?? bot(chatID)?.shared?.members ?? []
-            return members.first { $0.userId == id }?.name ?? "jemandem"
+            return members.first { $0.userId == id }?.name ?? String(localized: "jemandem", comment: "Reaktion für VoiceOver, Dativ nach „von“")
         }
-        return bot(actor)?.name ?? "einem Scoop"
+        return bot(actor)?.name ?? String(localized: "einem Scoop", comment: "Reaktion für VoiceOver, Dativ nach „von“")
     }
 
     /// Anzeigename des Absenders einer fremden Nachricht im geteilten Chat.
@@ -155,7 +155,7 @@ extension AppStore {
         } else if let owner = ownerName(of: m.chatId) {
             return owner
         }
-        return "Jemand"
+        return String(localized: "Jemand")
     }
 
     // MARK: - „Mit mir geteilt“ laden und verbinden
@@ -222,7 +222,7 @@ extension AppStore {
             svc = APIClient(baseURL: url, auth: .account(account))
         } else {
             guestConnections[serverID] = nil
-            guestStates[serverID] = .offline("Für diesen Server ist noch keine Adresse bekannt.")
+            guestStates[serverID] = .offline(String(localized: "Für diesen Server ist noch keine Adresse bekannt."))
             return
         }
         let connection = GuestConnection(serverID: serverID, baseURL: url, service: svc)
@@ -240,6 +240,8 @@ extension AppStore {
         Task {
             await loadGuest(serverID)
             svc.connectEvents()
+            // Eigene Sprache als Gast setzen (docs/sprache.md); ändert nichts für den Inhaber
+            await (svc as? LanguageService)?.adoptAppLanguage()
         }
     }
 
@@ -250,7 +252,7 @@ extension AppStore {
         if guestStates[serverID] != .online { guestStates[serverID] = .connecting }
         do {
             let loaded = try await Self.withDeadline(Self.handshakeTimeout, onTimeout: APIError(
-                status: 0, message: "Der Server antwortet nicht.")) { try await connection.service.bots() }
+                status: 0, message: String(localized: "Der Server antwortet nicht."))) { try await connection.service.bots() }
             guard guestConnections[serverID] === connection else { return }
             for b in loaded where ids.contains(b.id) { applySharedBot(b) }
             guestStates[serverID] = .online
@@ -264,14 +266,15 @@ extension AppStore {
                 PushManager.shared.requestAuthorizationAndRegister()
             }
             await registerGuestPush(serverID)
+            await syncQuietHours(toGuest: serverID)  // Ruhezeit gilt pro Person, auch auf den Servern der Admins
         } catch {
             guard guestConnections[serverID] === connection else { return }
             let text: String
             if let api = error as? APIError, api.status == 401 || api.status == 403 {
-                text = "Kein Zugriff mehr. Vielleicht wurde die Freigabe beendet."
+                text = String(localized: "Kein Zugriff mehr. Vielleicht wurde die Freigabe beendet.")
                 Task { await account.loadSharedWithMe(); syncGuestConnections() }
             } else {
-                text = "Der Server ist gerade nicht erreichbar."
+                text = String(localized: "Der Server ist gerade nicht erreichbar.")
             }
             guestStates[serverID] = .offline(text)
         }
@@ -303,6 +306,9 @@ extension AppStore {
             if let i = sharedBots.firstIndex(where: { $0.id == m.chatId }), sharedBots[i].lastMessage?.id == m.id {
                 sharedBots[i].lastMessage = m
             }
+        case .messageDeleted(let id, let chatID):
+            guard ids.contains(chatID) else { return }
+            removeMessageLocally(id, chatID: chatID)
         case .botCreated(let b), .botUpdated(let b):
             guard ids.contains(b.id) else { return }
             applySharedBot(b)
@@ -443,7 +449,7 @@ extension AppStore {
         do {
             try await account.leave(share)
             syncGuestConnections()
-            showToast("Du bist aus „\(share.botName)“ ausgetreten")
+            showToast(String(localized: "Du bist aus „\(share.botName)“ ausgetreten"))
             return nil
         } catch {
             return message(error)
@@ -465,9 +471,9 @@ extension AppStore {
 
     /// Warum Teilen gerade nicht geht (nil = geht)
     var sharingUnavailableReason: String? {
-        if !account.isSignedIn { return "Melde dich unter Einstellungen → Konto mit Apple an, um Scoops zu teilen." }
+        if !account.isSignedIn { return String(localized: "Melde dich unter Einstellungen → Konto mit Apple an, um Scoops zu teilen.") }
         if ownCloudServerID == nil {
-            return "Teilen geht nur, wenn du über dein Konto mit dem Server verbunden bist (Einstellungen → Deine Server)."
+            return String(localized: "Teilen geht nur, wenn du über dein Konto mit dem Server verbunden bist (Einstellungen → Deine Server).")
         }
         return nil
     }
@@ -490,7 +496,7 @@ extension AppStore {
     /// Einladungslink erzeugen. Wirft mit lesbarem Text.
     func createInvite(botID: String, role: ShareRole, computer: ComputerAccess) async throws -> InviteCreated {
         guard let serverID = ownCloudServerID, let bot = ownBot(botID) else {
-            throw CloudError(status: 0, message: sharingUnavailableReason ?? "Dieser Scoop lässt sich nicht teilen.")
+            throw CloudError(status: 0, message: sharingUnavailableReason ?? String(localized: "Dieser Scoop lässt sich nicht teilen."))
         }
         let created = try await account.createInvite(InviteRequest(
             serverId: serverID, botId: botID, role: role, computer: computer, botName: bot.name,
@@ -519,7 +525,7 @@ extension AppStore {
         do {
             try await account.removeShare(id: member.id)
             await refreshServerShares()
-            showToast("\(member.name) hat keinen Zugriff mehr")
+            showToast(String(localized: "\(member.name) hat keinen Zugriff mehr"))
         } catch {
             report(error)
         }

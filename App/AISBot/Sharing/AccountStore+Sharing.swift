@@ -35,11 +35,11 @@ extension AccountStore {
         guard result.ok else {
             let text: String
             switch result.error {
-            case "expired": text = "Diese Einladung ist abgelaufen. Bitte frag nach einem neuen Link."
-            case "used": text = "Diese Einladung wurde schon angenommen. Jeder Link gilt nur einmal."
-            case "own", "self", "owner", "own_scoop": text = "Das ist dein eigener Scoop – du bist hier schon Admin."
-            case "rate_limited": text = "Zu viele Versuche. Bitte warte ein paar Minuten."
-            default: text = "Diese Einladung ist ungültig."
+            case "expired": text = String(localized: "Diese Einladung ist abgelaufen. Bitte frag nach einem neuen Link.")
+            case "used": text = String(localized: "Diese Einladung wurde schon angenommen. Jeder Link gilt nur einmal.")
+            case "own", "self", "owner", "own_scoop": text = String(localized: "Das ist dein eigener Scoop – du bist hier schon Admin.")
+            case "rate_limited": text = String(localized: "Zu viele Versuche. Bitte warte ein paar Minuten.")
+            default: text = String(localized: "Diese Einladung ist ungültig.")
             }
             throw CloudError(status: 400, message: result.message ?? text)
         }

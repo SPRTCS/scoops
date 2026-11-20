@@ -8,15 +8,15 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .system: "System"
-        case .nacht: "Nacht"
-        case .hell: "Hell"
+        case .system: String(localized: "System", comment: "Erscheinungsbild: wie das Gerät")
+        case .nacht: String(localized: "Nacht", comment: "Erscheinungsbild: dunkles Design")
+        case .hell: String(localized: "Hell", comment: "Erscheinungsbild: helles Design")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .system: "Wechselt mit dem Gerät zwischen Nacht und Hell"
+        case .system: String(localized: "Wechselt mit dem Gerät zwischen Nacht und Hell")
         case .nacht: ThemeKind.nacht.subtitle
         case .hell: ThemeKind.hell.subtitle
         }
@@ -36,15 +36,15 @@ enum ThemeKind: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .nacht: "Nacht"
-        case .hell: "Hell"
+        case .nacht: String(localized: "Nacht", comment: "Erscheinungsbild: dunkles Design")
+        case .hell: String(localized: "Hell", comment: "Erscheinungsbild: helles Design")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .nacht: "Fast schwarz, ruhig, wie ein Messenger bei Nacht"
-        case .hell: "Klares, neutrales Weiß – Nacht in hell"
+        case .nacht: String(localized: "Fast schwarz, ruhig, wie ein Messenger bei Nacht")
+        case .hell: String(localized: "Klares, neutrales Weiß – Nacht in hell")
         }
     }
 

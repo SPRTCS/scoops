@@ -24,7 +24,7 @@ nonisolated enum WatchText {
             case .numbered(let s, let number):
                 lines.append("\(number). \(s)")
             case .quote(let s):
-                lines.append("„\(s)“")
+                lines.append(AppLanguage.isGerman ? "„\(s)“" : "“\(s)”")
             case .code(let s):
                 lines.append(s)
             case .table(let header, let rows, _):
@@ -100,9 +100,9 @@ nonisolated enum ApprovalDecision: String, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .approve: "Freigeben"
-        case .decline: "Ablehnen"
-        case .always: "Immer erlauben"
+        case .approve: String(localized: "Freigeben")
+        case .decline: String(localized: "Ablehnen")
+        case .always: String(localized: "Immer erlauben")
         }
     }
 }
@@ -123,10 +123,10 @@ nonisolated struct ApprovalPresentation: Equatable, Sendable {
 
     var stateLabel: String {
         switch state {
-        case .pending: "Wartet auf dich"
-        case .approved: "Freigegeben"
-        case .declined: "Abgelehnt"
-        case .other: "Erledigt"
+        case .pending: String(localized: "Wartet auf dich")
+        case .approved: String(localized: "Freigegeben", comment: "Zustand einer Freigabe")
+        case .declined: String(localized: "Abgelehnt", comment: "Zustand einer Freigabe")
+        case .other: String(localized: "Erledigt", comment: "Zustand einer Freigabe")
         }
     }
 
@@ -151,23 +151,23 @@ nonisolated struct ApprovalPresentation: Equatable, Sendable {
         var summary = ""
         switch kind {
         case "mail":
-            kindLabel = "Mail"
+            kindLabel = String(localized: "Mail", comment: "Art einer Freigabe: E-Mail senden")
             icon = "envelope.fill"
             if let mail = meta.mail {
                 if title.isEmpty { title = mail.subject }
                 let to = (mail.to + mail.cc).joined(separator: ", ")
-                summary = ["An: \(to)", mail.subject.isEmpty ? nil : "Betreff: \(mail.subject)",
+                summary = [String(localized: "An: \(to)"), mail.subject.isEmpty ? nil : String(localized: "Betreff: \(mail.subject)"),
                            WatchText.truncated(MarkdownText.plain(mail.body), limit: 160).text]
                     .compactMap { $0 }.joined(separator: "\n")
             }
         case "call":
-            kindLabel = "Anruf"
+            kindLabel = String(localized: "Anruf", comment: "Art einer Freigabe")
             icon = "phone.fill"
         case "t3", "t3_send":
             kindLabel = "T3 Code"
             icon = "hammer.fill"
         case "vault":
-            kindLabel = "Login speichern"
+            kindLabel = String(localized: "Login speichern")
             icon = "key.fill"
             if let vault = meta.vault {
                 if title.isEmpty { title = vault.title }
@@ -177,22 +177,22 @@ nonisolated struct ApprovalPresentation: Equatable, Sendable {
             kindLabel = "Apple"
             icon = "house.fill"
         case "rechner":
-            kindLabel = "Rechner"
+            kindLabel = String(localized: "Rechner", comment: "Rechner (Computer)")
             icon = "desktopcomputer"
         case "scoop_update":
-            kindLabel = "Scoop ändern"
+            kindLabel = String(localized: "Scoop ändern")
             icon = "slider.horizontal.3"
             if let update = meta.scoopUpdate {
                 summary = WatchText.truncated(MarkdownText.plain(update.reason ?? update.after), limit: 160).text
             }
         default:
-            kindLabel = "Freigabe"
+            kindLabel = String(localized: "Freigabe", comment: "Art bzw. Titel einer Freigabe-Karte")
             icon = "checkmark.shield.fill"
         }
         if summary.isEmpty, let details = meta.details, !details.isEmpty {
             summary = WatchText.truncated(WatchText.simplified(details), limit: 200).text
         }
-        self.title = title.isEmpty ? "Freigabe" : title
+        self.title = title.isEmpty ? String(localized: "Freigabe", comment: "Art bzw. Titel einer Freigabe-Karte") : title
         self.summary = summary
     }
 }

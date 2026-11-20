@@ -194,18 +194,18 @@ enum UsageRange: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var short: String {
         switch self {
-        case .day: "24 h"
-        case .week: "7 T"
-        case .month: "30 T"
-        case .quarter: "90 T"
+        case .day: String(localized: "24 h", comment: "Nutzung: Zeitraum kurz, 24 Stunden")
+        case .week: String(localized: "7 T", comment: "Nutzung: Zeitraum kurz, 7 Tage")
+        case .month: String(localized: "30 T", comment: "Nutzung: Zeitraum kurz, 30 Tage")
+        case .quarter: String(localized: "90 T", comment: "Nutzung: Zeitraum kurz, 90 Tage")
         }
     }
     var long: String {
         switch self {
-        case .day: "Letzte 24 h"
-        case .week: "7 Tage"
-        case .month: "30 Tage"
-        case .quarter: "90 Tage"
+        case .day: String(localized: "Letzte 24 h", comment: "Nutzung: Zeitraum")
+        case .week: String(localized: "7 Tage", comment: "Nutzung: Zeitraum")
+        case .month: String(localized: "30 Tage", comment: "Nutzung: Zeitraum")
+        case .quarter: String(localized: "90 Tage", comment: "Nutzung: Zeitraum")
         }
     }
 }
@@ -215,19 +215,19 @@ enum UsageSource: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .all: "Alle Apps"
-        case .scoops: "Nur Scoops"
-        case .other: "Andere Apps"
+        case .all: String(localized: "Alle Apps")
+        case .scoops: String(localized: "Nur Scoops")
+        case .other: String(localized: "Andere Apps")
         }
     }
 }
 
 extension BotService {
     func usageDetails(range: String, source: String, refresh: Bool) async throws -> UsageDetails {
-        throw APIError(status: 404, message: "Der Server kennt diese Ansicht noch nicht (ab Server 1.31).")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt diese Ansicht noch nicht (ab Server 1.31)."))
     }
     func usageLimits(refresh: Bool) async throws -> UsageLimits {
-        throw APIError(status: 404, message: "Der Server kennt diese Ansicht noch nicht (ab Server 1.31).")
+        throw APIError(status: 404, message: String(localized: "Der Server kennt diese Ansicht noch nicht (ab Server 1.31)."))
     }
 }
 
@@ -242,21 +242,23 @@ extension AppStore {
     }
 }
 
-/// Kompakte deutsche Zahlen: „12 Mrd.“, „36,8 Mio.“, „134 Tsd.“
+/// Kompakte Zahlen: deutsch „12 Mrd.“, „36,8 Mio.“, „134 Tsd.“, englisch „12B“, „36.8M“, „134K“
 enum UsageFormat {
-    static let locale = Locale(identifier: "de_DE")
+    /// Sprache der App (bisher fest `de_DE`)
+    static var locale: Locale { .app }
 
     static func tokens(_ n: Int) -> String {
         let v = Double(n)
+        let german = AppLanguage.isGerman
         func f(_ x: Double, _ unit: String) -> String {
             let digits = x >= 100 ? 0 : 1
             let s = x.formatted(.number.precision(.fractionLength(0...digits)).locale(locale))
-            return "\(s) \(unit)"
+            return german ? "\(s) \(unit)" : s + unit
         }
         switch abs(v) {
-        case 1e9...: return f(v / 1e9, "Mrd.")
-        case 1e6...: return f(v / 1e6, "Mio.")
-        case 1e4...: return f(v / 1e3, "Tsd.")
+        case 1e9...: return f(v / 1e9, german ? "Mrd." : "B")
+        case 1e6...: return f(v / 1e6, german ? "Mio." : "M")
+        case 1e4...: return f(v / 1e3, german ? "Tsd." : "K")
         default: return n.formatted(.number.locale(locale))
         }
     }
@@ -275,17 +277,28 @@ enum UsageFormat {
         v == 0 ? "0" : v.formatted(.currency(code: "USD").locale(locale).precision(.fractionLength(0)))
     }
 
+    /// Deutsch „12,5 %“, Englisch „12.5%“
     static func percent(_ share: Double) -> String {
-        (share * 100).formatted(.number.precision(.fractionLength(0...1)).locale(locale)) + " %"
+        if AppLanguage.isGerman {
+            return (share * 100).formatted(.number.precision(.fractionLength(0...1)).locale(locale)) + " %"
+        }
+        return share.formatted(.percent.precision(.fractionLength(0...1)).locale(locale))
     }
 
-    /// „3 T 3 h“, „21 h 3 min“, „12 min“
+    /// „3 T 3 h“, „21 h 3 min“, „12 min“ (englisch „3d 3h“, „21h 3m“, „12 min“)
     static func remaining(_ seconds: TimeInterval) -> String {
         let s = max(0, Int(seconds))
         let d = s / 86400, h = (s % 86400) / 3600, m = (s % 3600) / 60
-        if d > 0 { return h > 0 ? "\(d) T \(h) h" : "\(d) T" }
-        if h > 0 { return m > 0 ? "\(h) h \(m) min" : "\(h) h" }
-        return "\(max(m, 1)) min"
+        if d > 0 {
+            return h > 0 ? String(localized: "\(d) T \(h) h", comment: "Nutzung: Zeit bis zum Reset, Tage und Stunden")
+                : String(localized: "\(d) T", comment: "Nutzung: Zeit bis zum Reset, Tage")
+        }
+        if h > 0 {
+            return m > 0 ? String(localized: "\(h) h \(m) min", comment: "Nutzung: Zeit bis zum Reset, Stunden und Minuten")
+                : String(localized: "\(h) h", comment: "Nutzung: Zeit bis zum Reset, Stunden")
+        }
+        let minutes = max(m, 1)
+        return String(localized: "\(minutes) min", comment: "Nutzung: Zeit bis zum Reset, Minuten")
     }
 
     static let iso: ISO8601DateFormatter = {
@@ -313,7 +326,7 @@ extension LimitsSnapshot {
                 id: p.id, name: p.id == "claude" ? "Claude" : "Codex", plan: p.plan, state: p.state,
                 windows: p.windows.compactMap { w in
                     guard let used = w.usedPercent else { return nil }
-                    let label = w.kind == "session" ? "5 Stunden" : w.label
+                    let label = w.kind == "session" ? String(localized: "5 Stunden", comment: "Abo-Limit: 5-Stunden-Fenster") : w.label
                     return LimitsSnapshot.Window(id: w.id, label: label, kind: w.kind ?? "weekly", usedPercent: used,
                                                  resetsAt: UsageFormat.date(w.resetsAt), windowMinutes: w.windowMinutes)
                 },

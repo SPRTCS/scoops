@@ -67,7 +67,7 @@ final class WatchStore {
         }
         WatchSession.shared.onCredentials = { [weak self] creds in self?.apply(creds, persist: true) }
         ScoopPhotoCache.shared.fetcher = { [weak self] photo in
-            guard let api = self?.api else { throw WatchAPIError(status: 0, message: "Nicht verbunden") }
+            guard let api = self?.api else { throw WatchAPIError(status: 0, message: String(localized: "Nicht verbunden")) }
             return try await api.avatar(botID: photo.id, version: photo.version)
         }
     }
@@ -391,13 +391,13 @@ final class WatchStore {
         if let e = error as? WatchAPIError { return e.message }
         if let e = error as? URLError {
             switch e.code {
-            case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed: return "Kein Netz."
-            case .timedOut: return "Server antwortet nicht."
-            case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed: return "Server nicht erreichbar."
-            default: return "Verbindung fehlgeschlagen."
+            case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed: return String(localized: "Kein Netz.")
+            case .timedOut: return String(localized: "Server antwortet nicht.")
+            case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed: return String(localized: "Server nicht erreichbar.")
+            default: return String(localized: "Verbindung fehlgeschlagen.")
             }
         }
-        if error is DecodingError { return "Antwort des Servers nicht lesbar." }
+        if error is DecodingError { return String(localized: "Antwort des Servers nicht lesbar.") }
         return error.localizedDescription
     }
 }

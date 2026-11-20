@@ -153,15 +153,15 @@ private struct VMRow: View {
         }
         .buttonStyle(.plain)
         .disabled(vm.isProtected)
-        .help(vm.isProtected ? "Diese VM nutzt der AIS-Scoops-Server direkt. Scoops Connect startet, stoppt oder verändert sie nicht." : "")
+        .help(vm.isProtected ? String(localized: "Diese VM nutzt der AIS-Scoops-Server direkt. Scoops Connect startet, stoppt oder verändert sie nicht.") : "")
     }
 
     private var subtitle: String {
-        if vm.isProtected { return "Vom Server direkt genutzt – nur Anzeige" }
+        if vm.isProtected { return String(localized: "Vom Server direkt genutzt – nur Anzeige") }
         var parts: [String] = []
         if let d = vm.display { parts.append(d) }
         if let ip = vm.ip, vm.isRunning { parts.append(ip) }
-        if ready { parts.append("verbunden") }
+        if ready { parts.append(String(localized: "verbunden", comment: "VM: mit dem Computer-Server verbunden")) }
         return parts.joined(separator: " · ")
     }
 }
