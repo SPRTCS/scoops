@@ -1467,6 +1467,8 @@ nonisolated struct Health: Codable, Sendable {
     var quietHours: Bool? = nil
     /// App 1.3: höchste lesbare Formatversion von Scoop-Vorlagen (`/api/templates/…`)
     var templates: Int? = nil
+    /// Server 1.40: Archiv des Aufgaben-Boards leeren, archivierte einzeln löschen, automatisch nach X Tagen
+    var taskArchiveCleanup: Bool? = nil
 }
 
 nonisolated struct Usage: Codable, Sendable {

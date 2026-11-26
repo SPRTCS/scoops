@@ -33,6 +33,8 @@ struct TaskBoardView: View {
     @State private var rejectNote = ""
     /// Rückfrage vor „Alle abhaken“ (Zu prüfen) bzw. „Alle archivieren“ (Abgeschlossen)
     @State private var bulkColumn: TaskColumn?
+    /// Rückfrage vor „Archiv leeren“
+    @State private var confirmClearArchive = false
     @FocusState private var searchFocused: Bool
 
     private var board: TaskBoardStore { store.taskBoard }
@@ -465,7 +467,100 @@ struct TaskBoardView: View {
     }
 
     private var archive: some View {
-        list(board.tasks(in: .archived), empty: emptyText(.archived), grid: !isCompact)
+        VStack(spacing: 0) {
+            if board.supportsArchiveCleanup() { archiveBar }
+            list(board.tasks(in: .archived), empty: emptyText(.archived), grid: !isCompact)
+        }
+        .task { await board.loadArchiveDays() }
+    }
+
+    // MARK: Archiv aufräumen
+
+    /// Archivierte Aufgaben, die „Archiv leeren“ trifft: alle bzw. die des gefilterten Scoops (die Suche zählt nicht)
+    private var archiveClearCount: Int {
+        board.tasks.filter { $0.boardColumn == .archived && (board.filterBotID == nil || $0.botId == board.filterBotID) }.count
+    }
+
+    private var archiveClearQuestion: String {
+        if let bot = store.bot(board.filterBotID) {
+            return String(localized: "Archiv von \(bot.name) leeren?")
+        }
+        return String(localized: "Archiv leeren?")
+    }
+
+    /// Zeile über dem Archiv: „Automatisch löschen“ und „Archiv leeren“, untereinander, wenn die Breite nicht reicht
+    private var archiveBar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                archiveRetentionMenu
+                Spacer(minLength: 0)
+                if archiveClearCount > 0 { archiveClearButton.fixedSize() }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                archiveRetentionMenu
+                if archiveClearCount > 0 { archiveClearButton }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .confirmationDialog(archiveClearQuestion, isPresented: $confirmClearArchive, titleVisibility: .visible) {
+            Button("\(archiveClearCount) Aufgaben löschen", role: .destructive) {
+                Task { await board.clearArchive() }
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Die archivierten Aufgaben werden endgültig gelöscht. Ergebnisdateien bleiben in der Bibliothek des Chats.")
+        }
+        .dynamicTypeSize(...AppFont.controlCap)
+        .padding(.horizontal, isCompact ? 16 : 22)
+        .padding(.bottom, 10)
+    }
+
+    private var archiveRetentionMenu: some View {
+        Menu {
+            Picker("Automatisch löschen", selection: Binding(
+                get: { board.archiveDays ?? 0 },
+                set: { days in Task { await board.setArchiveDays(days) } })) {
+                ForEach(TaskArchiveRetention.choices, id: \.self) { days in
+                    Text(TaskArchiveRetention.title(days)).tag(days)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "clock.arrow.circlepath").appFont(12, weight: .semibold)
+                Text("Automatisch löschen: \(TaskArchiveRetention.title(board.archiveDays ?? 0))")
+                    .appFont(12.5, weight: .medium)
+                    .adaptiveLineLimit(1)
+                Image(systemName: "chevron.down").appFont(9, weight: .bold)
+            }
+            .foregroundStyle(theme.textSecondary)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(theme.surfaceRaised, in: Capsule())
+            .overlay(Capsule().strokeBorder(theme.surfaceBorder))
+            .contentShape(Capsule())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .fixedSize()
+        .disabled(board.archiveDays == nil)
+        .help("Archivierte Aufgaben nach einer Frist automatisch löschen. Ergebnisdateien bleiben in der Bibliothek.")
+        .accessibilityLabel("Automatisch löschen")
+        .accessibilityValue(TaskArchiveRetention.title(board.archiveDays ?? 0))
+    }
+
+    private var archiveClearButton: some View {
+        Button { confirmClearArchive = true } label: {
+            Label("Archiv leeren", systemImage: "trash")
+                .appFont(12, weight: .semibold)
+                .adaptiveLineLimit(1)
+                .padding(.horizontal, 9).padding(.vertical, 4)
+                .foregroundStyle(theme.danger)
+                .background(theme.danger.opacity(0.12), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(board.clearingArchive)
+        .help("Alle archivierten Aufgaben endgültig löschen")
     }
 
     private func list(_ items: [BotTask], empty: String, grid: Bool = false) -> some View {
@@ -793,6 +888,9 @@ struct TaskActionButtons: View {
             Button { act(.archive) } label: { Label("Archivieren", systemImage: "archivebox") }
         case .archived:
             Button { act(.restore) } label: { Label("Wiederherstellen", systemImage: "arrow.uturn.backward.circle") }
+            if board.supportsArchiveCleanup() {
+                Button(role: .destructive) { Task { await board.delete(task.id) } } label: { Label("Löschen", systemImage: "trash") }
+            }
         }
         Divider()
         Button { onOpenChat(task) } label: { Label("Zum Chat", systemImage: "bubble.left.and.bubble.right") }

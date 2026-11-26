@@ -87,6 +87,10 @@ kein gehostetes „KI-Backend“, das deine Gespräche sieht.
 
 Die ausführliche Anleitung steht in [docs/installation.md](docs/installation.md).
 
+**Lieber einrichten lassen?** Gib deinem KI-Agenten mit Computer Use (z. B. Claude oder ChatGPT am Mac)
+[docs/installation-mit-ki.md](docs/installation-mit-ki.md). Er führt dich Schritt für Schritt durch App, Server-App,
+KI-Zugang, Composio und Tailscale.
+
 ### Selbst bauen
 
 ```sh

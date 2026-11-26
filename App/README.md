@@ -141,7 +141,7 @@ AIS Scoops Server.app (Ziel ScoopsConnect, Bundle com.ais.scoopsconnect, Version
 
 ### Assistent
 
-Willkommen → **Konto** (Kopplungscode, eingeben in AIS Scoops unter „Deine Server → Server hinzufügen“; Ansprache/Vorname) → **KI-Schlüssel** (Anthropic und/oder OpenAI, optional Composio; nur OpenAI → Scoops nutzen GPT-Modelle) → **Dieser Mac** (Bildschirmaufnahme, Bedienungshilfen, Anschließen) → **Erreichbarkeit** (Tailscale Serve fürs eigene Tailnet oder Funnel öffentlich auf Port 10000, sonst nur WLAN mit `host 0.0.0.0` + `<Name>.local:<Port>`; jede Änderung erst nach Klick, Funnel mit Rückfrage) → **Dauerbetrieb** (Mac/Bildschirm wach halten per Energie-Zusicherung ohne Passwort; „Ruhezustand dauerhaft aus“ = `pmset -a sleep 0` nur nach Bestätigung über den macOS-Passwortdialog; Sperrbildschirm-Einstellungen öffnen) → Fertig.
+Willkommen → **Konto** (Kopplungscode, eingeben in AIS Scoops unter „Deine Server → Server hinzufügen“; Ansprache/Vorname) → **KI-Schlüssel** (Anthropic und/oder OpenAI, optional Composio; nur OpenAI → Scoops nutzen GPT-Modelle) → **Dieser Mac** (Bildschirmaufnahme, Bedienungshilfen, Anschließen) → **Erreichbarkeit** (Tailscale Serve fürs eigene Tailnet oder Funnel öffentlich auf Port 10000, sonst nur WLAN mit `host 0.0.0.0` + `<Name>.local:<Port>`; jede Änderung erst nach Klick, Funnel mit Rückfrage) → **Dauerbetrieb** (Mac/Bildschirm wach halten per Energie-Zusicherung ohne Passwort; „Ruhezustand dauerhaft aus“ = `pmset -a sleep 0` nur nach Bestätigung über den macOS-Passwortdialog; nur auf MacBooks „Auch zugeklappt wach bleiben“ = Systemdienst `com.ais.scoops.lidawake` (`/Library/LaunchDaemons`, Skript unter `/Library/Application Support/AIS Scoops/lidawake.sh`), der alle 5 s `pmset -a disablesleep` am Netzteil auf 1 und im Akkubetrieb auf 0 setzt und den Mac bei zugeklapptem Deckel ohne Strom sofort schlafen schickt; Installieren und Entfernen per Passwortdialog, auch in den Einstellungen; Sperrbildschirm-Einstellungen öffnen) → Fertig.
 
 Menüleiste (Server-Rolle): Status (läuft/gestoppt, Version, Konto, Adresse), Server neu starten, Protokoll öffnen, Pausieren (Rechner), Einstellungen (Schlüssel ändern, Konto, Erreichbarkeit, Dauerbetrieb), Beenden (stoppt den Server).
 
@@ -242,7 +242,7 @@ App/
 
 ## Build 5 (API v1.4)
 
-- **Haupt-Scoop:** Bot-Feld `primary`. Der Haupt-Scoop trägt in der Seitenleiste eine kleine gelbe Krone und steht immer als erste Kachel (auch ohne Anheften). Profil → Aktivität → „Haupt-Scoop“-Schalter (`PATCH {"primary": …}`) mit Link „Initiative einstellen“.
+- **Haupt-Scoop:** Bot-Feld `primary`. Der Haupt-Scoop trägt in der Seitenleiste einen kleinen gelben Stern und steht immer als erste Kachel (auch ohne Anheften). Profil → Aktivität → „Haupt-Scoop“-Schalter (`PATCH {"primary": …}`) mit Link „Initiative einstellen“.
 - **Initiative** (Einstellungen und als Blatt aus dem Profil): „Meldet sich von selbst“, Prüfzeiten (hinzufügen/entfernen, Zeitwahl, höchstens 8, gebündelt gespeichert), Ruhezeit von–bis, „Jetzt prüfen lassen“ (`POST /api/initiative/run`, Hinweis „Mila schaut nach …“). Ohne Haupt-Scoop: Erklärung und Auswahl.
 - **Fähigkeiten:** Profil → Gedächtnis zeigt oben die Fähigkeiten (eigene + geteilte, „für alle Scoops“, Nutzung/zuletzt). Antippen öffnet das Detail (Beschreibung, Schritte als nummerierte Liste), dort Bearbeiten (`PATCH`) und Löschen. Ereignisse „Fähigkeit gespeichert: …“ sind antippbar und öffnen die Fähigkeit (über `meta.skill_id` oder den Namen). WebSocket `skill.updated` / `skill.deleted`.
 - **Tresor** (Einstellungen → Tresor): bei jedem Öffnen Face ID / Touch ID / Gerätecode (`LAContext`, `.deviceOwnerAuthentication`). Liste mit Titel, Domain, Benutzername, zuletzt genutzt, Schloss bei gespeichertem Passwort. Anlegen/Bearbeiten mit Titel, Webseite, Benutzername, Passwort (mit Anzeigen/Verbergen; beim Bearbeiten leer mit „Unverändert“ und nur gesendet, wenn etwas eingegeben wurde), Notiz; Löschen mit Bestätigung. iOS-Felder haben `textContentType` `.username` / `.password`, sodass Passwort-Autofill aus dem iCloud-Schlüsselbund angeboten wird.
@@ -718,6 +718,11 @@ also exakt die Karten des Verlaufs.
 - Zähler = offene Freigaben + Rückfragen von Aufgaben (`TodayStore.waitingCount`), auch aus stummen Chats. `AppBadge`
   zählt weiter Chats mit Ungelesenem (ohne stumme Chats, siehe unten).
 - Ältere Server (Health ohne `today`) und reine Gast-Verbindungen: `store.today.available == false`, alles wie bisher.
+- **Eintrag in der Seitenleiste (1.3.1):** kleines Widget statt Chat-Zeile. Oben „Heute“ mit kurzem Datum („Sa. 21. Nov.“),
+  darunter in einer Zeile die Zähler `TodayCounter` (warten, prüfen, arbeiten, heute geplant; nur Zähler über 0). Passt
+  die Zeile mit Bezeichnungen nicht, zeigen die Kapseln nur Symbol und Zahl. Farben und Symbole wie die Abschnitte.
+- **Kopf der Seite (1.3.1):** Datum klein über „Heute“, darunter dieselben Zähler mit langer Bezeichnung; antippen
+  scrollt zum Abschnitt.
 - Startargumente: `-heute` (Seite öffnen), `-heuteleer` (Demo ohne Inhalt), `-aufgaben` (Board öffnen).
 
 **Suche im Aufgaben-Board.** `TaskBoardStore.searchText` filtert `tasks(in:)` nach Titel, Beschreibung, Routine und Scoop
@@ -1036,6 +1041,7 @@ des Admins (eigenes Sitzungs-JWT), Convex kennt nur das Verzeichnis.
   # dasselbe mit -destination 'generic/platform=macOS' → /tmp/claude-501/aisbot-mac.xcarchive
   ```
 - Hochladen: `scripts/upload-testflight.sh <build> [ios|mac|all]` archiviert und exportiert mit `ExportOptions-ios.plist` / `ExportOptions-mac.plist` (`app-store-connect`, `destination upload`, Team MYXQKK3T2Z, automatisch). Der Export signiert mit Apple Distribution (Mac-Installer per Cloud-Signierung).
+- **Build-Nummern:** Der normale Weg zu TestFlight ist ein Push auf `main`. Der Xcode-Cloud-Workflow „Main → TestFlight“ baut dann iOS und macOS und nimmt seine Laufnummer als Build-Nummer. Ein Upload von Hand mit `upload-testflight.sh` verbraucht keine Laufnummer; nimmt man dafür die nächste freie Nummer, will der nächste Xcode-Cloud-Lauf dieselbe Nummer hochladen und scheitert daran. Deshalb entweder nur über den Push ausliefern oder nach einem Upload von Hand einen weiteren Push folgen lassen, dessen Lauf die Nummer überspringt.
 - Hinweis: Die App Group `group.com.ais.aisbot` lässt sich **nicht** über den API-Key anlegen (die App-Store-Connect-API kennt keine App Groups). Sie wurde einmalig über das in Xcode angemeldete Apple-ID-Konto registriert (`xcodebuild … -allowProvisioningUpdates` ohne Key). Seitdem funktioniert das Archiv auch mit dem API-Key.
 
 ## Entscheidungen

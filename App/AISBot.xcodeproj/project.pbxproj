@@ -178,6 +178,7 @@
 		57E8462CC67DDBCE567D1384 /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7132A64E41DCCA57CBB77C3B /* AppLanguage.swift */; };
 		5801829ADCE786B018C303B0 /* SharedKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C0BAAA1716BA1BF9E7ABDA /* SharedKeychain.swift */; };
 		5853B26887C9048D08ED470E /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = E37D7C1039EF67652054B0D1 /* AppUpdater.swift */; };
+		591D81F6EBD8236F7FF35832 /* StandingApprovalsPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B20406C1C99DB22C3D06D36 /* StandingApprovalsPages.swift */; };
 		59A5C614BC4855A0FD0C7D93 /* AppStore+Ruhe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 554C05B6F4FC529087A4F7FD /* AppStore+Ruhe.swift */; };
 		5A79B366C049F96F5F4B3DC3 /* ScoopAlarmMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE2F10E8349AD00C9010AB /* ScoopAlarmMetadata.swift */; };
 		5ADC1268EEDDFD5CC8AA8A81 /* ScreenThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA751F4CFADAB23F968FCD8 /* ScreenThumbnail.swift */; };
@@ -569,6 +570,7 @@
 		15C0BAAA1716BA1BF9E7ABDA /* SharedKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedKeychain.swift; sourceTree = "<group>"; };
 		18DD13F83156E8C6BF906F9E /* ScoopWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoopWidgets.swift; sourceTree = "<group>"; };
 		19451FE25CBAEDB52740521B /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
+		1B20406C1C99DB22C3D06D36 /* StandingApprovalsPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingApprovalsPages.swift; sourceTree = "<group>"; };
 		1C4800F46FA2585211E8B9F5 /* Ruhe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ruhe.swift; sourceTree = "<group>"; };
 		1C8DFB64860E162C4E96D633 /* AppFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFont.swift; sourceTree = "<group>"; };
 		21EB0B1912BF13D1A35F2CCD /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
@@ -1329,6 +1331,7 @@
 				D8A246EEF564D6DDB33FA4FB /* PrimarySkillsVault.swift */,
 				AA063A0764CD154F1CBBE274 /* ProfilePages.swift */,
 				9576C722A13F0C77F3FC37F5 /* ProfileView.swift */,
+				1B20406C1C99DB22C3D06D36 /* StandingApprovalsPages.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -2311,6 +2314,7 @@
 				99AD6CCB81DEE355302B6D4E /* Speech.swift in Sources */,
 				AF073309237B13FF3A462E20 /* SpotlightIndexer.swift in Sources */,
 				6FF63FCA88229428C3C92DE9 /* StableWidth.swift in Sources */,
+				591D81F6EBD8236F7FF35832 /* StandingApprovalsPages.swift in Sources */,
 				4FA3DAA690D47E7E34C61146 /* SystemAvatars.swift in Sources */,
 				1E32760DB42309F47A2C7D69 /* SystemBarItems.swift in Sources */,
 				B563776D68D1D8AF0FE66F7C /* SystemDirectory.swift in Sources */,
@@ -2572,7 +2576,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.3.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2940,7 +2944,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.3.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

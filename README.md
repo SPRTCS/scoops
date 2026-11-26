@@ -127,6 +127,10 @@ The apps, the server and the server app speak **English and German**, and each S
 Want to use your Scoops on the go? Turn on Tailscale in the server app. The full guide (in German) is in
 [docs/installation.md](docs/installation.md).
 
+**Rather have it set up for you?** Give [docs/installation-mit-ki.md](docs/installation-mit-ki.md) to an AI agent
+with computer use (for example Claude or ChatGPT on your Mac). It walks you through the app, the server app, AI access,
+Composio and Tailscale step by step. The guide is in German, the agent will talk to you in your language.
+
 ### Build it from source
 
 <details>

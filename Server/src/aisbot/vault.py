@@ -49,15 +49,26 @@ def delete_secret(entry_id: str) -> None:
     subprocess.run(["security", "delete-generic-password", "-s", SERVICE, "-a", entry_id], capture_output=True)
 
 
+# Browser, deren aktuelle Adresse der Tresor lesen kann. macOS fragt jedes Programm einzeln per AppleScript; dass Dia und
+# Chrome beide auf Chromium basieren, hilft dabei nicht. Name = Prozessname in System Events.
+BROWSERS = {
+    "Safari": 'tell application "Safari" to return URL of front document',
+    "Google Chrome": 'tell application "Google Chrome" to return URL of active tab of front window',
+    "Dia": 'tell application "Dia" to return URL of active tab of front window',
+}
+BROWSER_NAMES = "Safari, Chrome oder Dia"
+NOT_ACTIVE = "Dein Rechner ist für dich gerade nicht aktiv. Mach zuerst einen Screenshot, dann nochmal versuchen."
+
+
 def current_page(computer) -> tuple[str | None, str | None]:
-    """(Programm, URL) des vordersten Fensters im Bot-Rechner, soweit lesbar."""
+    """(Programm, URL) des vordersten Fensters im Bot-Rechner, soweit lesbar. Wartet höchstens 20 s auf den Browser
+    (beim ersten Zugriff kann macOS nach der Automation-Erlaubnis fragen)."""
+    cases = " ".join(f"""  "{name}") osascript -e 'with timeout of 20 seconds' -e '{cmd}' -e 'end timeout' 2>/dev/null;; """
+                     for name, cmd in BROWSERS.items())
     script = (
         'app=$(osascript -e "tell application \\"System Events\\" to get name of first process whose frontmost is true" 2>/dev/null); '
         'echo "APP=$app"; '
-        'case "$app" in '
-        '  Safari) osascript -e "tell application \\"Safari\\" to return URL of front document" 2>/dev/null;; '
-        '  "Google Chrome") osascript -e "tell application \\"Google Chrome\\" to return URL of active tab of front window" 2>/dev/null;; '
-        'esac'
+        f'case "$app" in {cases}esac'
     )
     try:
         out = computer.shell(script).get("stdout", "")
@@ -66,7 +77,22 @@ def current_page(computer) -> tuple[str | None, str | None]:
     lines = [x for x in out.splitlines() if x.strip()]
     app = lines[0][4:] if lines and lines[0].startswith("APP=") else None
     url = lines[1].strip() if len(lines) > 1 else None
+    if url and not url.lower().startswith(("https://", "http://")):
+        url = None  # „missing value“, leerer Tab, interne Browser-Seite
     return app, url
+
+
+def mismatch_message(app: str | None, url: str | None, title: str, domain: str, user: str) -> str:
+    """Warum nicht ausgefüllt wurde, so dass der Scoop den richtigen nächsten Schritt kennt."""
+    if app not in BROWSERS:
+        return (f"Nicht ausgefüllt: Vorne ist {app or 'kein lesbares Programm'}. Der Tresor füllt nur in {BROWSER_NAMES} aus. "
+                f"Bring die Seite von {domain} dort nach vorn und versuch es erneut.")
+    if not url:
+        return (f"Nicht ausgefüllt: Die Adresse in {app} ist nicht lesbar. Ist dort eine normale Webseite offen, fehlt "
+                f"wahrscheinlich die macOS-Erlaubnis (Systemeinstellungen > Datenschutz & Sicherheit > Automation). "
+                f"Sag {user} das; bestätige solche Abfragen nicht selbst.")
+    return (f"Nicht ausgefüllt: Die geöffnete Seite ({domain_of(url)}, {app}) passt nicht zu „{title}“ ({domain}). "
+            f"Öffne die richtige Seite in {BROWSER_NAMES} und versuch es erneut.")
 
 
 def domain_matches(page_url: str | None, entry_domain: str) -> bool:

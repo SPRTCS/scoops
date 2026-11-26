@@ -3,13 +3,13 @@ import LocalAuthentication
 
 // MARK: - Haupt-Scoop
 
-/// Kleine Krone für den Haupt-Scoop (Seitenleiste, Profil).
+/// Kleiner Stern für den Haupt-Scoop (Seitenleiste, Profil).
 struct PrimaryBadge: View {
     var size: CGFloat = 16
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Image(systemName: "crown.fill")
+        Image(systemName: "star.fill")
             .font(.fixed(size * 0.55, weight: .bold))
             .foregroundStyle(Color(hex: "#5A3B00"))
             .frame(width: size, height: size)

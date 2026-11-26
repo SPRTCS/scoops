@@ -218,7 +218,13 @@ enum AdminSetting {
     }
 
     private static func run(_ command: String) -> String? {
-        let source = "do shell script \"\(command)\" with administrator privileges"
+        runShell(command)
+    }
+
+    /// Führt einen Shell-Befehl mit Administratorrechten aus (macOS-Passwortdialog). Fehlermeldung oder nil.
+    static func runShell(_ command: String) -> String? {
+        let escaped = command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        let source = "do shell script \"\(escaped)\" with administrator privileges"
         var err: NSDictionary?
         NSAppleScript(source: source)?.executeAndReturnError(&err)
         if let err, (err[NSAppleScript.errorNumber] as? Int) != -128 {
@@ -247,5 +253,130 @@ enum AdminSetting {
 
     static func openEnergySettings() {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Battery-Settings.extension")!)
+    }
+}
+
+/// „Auch zugeklappt wach bleiben“, aber nur am Netzteil.
+///
+/// Energie-Zusicherungen (`KeepAwake`) und `pmset sleep 0` verhindern nur den Ruhezustand bei Inaktivität; beim
+/// Zuklappen schläft ein MacBook trotzdem ein. Das verhindert nur `pmset -a disablesleep 1`, und das gilt dann auch im
+/// Akkubetrieb. Deshalb installiert die App einmalig (Passwort-Dialog) einen kleinen Systemdienst, der `disablesleep`
+/// am Netzteil ein- und im Akkubetrieb ausschaltet. Wird der Strom bei zugeklapptem Deckel getrennt, schickt er den
+/// Mac sofort schlafen (z. B. in der Tasche). Der Dienst läuft unabhängig davon, ob die App gerade läuft.
+enum LidAwake {
+    static let label = "com.ais.scoops.lidawake"
+    static let plistPath = "/Library/LaunchDaemons/\(label).plist"
+    static let scriptPath = "/Library/Application Support/AIS Scoops/lidawake.sh"
+
+    enum State: Equatable {
+        /// Normal: zugeklappt schläft der Mac
+        case off
+        /// Dienst installiert: zugeklappt wach, aber nur am Netzteil
+        case onPowerOnly
+        /// `disablesleep` ist von Hand dauerhaft an, auch im Akkubetrieb
+        case always
+    }
+
+    static var state: State {
+        if FileManager.default.fileExists(atPath: plistPath) { return .onPowerOnly }
+        return sleepDisabledFlag ? .always : .off
+    }
+
+    /// Gibt es überhaupt einen Deckel? (MacBook: ja; Mac mini, iMac, Mac Studio: nein)
+    static var hasLid: Bool {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
+        defer { IOObjectRelease(service) }
+        guard service != 0 else { return false }
+        return IORegistryEntryCreateCFProperty(service, "AppleClamshellState" as CFString, kCFAllocatorDefault, 0) != nil
+    }
+
+    /// `SleepDisabled` aus `pmset -g`
+    static var sleepDisabledFlag: Bool {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+        p.arguments = ["-g"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return false }
+        let out = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        p.waitUntilExit()
+        return out.split(separator: "\n").contains { line in
+            let parts = line.split(whereSeparator: \.isWhitespace)
+            return parts.count == 2 && parts[0] == "SleepDisabled" && parts[1] == "1"
+        }
+    }
+
+    /// Prüft alle 5 Sekunden die Stromquelle. Nur `pmset` und `ioreg`, keine Daten, kein Netzwerk.
+    static let script = """
+    #!/bin/sh
+    # AIS Scoops Server: Mac zugeklappt wach halten, aber nur am Netzteil.
+    # Entfernen: in AIS Scoops Server unter Einstellungen → Dauerbetrieb.
+    PATH=/usr/bin:/bin:/usr/sbin:/sbin
+    while true; do
+      if pmset -g ps | head -n 1 | grep -q "AC Power"; then want=1; else want=0; fi
+      have=$(pmset -g | awk '$1 == "SleepDisabled" { print $2 }')
+      if [ "$want" != "$have" ]; then
+        pmset -a disablesleep "$want"
+        if [ "$want" = 0 ] && ioreg -r -k AppleClamshellState -d 1 | grep -q '"AppleClamshellState" = Yes'; then
+          pmset sleepnow
+        fi
+      fi
+      sleep 5
+    done
+    """
+
+    static let plist = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>\(label)</string>
+        <key>ProgramArguments</key>
+        <array>
+            <string>/bin/sh</string>
+            <string>\(scriptPath)</string>
+        </array>
+        <key>RunAtLoad</key>
+        <true/>
+        <key>KeepAlive</key>
+        <true/>
+    </dict>
+    </plist>
+    """
+
+    /// Installiert den Dienst (Passwort-Dialog). Gibt eine Fehlermeldung zurück oder nil.
+    static func enable() -> String? {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ais-scoops-lidawake-\(UUID().uuidString)")
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try script.write(to: dir.appendingPathComponent("lidawake.sh"), atomically: true, encoding: .utf8)
+            try plist.write(to: dir.appendingPathComponent("lidawake.plist"), atomically: true, encoding: .utf8)
+        } catch {
+            return error.localizedDescription
+        }
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        let scriptDir = (scriptPath as NSString).deletingLastPathComponent
+        let command = [
+            "launchctl bootout system/\(label) 2>/dev/null; true",
+            "mkdir -p \(q(scriptDir))",
+            "install -o root -g wheel -m 755 \(q(dir.appendingPathComponent("lidawake.sh").path)) \(q(scriptPath))",
+            "install -o root -g wheel -m 644 \(q(dir.appendingPathComponent("lidawake.plist").path)) \(q(plistPath))",
+            "launchctl bootstrap system \(q(plistPath))",
+        ].joined(separator: " && ")
+        return AdminSetting.runShell(command)
+    }
+
+    /// Entfernt den Dienst und schaltet `disablesleep` aus (Passwort-Dialog). Wirkt auch bei `.always`.
+    static func disable() -> String? {
+        let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        let command = [
+            "launchctl bootout system/\(label) 2>/dev/null; true",
+            "rm -f \(q(plistPath)) \(q(scriptPath))",
+            "/usr/bin/pmset -a disablesleep 0",
+        ].joined(separator: " && ")
+        return AdminSetting.runShell(command)
     }
 }

@@ -4,6 +4,9 @@ Diese Anleitung ist für dich, wenn du deine **eigenen Scoops** haben möchtest.
 du chattest mit ihnen in der App **AIS Scoops** auf iPhone, iPad oder Mac. Du brauchst kein Terminal und
 musst nichts programmieren. Rechne mit etwa 10 Minuten.
 
+**Lieber einrichten lassen?** Gib deinem KI-Agenten mit Computer Use die Anleitung
+[installation-mit-ki.md](installation-mit-ki.md). Er führt dich durch alles, auch durch Composio und Tailscale.
+
 ## Was du brauchst
 
 - Einen **Mac mit Apple-Chip** (M1 oder neuer) und **macOS 26** oder neuer. Am besten einen Mac, der zu Hause
@@ -51,7 +54,10 @@ oder startet der Mac neu, geht es beim nächsten Öffnen an derselben Stelle wei
 5. **Von unterwegs erreichbar** (optional) – siehe Abschnitt 4 unten. Kannst du mit **Überspringen** später
    nachholen.
 6. **Dauerbetrieb** (empfohlen) – lass **Mac wach halten** eingeschaltet. Wenn die Scoops auch am Bildschirm
-   arbeiten sollen, während du weg bist, schalte **Bildschirm anlassen** ein.
+   arbeiten sollen, während du weg bist, schalte **Bildschirm anlassen** ein. Auf einem MacBook gibt es zusätzlich
+   **Auch zugeklappt wach bleiben**: Normalerweise schläft ein MacBook beim Zuklappen ein, auch am Strom. Mit dieser
+   Option bleibt es am Netzteil zugeklappt wach, ohne Strom schläft es wie gewohnt (zugeklappt sofort). macOS fragt
+   dafür einmal nach deinem Passwort, ausschalten kannst du es jederzeit in den Einstellungen unter **Dauerbetrieb**.
 7. **Fertig** – der Assistent prüft, ob alles steht: Server läuft, mit AIS Scoops verbunden, KI-Zugang ok, dieser
    Mac freigegeben, von unterwegs erreichbar. Fehlt etwas, bringt dich **Beheben** bzw. **Einrichten** direkt zum
    passenden Schritt. Danach heißt es: **Erstelle jetzt deinen ersten Scoop in AIS Scoops** (Abschnitt 3). Hast du

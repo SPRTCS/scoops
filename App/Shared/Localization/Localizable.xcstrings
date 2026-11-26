@@ -1688,6 +1688,46 @@
         }
       }
     },
+    "%lld Aufgaben löschen" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Aufgabe löschen"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Aufgaben löschen"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete %lld Task"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Delete %lld Tasks"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld Aufgaben zum Prüfen" : {
       "localizations" : {
         "de" : {
@@ -3786,6 +3826,16 @@
         }
       }
     },
+    "Alle archivierten Aufgaben endgültig löschen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permanently delete all archived tasks"
+          }
+        }
+      }
+    },
     "Alle aus" : {
       "localizations" : {
         "en" : {
@@ -4625,6 +4675,17 @@
         }
       }
     },
+    "Apple-Dienste" : {
+      "comment" : "Werkzeug-Gruppe dauerhafter Freigaben",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Services"
+          }
+        }
+      }
+    },
     "Apple-Konto" : {
       "localizations" : {
         "en" : {
@@ -4757,6 +4818,36 @@
         }
       }
     },
+    "Archiv leeren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Archive"
+          }
+        }
+      }
+    },
+    "Archiv leeren?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Archive?"
+          }
+        }
+      }
+    },
+    "Archiv von %@ leeren?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear %@’s Archive?"
+          }
+        }
+      }
+    },
     "Archivieren" : {
       "localizations" : {
         "en" : {
@@ -4778,12 +4869,32 @@
         }
       }
     },
+    "Archivierte Aufgabe löschen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Archived Task?"
+          }
+        }
+      }
+    },
     "Archivierte Aufgaben findest du im Reiter „Archiv“ und kannst sie dort wiederherstellen." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "You’ll find archived tasks in the “Archive” tab, where you can restore them."
+          }
+        }
+      }
+    },
+    "Archivierte Aufgaben nach einer Frist automatisch löschen. Ergebnisdateien bleiben in der Bibliothek." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete archived tasks automatically after a set time. Result files stay in the library."
           }
         }
       }
@@ -5700,6 +5811,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Detected automatically: %@."
+          }
+        }
+      }
+    },
+    "Automatisch löschen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Automatically"
+          }
+        }
+      }
+    },
+    "Automatisch löschen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Automatically: %@"
           }
         }
       }
@@ -7021,6 +7152,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ no longer asks for these and just mentions them in the chat. Remove one to be asked again."
+          }
+        }
+      }
+    },
+    "Dafür fragt %@ nicht mehr. Entfernen heißt: wieder fragen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no longer asks for these. Remove one to be asked again."
           }
         }
       }
@@ -8649,6 +8790,16 @@
         }
       }
     },
+    "Die archivierten Aufgaben werden endgültig gelöscht. Ergebnisdateien bleiben in der Bibliothek des Chats." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archived tasks will be permanently deleted. Result files stay in the chat’s library."
+          }
+        }
+      }
+    },
     "Die eingeladene Person chattet mit %@ in ihrer eigenen AIS-Scoops-App." : {
       "localizations" : {
         "en" : {
@@ -9759,6 +9910,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Event"
+          }
+        }
+      }
+    },
+    "Ergebnisdateien bleiben in der Bibliothek des Chats." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result files stay in the chat’s library."
           }
         }
       }
@@ -12837,6 +12998,16 @@
         }
       }
     },
+    "Keine dauerhaften Freigaben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Standing Approvals"
+          }
+        }
+      }
+    },
     "Keine deutsche Stimme installiert. Lade in den Systemeinstellungen unter Bedienungshilfen → Gesprochene Inhalte eine Stimme (am besten „Premium“)." : {
       "localizations" : {
         "en" : {
@@ -14193,7 +14364,7 @@
       }
     },
     "Mail" : {
-      "comment" : "Art einer Freigabe: E-Mail senden",
+      "comment" : "Art einer Freigabe: E-Mail senden\nWerkzeug-Gruppe dauerhafter Freigaben",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14716,6 +14887,17 @@
         }
       }
     },
+    "Nach %lld Tagen" : {
+      "comment" : "Archiv: automatisch löschen nach X Tagen",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After %lld Days"
+          }
+        }
+      }
+    },
     "Nach Quelle" : {
       "localizations" : {
         "en" : {
@@ -14742,6 +14924,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Filter by Type"
+          }
+        }
+      }
+    },
+    "Nach einem Jahr" : {
+      "comment" : "Archiv: automatisch löschen",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After One Year"
           }
         }
       }
@@ -15478,6 +15671,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nothing to review."
+          }
+        }
+      }
+    },
+    "Nie" : {
+      "comment" : "Archiv: nie automatisch löschen",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never"
           }
         }
       }
@@ -20718,6 +20922,17 @@
         }
       }
     },
+    "Weitere Aktionen" : {
+      "comment" : "Werkzeug-Gruppe dauerhafter Freigaben",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other Actions"
+          }
+        }
+      }
+    },
     "Weitere Apps laden …" : {
       "localizations" : {
         "en" : {
@@ -20805,6 +21020,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show Less"
+          }
+        }
+      }
+    },
+    "Wenn du bei einer Freigabe „Immer erlauben“ wählst, erscheint sie hier." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you choose “Always Allow” on an approval, it shows up here."
           }
         }
       }
@@ -22611,6 +22836,7 @@
       }
     },
     "share.kind.text" : {
+      "comment" : "Geteilte Sendung nur mit Text",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -22624,8 +22850,7 @@
             "value" : "Text"
           }
         }
-      },
-      "comment" : "Geteilte Sendung nur mit Text"
+      }
     },
     "share.role.write" : {
       "comment" : "Geteilter Scoop: Rolle mitschreiben (englisch „Write“)",
@@ -22666,6 +22891,7 @@
       }
     },
     "task.scope" : {
+      "comment" : "Zugriffsbereich am Mac (englisch „Scope“)",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -22679,10 +22905,10 @@
             "value" : "Scope"
           }
         }
-      },
-      "comment" : "Zugriffsbereich am Mac (englisch „Scope“)"
+      }
     },
     "task.scope.section" : {
+      "comment" : "Abschnitt: Zugriffsbereich am Mac",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -22696,8 +22922,7 @@
             "value" : "Scope on the Mac"
           }
         }
-      },
-      "comment" : "Abschnitt: Zugriffsbereich am Mac"
+      }
     },
     "täglich" : {
       "comment" : "Ruhezeit an allen Wochentagen",
@@ -23556,6 +23781,103 @@
     },
     "🎉" : {
       "shouldTranslate" : false
+    },
+    "warten auf dich" : {
+      "comment" : "Zähler Heute, nach der Zahl",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "waiting for you"
+          }
+        }
+      }
+    },
+    "warten" : {
+      "comment" : "Zähler Heute (kurz), nach der Zahl",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "waiting"
+          }
+        }
+      }
+    },
+    "zum Prüfen" : {
+      "comment" : "Zähler Heute, nach der Zahl",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "to review"
+          }
+        }
+      }
+    },
+    "prüfen" : {
+      "comment" : "Zähler Heute (kurz), nach der Zahl",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "to review"
+          }
+        }
+      }
+    },
+    "arbeiten" : {
+      "comment" : "Zähler Heute, nach der Zahl",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "working"
+          }
+        }
+      }
+    },
+    "heute geplant" : {
+      "comment" : "Zähler Heute, nach der Zahl",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "planned today"
+          }
+        }
+      }
+    },
+    "geplant" : {
+      "comment" : "Zähler Heute (kurz), nach der Zahl",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "planned"
+          }
+        }
+      }
+    },
+    "Heute, alles ruhig" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today, all quiet"
+          }
+        }
+      }
+    },
+    "%lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld %2$@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

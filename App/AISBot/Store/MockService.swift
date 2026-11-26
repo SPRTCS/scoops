@@ -204,7 +204,7 @@ final class MockService: BotService {
         let modern = !ProcessInfo.processInfo.arguments.contains("-oldserver")
         return Health(ok: true, version: "demo", userName: "Arman", search: modern, messageEdit: modern,
                       today: modern && guestServer == nil, mute: modern, quietHours: modern,
-                      templates: modern ? 1 : nil)
+                      templates: modern ? 1 : nil, taskArchiveCleanup: modern)
     }
 
     func bots() async throws -> [Bot] {

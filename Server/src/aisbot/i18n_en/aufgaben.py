@@ -68,8 +68,8 @@ TEXTS: dict = {
     "Für „Projektordner“ bitte mindestens einen Ordner wählen.": "For “Project Folders,” choose at least one folder.",
     "Nur offene oder geplante Aufgaben lassen sich so starten.": "Only open or scheduled tasks can be started this way.",
     "Nur offene oder geplante Aufgaben lassen sich ändern.": "Only open or scheduled tasks can be changed.",
-    "Nur offene oder geplante Aufgaben lassen sich löschen; erledigte archivieren.":
-        "Only open or scheduled tasks can be deleted; archive finished ones instead.",
+    "Nur offene, geplante oder archivierte Aufgaben lassen sich löschen; erledigte erst archivieren.":
+        "Only open, scheduled, or archived tasks can be deleted; archive finished ones first.",
     "Die Aufgabe ist nicht archiviert.": "The task isn't archived.",
     "Was soll nachgearbeitet werden?": "What should be reworked?",
     "Die Aufgabe läuft noch oder ist geplant.": "The task is still running or scheduled.",

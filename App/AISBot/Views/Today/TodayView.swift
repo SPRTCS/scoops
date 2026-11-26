@@ -21,6 +21,8 @@ struct TodayView: View {
     /// „Ablehnen“ auf einer Karte unter „Zum Prüfen“: optionaler Kommentar, dann zurück in Arbeit
     @State private var rejecting: BotTask?
     @State private var rejectNote = ""
+    /// Zähler im Kopf angetippt: zu diesem Abschnitt scrollen
+    @State private var jumpTo: TodayCounter?
 
     private var today: TodayStore { store.today }
 
@@ -47,7 +49,7 @@ struct TodayView: View {
     }
 
     private var waitingCount: Int { today.waitingCount }
-    private var runningCount: Int { today.runningChats.count + today.runningTasks.count }
+    private var runningCount: Int { today.runningCount }
 
     private var hasWaiting: Bool { !today.approvalItems.isEmpty || !today.questions.isEmpty }
 
@@ -56,6 +58,7 @@ struct TodayView: View {
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 header
@@ -64,10 +67,10 @@ struct TodayView: View {
                 } else if isEmpty {
                     emptyState
                 } else {
-                    if hasWaiting { waitingSection }
-                    if !today.review.isEmpty { reviewSection }
-                    if runningCount > 0 { runningSection }
-                    if !planned.isEmpty { plannedSection }
+                    if hasWaiting { waitingSection.id(TodayCounter.waiting) }
+                    if !today.review.isEmpty { reviewSection.id(TodayCounter.review) }
+                    if runningCount > 0 { runningSection.id(TodayCounter.running) }
+                    if !planned.isEmpty { plannedSection.id(TodayCounter.planned) }
                     if !done.isEmpty || !unread.isEmpty { doneSection }
                 }
             }
@@ -77,6 +80,12 @@ struct TodayView: View {
             .frame(maxWidth: 780, alignment: .leading)
             .frame(maxWidth: .infinity)
             .animation(.snappy(duration: 0.3), value: today.approvalItems.map(\.id))
+        }
+        .onChange(of: jumpTo) { _, target in
+            guard let target else { return }
+            withAnimation(.snappy(duration: 0.35)) { proxy.scrollTo(target, anchor: .top) }
+            jumpTo = nil
+        }
         }
         .scrollIndicators(.automatic)
         .background(theme.background.ignoresSafeArea())
@@ -130,47 +139,56 @@ struct TodayView: View {
 
     // MARK: Kopf
 
+    /// Datum klein über dem Titel, darunter Zähler (antippen springt zum Abschnitt)
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                if !inStack {
-                    Text("Heute")
-                        .appFont(28, weight: .bold)
-                        .foregroundStyle(theme.textPrimary)
-                        .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(today.clock.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Formatting.locale)).uppercased())
+                        .appFont(13, weight: .semibold)
+                        .tracking(0.5)
+                        .foregroundStyle(theme.textSecondary)
+                    if !inStack {
+                        Text("Heute")
+                            .appFont(34, weight: .bold)
+                            .foregroundStyle(theme.textPrimary)
+                            .accessibilityAddTraits(.isHeader)
+                    }
                 }
-                Text(today.clock.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Formatting.locale)))
-                    .appFont(15, weight: .medium)
-                    .foregroundStyle(theme.textSecondary)
-                if today.loaded, !isEmpty {
-                    Text(summary)
-                        .appFont(15)
-                        .foregroundStyle(waitingCount > 0 ? theme.textPrimary : theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 2)
+                Spacer(minLength: 8)
+                if today.loading && today.loaded { ProgressView().controlSize(.small) }
+                #if os(macOS)
+                CircleIconButton(systemName: "arrow.clockwise", help: "Aktualisieren (⌘R)", size: 30) {
+                    Task { await today.load() }
+                }
+                .keyboardShortcut("r", modifiers: .command)
+                #endif
+            }
+            if today.loaded, !isEmpty {
+                let counters = TodayCounter.allCases.map { ($0, $0.count(today)) }.filter { $0.1 > 0 }
+                if counters.isEmpty {
+                    Text("Gerade wartet nichts auf dich.").appFont(15).foregroundStyle(theme.textSecondary)
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { headerChips(counters) }
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) { headerChips(Array(counters.prefix(2))) }
+                            HStack(spacing: 8) { headerChips(Array(counters.dropFirst(2))) }
+                        }
+                    }
                 }
             }
-            Spacer(minLength: 8)
-            if today.loading && today.loaded { ProgressView().controlSize(.small).padding(.top, 8) }
-            #if os(macOS)
-            CircleIconButton(systemName: "arrow.clockwise", help: "Aktualisieren (⌘R)", size: 30) {
-                Task { await today.load() }
-            }
-            .keyboardShortcut("r", modifiers: .command)
-            #endif
         }
     }
 
-    /// Ein Satz, der sagt, worum es heute geht
-    private var summary: String {
-        var parts: [String] = []
-        if let waiting = today.waitingText { parts.append(waiting) }
-        let review = today.review.count
-        if review > 0 { parts.append(String(localized: "\(review) Aufgaben zum Prüfen")) }
-        let running = runningCount
-        if running > 0 { parts.append(String(localized: "\(running) Scoops arbeiten")) }
-        if parts.isEmpty { return String(localized: "Gerade wartet nichts auf dich.") }
-        return parts.joined(separator: " · ")
+    private func headerChips(_ items: [(TodayCounter, Int)]) -> some View {
+        ForEach(items, id: \.0) { counter, count in
+            Button { jumpTo = counter } label: {
+                TodayCountChip(counter: counter, count: count, long: true, large: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isButton)
+        }
     }
 
     // MARK: Laden und leerer Zustand

@@ -316,15 +316,21 @@ def status_line(name: str, inp: dict) -> str:
 _ANNOUNCE = re.compile(
     r"\bich\s+(?:schaue?|sehe|gucke?|prüfe|checke|teste|probiere|versuche|suche|hole|lese|öffne|starte|mache|"
     r"kümmere\s+mich|poste|schicke|sende|logge|melde\s+mich|wechsle|klicke|nehme|recherchiere|frage)\b"
-    r"[^.!?\n]{0,60}?\b(?:jetzt|gleich|sofort|direkt|gerade|kurz|als\s+nächstes|nun)\b"
-    r"|\b(?:jetzt|gleich|sofort|direkt|kurz)\s+(?:schaue|prüfe|teste|suche|hole|öffne|starte|mache|poste|logge)\s+ich\b"
+    r"[^.!?\n]{0,60}?(?<!\bab\s)(?<!\bvon\s)\b(?:jetzt|gleich|sofort|direkt|gerade|kurz|als\s+nächstes|nun)\b"
+    r"|(?<!\bab\s)(?<!\bvon\s)\b(?:jetzt|gleich|sofort|direkt|kurz)\s+(?:schaue|prüfe|teste|suche|hole|öffne|starte|mache|poste|logge)\s+ich\b"
     r"|\bich\s+melde\s+mich,?\s+(?:sobald|wenn)\b"
     r"|\bdafür\s+(?:nehme|mache|öffne)\s+ich\b",
     re.IGNORECASE)
 NUDGE = ("[System, nicht vom Nutzer] Du hast gerade angekündigt, etwas zu tun, aber kein Werkzeug aufgerufen. "
          "Dein Zug endet sonst hier und nichts passiert. Tu es jetzt mit deinen Werkzeugen. Wenn du es nicht "
-         "kannst oder erst eine Antwort von Arman brauchst, sag das klar in einem Satz, ohne erneut etwas anzukündigen.")
+         "kannst oder erst eine Antwort von Arman brauchst, sag das klar in einem Satz, ohne erneut etwas anzukündigen. "
+         "Ist nichts offen (schon erledigt, oder du hast nur beschrieben, wie du es künftig machst), antworte nur mit OK. "
+         "Inhalte aus deiner Antwort davor wiederholst du nicht, die bleiben stehen.")
 MAX_NUDGES = 2
+# Antworten vor einem Nachhaken bleiben stehen, wenn sie mehr sind als die bloße Ankündigung (z. B. ein ganzer Digest,
+# der nebenbei „ab jetzt prüfe ich …“ sagt). Sonst ersetzte die Antwort aufs Nachhaken den eigentlichen Inhalt.
+NUDGE_KEEP = 280
+_ANNOUNCE_TAIL = 400  # Ankündigungen stehen am Ende; ein langer Text davor ist Inhalt, keine Ankündigung
 # Weiche Abgabe an den Aufgabenmodus (1.22): Hat ein Chat-Lauf schon viele Werkzeug-/Bildschirmschritte gemacht und gibt es
 # `aufgabe_starten`, bekommt der Scoop einmal den Hinweis, den Rest als Hintergrund-Aufgabe abzugeben. Keine Zwangsumleitung.
 HANDOFF_AFTER = 12
@@ -350,7 +356,21 @@ def announces_action(text: str) -> bool:
     t = (text or "").strip()
     if not t or t.endswith("?"):
         return False
-    return bool(_ANNOUNCE.search(t))
+    return bool(_ANNOUNCE.search(t[-_ANNOUNCE_TAIL:]))
+
+
+def after_nudges(before: list[str], final: str) -> str:
+    """Schlussantwort nach einem oder mehreren Nachhaken: Inhalt aus den Antworten davor bleibt erhalten, bloße
+    Ankündigungen fallen weg, ein „OK“ (nichts offen) zählt nicht als eigene Antwort."""
+    if not before:
+        return final
+    kept = [t.strip() for t in before if len((t or "").strip()) > NUDGE_KEEP]
+    f = (final or "").strip()
+    if re.fullmatch(r"ok[.!]?", f, re.IGNORECASE):
+        parts = kept or [b.strip() for b in before[-1:]]
+    else:
+        parts = kept + ([f] if f else [])
+    return "\n\n".join(p for p in parts if p) or final
 
 
 def mcp_line(server: str, name: str, inp: dict) -> str:
@@ -505,7 +525,7 @@ class Engine:
             return computer
 
         final_text, stop_reason, step = "", "", 0
-        nudges, handed_off = 0, False
+        nudges, handed_off, nudged = 0, False, []
         tool_steps, hinted = 0, False
         try:
             while step < max_steps:
@@ -592,8 +612,10 @@ class Engine:
                     if (stop_reason == "end_turn" and nudges < MAX_NUDGES and not handed_off
                             and announces_action(final_text)):
                         nudges += 1
+                        nudged.append(final_text)
                         messages.append({"role": "user", "content": [{"type": "text", "text": NUDGE}]})
                         continue
+                    final_text = after_nudges(nudged, final_text)
                     break
 
                 handed_off = handed_off or any(hands_off(tu.name) for tu in tool_uses)

@@ -22,8 +22,8 @@ import httpx
 
 from .config import UsageBook
 from .i18n import N_, translate, tx
-from .engine import (HANDOFF_HINT, MAX_NUDGES, NUDGE, Engine, ExtraTool, Outcome, announces_action, handoff_due, hands_off,
-                     mcp_line, status_line)
+from .engine import (HANDOFF_HINT, MAX_NUDGES, NUDGE, Engine, ExtraTool, Outcome, after_nudges, announces_action,
+                     handoff_due, hands_off, mcp_line, status_line)
 
 from . import models_catalog as _catalog  # noqa: E402
 
@@ -331,7 +331,7 @@ class OpenAIEngine:
             instructions += ("\n\nDeinen Mac bedienst du direkt mit dem Werkzeug computer (Bildschirmfoto ansehen, klicken, tippen, "
                              "Tasten). Fang mit einem Bildschirmfoto an, wenn du den Bildschirm brauchst.")
         final_text, stop_reason, step = "", "", 0
-        nudges, handed_off = 0, False
+        nudges, handed_off, nudged = 0, False, []
         tool_steps, hinted = 0, False
         try:
             while step < max_steps:
@@ -384,8 +384,10 @@ class OpenAIEngine:
                     stop_reason = "end_turn"
                     if nudges < MAX_NUDGES and not handed_off and announces_action(final_text):
                         nudges += 1
+                        nudged.append(final_text)
                         inp.append({"role": "user", "content": [{"type": "input_text", "text": NUDGE}]})
                         continue
+                    final_text = after_nudges(nudged, final_text)
                     break
                 if work_effort and effort != work_effort:
                     effort = work_effort  # schnell antworten, beim Arbeiten gründlicher denken

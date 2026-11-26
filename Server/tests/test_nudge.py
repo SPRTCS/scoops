@@ -10,8 +10,8 @@ from types import SimpleNamespace as NS
 os.environ.setdefault("AISBOT_SKIP_CONVEX", "1")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from aisbot.engine import (HANDOFF_AFTER, NUDGE, ComputerHub, Engine, ExtraTool, announces_action,  # noqa: E402
-                           handoff_due)
+from aisbot.engine import (HANDOFF_AFTER, NUDGE, ComputerHub, Engine, ExtraTool, after_nudges,  # noqa: E402
+                           announces_action, handoff_due)
 
 passed = 0
 
@@ -60,6 +60,21 @@ ok(announces_action("Ich schaue jetzt in Dia nach, welcher Account aktiv ist."),
 ok(announces_action("Ich melde mich, sobald ich den Account bestätigt habe."), "„ich melde mich, sobald“")
 ok(not announces_action("Soll ich jetzt posten?"), "Frage an Arman zählt nicht")
 ok(not announces_action("Erledigt, ich habe es gepostet."), "Ergebnis zählt nicht")
+ok(not announces_action("Ja, ab jetzt prüfe ich jede Meldung an der Originalquelle."), "„ab jetzt prüfe ich“ ist eine Regel, keine Ankündigung")
+ok(not announces_action("Ich prüfe ab sofort jede Quelle selbst. Von jetzt an prüfe ich auch die Daten."), "„ab sofort“, „von jetzt an“")
+DIGEST = ("Ich schaue jetzt nach, ob es Neues gibt. " + "Meldung mit Quelle und Prüfung. " * 20
+          + "Nichts gepostet, für eine Veröffentlichung brauche ich deine Freigabe.")
+ok(not announces_action(DIGEST), "Ankündigung nur am Anfang eines langen Inhalts zählt nicht")
+ok(announces_action("Hier der Stand. " * 40 + "Ich poste das jetzt auf X."), "Ankündigung am Ende eines langen Texts zählt")
+
+print("Inhalt vor dem Nachhaken bleibt erhalten (Digest 22.11.)")
+LONG = "KI-Digest. " + "Geprüfte Meldung mit Quelle. " * 15 + "Ich melde mich, sobald es Neues gibt."
+ok(after_nudges([LONG], "OK") == LONG.strip(), "„OK“ → der Digest bleibt die Antwort")
+ok(after_nudges([LONG], "Ich habe nichts angekündigt.") == LONG.strip() + "\n\nIch habe nichts angekündigt.",
+   "Antwort aufs Nachhaken kommt dazu, ersetzt aber nicht")
+ok(after_nudges(["Ich schaue jetzt nach."], "@x ist aktiv.") == "@x ist aktiv.", "bloße Ankündigung fällt weg")
+ok(after_nudges(["Ich prüfe das gleich."], "ok.") == "Ich prüfe das gleich.", "nur „OK“ → nicht leer")
+ok(after_nudges([], "Fertig.") == "Fertig.", "ohne Nachhaken unverändert")
 
 print("Claude-Engine")
 looked = []
@@ -69,6 +84,8 @@ out, c, n = run([([text("Ich schaue jetzt nach, welcher Account aktiv ist.")], "
                  ([tool("nachsehen")], "tool_use"),
                  ([text("@beispielkonto ist aktiv. Soll ich posten?")], "end_turn")], [peek])
 ok(n == 1 and looked and out.final_text.startswith("@beispielkonto ist aktiv"), "Ankündigung → weitergeschickt, handelt, echtes Ergebnis")
+out, c, n = run([([text(LONG)], "end_turn"), ([text("OK")], "end_turn")])
+ok(n == 1 and out.final_text == LONG.strip(), "Engine: Digest mit Ankündigung am Ende, Antwort „OK“ → Digest bleibt stehen")
 out, c, n = run([([text("Ich prüfe das gleich.")], "end_turn")] * 3)
 ok(n == 2 and len(c.sent) == 3, "höchstens zweimal weitergeschickt, dann Schluss")
 out, c, n = run([([text("Erledigt.")], "end_turn")])

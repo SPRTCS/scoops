@@ -5560,6 +5560,126 @@
           }
         }
       }
+    },
+    "Auch zugeklappt wach bleiben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stay awake with the lid closed"
+          }
+        }
+      }
+    },
+    "Einschalten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn On…"
+          }
+        }
+      }
+    },
+    "An" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        }
+      }
+    },
+    "Nur am Netzteil …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only on Power Adapter…"
+          }
+        }
+      }
+    },
+    "Zugeklappt wach bleiben?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stay awake with the lid closed?"
+          }
+        }
+      }
+    },
+    "Einschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn On"
+          }
+        }
+      }
+    },
+    "Am Netzteil schläft dieser Mac dann auch mit geschlossenem Deckel nicht ein, damit Scoops weiterarbeiten. Ohne Strom schläft er wie gewohnt ein, zugeklappt sofort. Ein zugeklappter, laufender Mac wird warm: Steck ihn nicht am Strom in eine Tasche. macOS fragt einmal nach deinem Passwort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On the power adapter, this Mac won't sleep even with the lid closed, so Scoops can keep working. On battery it sleeps as usual, and right away if the lid is closed. A closed Mac that keeps running gets warm: don't put it in a bag while it's plugged in. macOS asks for your password once."
+          }
+        }
+      }
+    },
+    "Zugeklappt wieder schlafen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep again when the lid is closed?"
+          }
+        }
+      }
+    },
+    "Beim Zuklappen schläft der Mac dann wieder ein, und Scoops sind so lange nicht erreichbar. macOS fragt nach deinem Passwort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Mac will sleep again when you close the lid, and Scoops can't be reached until you open it. macOS asks for your password."
+          }
+        }
+      }
+    },
+    "Normalerweise schläft ein MacBook beim Zuklappen ein. Mit dieser Option bleibt es am Netzteil wach, ohne Strom schläft es wie gewohnt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A MacBook normally sleeps when you close the lid. With this option it stays awake on the power adapter and sleeps as usual on battery."
+          }
+        }
+      }
+    },
+    "Am Netzteil bleibt der Mac auch zugeklappt wach. Ohne Strom schläft er wie gewohnt ein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On the power adapter, the Mac stays awake with the lid closed. On battery it sleeps as usual."
+          }
+        }
+      }
+    },
+    "Ist dauerhaft an, auch ohne Strom. Zugeklappt in der Tasche wird der Mac dann warm und leert den Akku. Besser: nur am Netzteil." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always on, even on battery. Closed in a bag, the Mac gets warm and drains its battery. Better: only on the power adapter."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

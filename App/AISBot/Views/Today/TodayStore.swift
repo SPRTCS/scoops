@@ -109,6 +109,12 @@ final class TodayStore {
         return planned.filter { $0.at <= end }.sorted { $0.at < $1.at }
     }
 
+    /// Zähler „heute geplant“ (Widget in der Seitenleiste, Kopf der Seite)
+    var plannedCount: Int { plannedTasks.count + plannedRoutines.count }
+
+    /// Arbeitende Scoops und Aufgaben (Zähler „arbeiten“)
+    var runningCount: Int { runningChats.count + runningTasks.count }
+
     /// „Seit gestern erledigt“: abgenommene Aufgaben seit `since`
     var doneTasks: [BotTask] {
         let start = since ?? clock.addingTimeInterval(-24 * 3600)

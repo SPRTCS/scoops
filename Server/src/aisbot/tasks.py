@@ -36,6 +36,7 @@ from . import access as access_mod
 from . import workspace
 from . import demo
 from . import i18n
+from . import vault
 from .computer_tools import FILE_TOOL_NAMES
 from .i18n import tx
 
@@ -73,7 +74,9 @@ DEFAULTS = {
     "task_max_minutes": 60,      # Arbeitszeit je Aufgabe (Wartezeit auf Freigaben zählt nicht)
     "task_openai_engine": "auto",  # "auto" (Codex, sonst Responses-Schleife) | "codex" | "responses"
     "task_effort": "medium",     # Denkaufwand der Claude-Aufgaben
+    "task_archive_days": 0,      # archivierte Aufgaben nach so vielen Tagen löschen (0 = nie), Board 1.40
 }
+MAX_ARCHIVE_DAYS = 3650
 MAX_BUDGET, MAX_MINUTES = 25.0, 8 * 60
 
 # Pfade, die eine Aufgabe nie lesen darf (Zugangsdaten, andere Chats, Server-Daten). Der eigene Arbeitsordner liegt
@@ -195,6 +198,10 @@ def settings(cfg: dict | None = None) -> dict:
     out["task_max_parallel"] = max(1, min(int(out["task_max_parallel"] or 3), 10))
     out["task_budget_usd"] = max(0.1, min(float(out["task_budget_usd"] or 3), MAX_BUDGET))
     out["task_max_minutes"] = max(1, min(int(out["task_max_minutes"] or 60), MAX_MINUTES))
+    try:
+        out["task_archive_days"] = max(0, min(int(out["task_archive_days"] or 0), MAX_ARCHIVE_DAYS))
+    except (TypeError, ValueError):
+        out["task_archive_days"] = 0
     return out
 
 
@@ -788,15 +795,63 @@ class TaskService:
         return self.public(self.row(task_id))
 
     def delete_planned(self, task_id: str) -> bool:
+        """Offene, geplante oder archivierte Aufgabe löschen (archivierte ab Server 1.40)."""
         t = self.row(task_id)
         if not t:
             return False
+        if t.get("review") == "archived" and t["state"] in FINAL:
+            return self._delete_archived([t]) == 1
         if t["state"] not in NOT_STARTED:
-            raise TaskError(tx("Nur offene oder geplante Aufgaben lassen sich löschen; erledigte archivieren."))
+            raise TaskError(tx("Nur offene, geplante oder archivierte Aufgaben lassen sich löschen; erledigte erst archivieren."))
         self.db.q("DELETE FROM tasks WHERE id=? AND state IN ('open','scheduled')", (task_id,))
         shutil.rmtree(t["workdir"], ignore_errors=True)
         self.svc.publish("task.deleted", {"id": task_id})
         return True
+
+    # -- Archiv aufräumen (1.40) -------------------------------------------------------------------------------------
+    def _archived_rows(self, bot_id: str | None = None, before: datetime | None = None) -> list[dict]:
+        sql, args = "SELECT * FROM tasks WHERE review='archived'", []
+        if bot_id:
+            sql += " AND bot_id=?"
+            args.append(bot_id)
+        rows = [dict(r) for r in self.db.q(sql, tuple(args))]
+        if before is None:
+            return rows
+
+        def when(t: dict) -> datetime | None:
+            # Aufgaben ohne archived_at (archiviert vor dieser Spalte) zählen ab ihrer letzten Änderung
+            raw = t.get("archived_at") or t.get("updated_at")
+            try:
+                d = datetime.fromisoformat(str(raw))
+            except (TypeError, ValueError):
+                return None
+            return d if d.tzinfo else d.replace(tzinfo=TZ)
+        return [t for t in rows if (d := when(t)) is not None and d < before]
+
+    def _delete_archived(self, rows: list[dict]) -> int:
+        """Löscht archivierte Aufgaben samt Arbeitsordner. Ergebnisdateien liegen schon in der Bibliothek des Chats."""
+        n = 0
+        for t in rows:
+            if t.get("review") != "archived" or t.get("state") not in FINAL:
+                continue
+            self.db.q("DELETE FROM tasks WHERE id=? AND review='archived'", (t["id"],))
+            wd = Path(t["workdir"]).resolve()
+            if wd.parent == TASK_DIR.resolve():
+                shutil.rmtree(wd, ignore_errors=True)
+            self.svc.publish("task.deleted", {"id": t["id"]})
+            n += 1
+        return n
+
+    def clear_archive(self, bot_id: str | None = None) -> int:
+        """„Archiv leeren“: alle archivierten Aufgaben (optional nur eines Scoops) endgültig löschen."""
+        return self._delete_archived(self._archived_rows(bot_id))
+
+    def purge_archived(self, days: int | None = None) -> int:
+        """Automatisch: archivierte Aufgaben löschen, die älter als `task_archive_days` Tage sind (0 = nie)."""
+        days = settings()["task_archive_days"] if days is None else days
+        if not days or days <= 0:
+            return 0
+        return self._delete_archived(self._archived_rows(before=datetime.now(TZ) - timedelta(days=days)))
 
     # -- Abnahme (Board) ---------------------------------------------------------------------------------------------
     def accept(self, task_id: str) -> dict:
@@ -1425,12 +1480,34 @@ Regeln:
                                        ["datei_id"], aus_bibliothek, tx("Holt eine Datei aus der Bibliothek")),
         })
         tools.update(self._hub_tools(run))
+        login = tools.get("login_ausfuellen")  # der Bildschirm-Helfer füllt mit dem Original aus, er hält den Rechner
+        if login:
+            tools["login_ausfuellen"] = self._task_login(run, login)
         tools["bildschirm_aufgabe"] = mk("bildschirm_aufgabe", "Erledigt eine Teilaufgabe auf deinem eigenen Mac-Bildschirm (Browser, "
                                          "Programme, angemeldete Webseiten), z. B. etwas auf einer Webseite nachsehen, die einen Login "
-                                         "braucht. auftrag = vollständige Beschreibung inkl. gewünschtem Ergebnis.",
-                                         {"auftrag": s}, ["auftrag"], lambda i: self._screen(run, i),
+                                         "braucht. Für einen Login aus dem Tresor nenne die eintrag_id (v_…): Der Helfer füllt ihn "
+                                         "selbst aus. auftrag = vollständige Beschreibung inkl. gewünschtem Ergebnis.",
+                                         {"auftrag": s}, ["auftrag"], lambda i: self._screen(run, i, login),
                                          tx("Arbeitet am Bildschirm"))
         return tools
+
+    @staticmethod
+    def _task_login(run: Run, ex: ExtraTool) -> ExtraTool:
+        """`login_ausfuellen` auf Ebene der Aufgabe: Ohne belegten Rechner sagt es, wie es in Aufgaben geht (einen
+        Screenshot kann die Aufgabe selbst nicht machen, den Bildschirm bedient der Helfer oder Computer Use)."""
+
+        def fn(i: dict):
+            out = ex.handler(i)
+            if out != vault.NOT_ACTIVE:
+                return out
+            gate = run.__dict__.get("_cu_gate")
+            if gate is not None and not gate.failed:
+                return ("Noch nicht ausgefüllt: Der Rechner ist erst belegt, wenn du computer-use benutzt. Bring die Seite "
+                        "nach vorn, klick mit computer-use ins Feld und ruf login_ausfuellen sofort noch einmal auf.")
+            return ("Noch nicht ausgefüllt: In Aufgaben füllt der Bildschirm-Helfer den Login aus. Gib `bildschirm_aufgabe` den "
+                    f"Auftrag: Seite öffnen, ins Benutzername-Feld klicken, login_ausfuellen mit eintrag_id {i.get('eintrag_id')}, "
+                    f"feld „{i.get('feld') or 'beides'}“, absenden {'ja' if i.get('absenden') else 'nein'}, danach die Anmeldung prüfen.")
+        return ExtraTool(ex.schema, fn, ex.status)
 
     def _wrap_async_approval(self, ex: ExtraTool) -> ExtraTool:
         """Karten-Werkzeuge (Mail, Anruf, Apple-Löschen) führen nach der Freigabe selbst aus und melden im Chat.
@@ -1552,7 +1629,7 @@ Regeln:
                                              nutzen, None)),
         }
 
-    def _screen(self, run: Run, i: dict) -> str:
+    def _screen(self, run: Run, i: dict, login: ExtraTool | None = None) -> str:
         from .prompts import base_rules
         t = run.task
         gate = run.__dict__.get("_cu_gate")
@@ -1572,6 +1649,11 @@ Regeln:
         w, h = hub.screen_size()
         sys_text = ("Du bist ein Helfer, der für einen anderen Assistenten eine Teilaufgabe auf dem Mac erledigt.\n\n"
                     + base_rules(w, h, self.svc.user_name) + "\n\nAntworte am Ende knapp mit dem Ergebnis (was du gesehen/getan hast).")
+        helper_tools = [login] if login else []
+        if login and (entries := self.db.vault_entries()):
+            sys_text += ("\n\nTresor (Passwörter siehst du nie): Für eine Anmeldung die Seite in Safari, Chrome oder Dia nach vorn "
+                         "holen, ins Benutzername-Feld klicken und login_ausfuellen aufrufen (feld „beides“, nur den im Auftrag "
+                         "genannten Eintrag):\n" + "\n".join(f"- {e['id']}: {e['title']} ({e['domain']})" for e in entries))
         from . import abos
         if abos.route("claude") == "abo" and getattr(self.svc, "claude_abo", None):
             # Claude-Abo (docs/abos.md): Bildschirm über Claude Code mit dem MCP-Werkzeug „bildschirm“
@@ -1579,7 +1661,7 @@ Regeln:
                 sub = self.svc.claude_abo.run(
                     system=sys_text, messages=[{"role": "user", "content": str(i.get("auftrag") or "")}],
                     model=SCREEN_MODEL, effort="medium", holder=t["bot_id"], on_line=run.progress.line, cancel=run.cancel,
-                    hub=hub, allow_web=False)
+                    hub=hub, allow_web=False, extra_tools=helper_tools)
                 for m, u in sub.usage.by_model.items():
                     self.db.add_usage(t["bot_id"], m, u)
                 return sub.final_text or f"(keine Antwort, Status {sub.stop_reason})"
@@ -1591,7 +1673,7 @@ Regeln:
             system=sys_text,
             messages=[{"role": "user", "content": str(i.get("auftrag") or "")}], model=SCREEN_MODEL, escalation_model=None,
             effort="medium", budget=min(1.0, max(0.1, t["budget_usd"] - (t.get("cost_usd") or 0))), holder=t["bot_id"],
-            on_line=run.progress.line, cancel=run.cancel, hub=hub)
+            on_line=run.progress.line, cancel=run.cancel, hub=hub, extra_tools=helper_tools)
         sub_usage = {m: u for m, u in sub.usage.by_model.items()}
         _add_usage(run.usage, sub_usage)
         return sub.final_text or f"(keine Antwort, Status {sub.stop_reason})"

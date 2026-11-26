@@ -77,6 +77,8 @@ extension PreviewData {
 final class MockTaskStore {
     static let shared = MockTaskStore()
     var tasks: [BotTask] = PreviewData.tasks
+    /// „Automatisch löschen“ im Archiv (0 = nie)
+    var archiveDays = 0
     private var counter = 0
 
     func nextID() -> String {
@@ -157,6 +159,19 @@ extension MockService: TaskBoardService {
     func deleteTask(id: String) async throws {
         store.tasks.removeAll { $0.id == id }
         onEvent?(.taskDeleted(id: id))
+    }
+
+    func clearTaskArchive(botID: String?) async throws -> Int {
+        let ids = store.tasks.filter { $0.boardColumn == .archived && (botID == nil || $0.botId == botID) }.map(\.id)
+        for id in ids { try await deleteTask(id: id) }
+        return ids.count
+    }
+
+    func taskArchiveDays() async throws -> Int { store.archiveDays }
+
+    func setTaskArchiveDays(_ days: Int) async throws -> Int {
+        store.archiveDays = days
+        return days
     }
 
     func taskAction(id: String, action: TaskAction, message: String?) async throws -> BotTask {

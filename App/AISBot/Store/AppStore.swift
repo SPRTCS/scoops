@@ -321,6 +321,7 @@ final class AppStore {
         #endif
         taskBoard.service = { [weak self] in self?.service as? TaskBoardService }
         taskBoard.onError = { [weak self] error in self?.report(error) }
+        taskBoard.supportsArchiveCleanup = { [weak self] in self?.serverHealth?.taskArchiveCleanup == true }
         taskBoard.searchNames = { [weak self] task in
             guard let self else { return [] }
             return [self.bot(task.botId)?.title, ChatGroup.isGroupID(task.chatId) ? self.group(task.chatId)?.name : nil]

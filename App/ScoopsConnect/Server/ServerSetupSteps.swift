@@ -513,6 +513,10 @@ struct AwakeStep: View {
                         Button("Ausschalten …") { confirmSleep = true }.disabled(controller.test)
                     }
                 }
+                if LidAwake.hasLid {
+                    Divider()
+                    LidAwakeRow(disabled: controller.test)
+                }
                 Divider()
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -537,6 +541,71 @@ struct AwakeStep: View {
             Button("Abbrechen", role: .cancel) {}
         } message: {
             Text("Es wird „pmset -a sleep 0“ ausgeführt. macOS zeigt dafür den Passwort-Dialog. Rückgängig: Systemeinstellungen → Energie.")
+        }
+    }
+}
+
+/// „Auch zugeklappt wach bleiben“ (nur MacBooks): Systemdienst, der den Ruhezustand am Netzteil abschaltet.
+/// Im Assistenten (Dauerbetrieb) und in den Einstellungen.
+struct LidAwakeRow: View {
+    var disabled = false
+    @State private var state = LidAwake.State.off
+    @State private var confirmOn = false
+    @State private var confirmOff = false
+    @State private var message: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Auch zugeklappt wach bleiben").font(.headline)
+                    Text(caption).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                switch state {
+                case .off:
+                    Button("Einschalten …") { confirmOn = true }.disabled(disabled)
+                case .onPowerOnly:
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Label("An", systemImage: "checkmark.circle.fill").font(.caption.weight(.medium)).foregroundStyle(.green)
+                        Button("Ausschalten …") { confirmOff = true }.disabled(disabled)
+                    }
+                case .always:
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Button("Nur am Netzteil …") { confirmOn = true }.disabled(disabled)
+                        Button("Ausschalten …") { confirmOff = true }.disabled(disabled)
+                    }
+                }
+            }
+            if let message { InfoBox(style: .warning, text: "\(message)") }
+        }
+        .task { state = LidAwake.state }
+        .onAppBecomesActive { state = LidAwake.state }
+        .alert("Zugeklappt wach bleiben?", isPresented: $confirmOn) {
+            Button("Einschalten") {
+                message = LidAwake.enable()
+                state = LidAwake.state
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Am Netzteil schläft dieser Mac dann auch mit geschlossenem Deckel nicht ein, damit Scoops weiterarbeiten. Ohne Strom schläft er wie gewohnt ein, zugeklappt sofort. Ein zugeklappter, laufender Mac wird warm: Steck ihn nicht am Strom in eine Tasche. macOS fragt einmal nach deinem Passwort.")
+        }
+        .alert("Zugeklappt wieder schlafen?", isPresented: $confirmOff) {
+            Button("Ausschalten") {
+                message = LidAwake.disable()
+                state = LidAwake.state
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Beim Zuklappen schläft der Mac dann wieder ein, und Scoops sind so lange nicht erreichbar. macOS fragt nach deinem Passwort.")
+        }
+    }
+
+    private var caption: LocalizedStringKey {
+        switch state {
+        case .off: "Normalerweise schläft ein MacBook beim Zuklappen ein. Mit dieser Option bleibt es am Netzteil wach, ohne Strom schläft es wie gewohnt."
+        case .onPowerOnly: "Am Netzteil bleibt der Mac auch zugeklappt wach. Ohne Strom schläft er wie gewohnt ein."
+        case .always: "Ist dauerhaft an, auch ohne Strom. Zugeklappt in der Tasche wird der Mac dann warm und leert den Akku. Besser: nur am Netzteil."
         }
     }
 }

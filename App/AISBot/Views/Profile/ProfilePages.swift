@@ -9,6 +9,8 @@ import AVFoundation
 /// Unterseiten des Profils. `rawValue` = Name für das Startargument `-profilepage` (z. B. `manage,costs`).
 enum ProfilePage: String, Hashable, CaseIterable {
     case library, model, personality, sharing, guestTools, manage, routines, skills, memory, costs
+    /// Dauerhafte Freigaben: Liste der Werkzeuge bzw. die Freigaben eines Werkzeugs (`ProfileRouter.standingGroup`)
+    case standing, standingGroup
 
     var title: String {
         switch self {
@@ -22,6 +24,7 @@ enum ProfilePage: String, Hashable, CaseIterable {
         case .skills: String(localized: "Fähigkeiten")
         case .memory: String(localized: "Gedächtnis")
         case .costs: String(localized: "Kosten")
+        case .standing, .standingGroup: String(localized: "Dauerhafte Freigaben")
         }
     }
 
@@ -37,6 +40,7 @@ enum ProfilePage: String, Hashable, CaseIterable {
         case .skills: "wand.and.stars"
         case .memory: "brain"
         case .costs: "dollarsign.circle"
+        case .standing, .standingGroup: "checkmark.seal"
         }
     }
 
@@ -50,6 +54,7 @@ enum ProfilePage: String, Hashable, CaseIterable {
         case .model: return guest == nil
         case .sharing, .guestTools: return store.canShare(botID)
         case .personality, .routines, .skills, .memory: return canEdit
+        case .standing, .standingGroup: return guest == nil
         }
     }
 
@@ -83,10 +88,24 @@ final class ProfileRouter {
     func close() { onClose() }
     func popToRoot() { if !path.isEmpty { path = [] } }
 
+    /// Werkzeug der Seite `.standingGroup` (Id der Gruppe und Titel, z. B. „Keynote“)
+    var standingGroup: (id: String, title: String)?
+
+    func openStandingGroup(id: String, title: String) {
+        standingGroup = (id, title)
+        path.append(.standingGroup)
+    }
+
+    /// Titel einer Seite in der Kopfleiste; die Werkzeug-Seite heißt wie das Werkzeug
+    func title(for page: ProfilePage) -> String {
+        if page == .standingGroup, let g = standingGroup { return g.title }
+        return page.title
+    }
+
     /// Titel des Zurück-Knopfs: die Seite darunter
     func backTitle(for page: ProfilePage?) -> String {
         guard let page, let i = path.lastIndex(of: page), i > 0 else { return String(localized: "Profil") }
-        return path[i - 1].title
+        return title(for: path[i - 1])
     }
 }
 
@@ -220,7 +239,7 @@ struct ProfileScaffold<Content: View>: View {
     private var bar: some View {
         ZStack {
             if let page {
-                Text(page.title)
+                Text(router?.title(for: page) ?? page.title)
                     .appFont(17, weight: .semibold)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
@@ -370,6 +389,8 @@ struct ProfilePageView: View {
         case .skills: SkillList(botID: botID)
         case .memory: MemoryList(botID: botID)
         case .costs: CostSection(bot: bot)
+        case .standing: StandingApprovalsPage(bot: bot)
+        case .standingGroup: StandingApprovalGroupPage(bot: bot)
         }
     }
 }

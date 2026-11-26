@@ -57,6 +57,12 @@ bleibt frei, der Fortschritt erscheint als Schrittkarte. Code: `Server/src/aisbo
   wiederkommen; verbessert wird die Routine selbst. Fehler, Stopp und Limit bleiben unter „Zu prüfen“. Board und Detail
   zeigen „Routine · <Titel>“ (`routine_title`). Sammelknöpfe: „Alle abhaken“ (Zu prüfen, nur fertige) und
   „Alle archivieren“ (Abgeschlossen), je mit Rückfrage.
+- **Archiv aufräumen (Server 1.40):** Im Reiter „Archiv“ leert „Archiv leeren“ (mit Rückfrage) alle archivierten
+  Aufgaben, bei gesetztem Scoop-Filter nur die dieses Scoops (`POST /api/tasks/archive/clear`). Einzelne archivierte
+  Aufgaben löscht das Kontextmenü (`DELETE /api/tasks/{id}`). „Automatisch löschen“ (Nie, 7, 30, 90, 365 Tage) setzt
+  `task_archive_days`; der Planer löscht stündlich archivierte Aufgaben, die länger archiviert sind (ohne `archived_at`
+  zählt `updated_at`). Gelöscht werden Eintrag und Arbeitsordner; Ergebnisdateien bleiben in der Bibliothek des Chats.
+  Standard: nie.
 - **Schnellknöpfe auf den Karten (App):** Zu prüfen → „Abhaken“ (accept) und „Ablehnen“ (Kommentar optional → `rework`;
   ohne Kommentar ein allgemeiner Nacharbeits-Hinweis), Fehler/Stopp → „Fortsetzen“, Offen → „Starten“/„Planen“.
 - Tests: `Server/tests/test_task_board.py`, Heuristik in `Server/tests/test_nudge.py`.

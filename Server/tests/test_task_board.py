@@ -551,6 +551,68 @@ def test_task_waits_for_peer(bid: str) -> None:
     ok(not tasks.deliver_peer_reply(t["id"], other["name"], "noch was", bid, bid), "fertige Aufgabe: Antwort geht wie bisher in den Chat")
 
 
+# -- Archiv leeren und automatisch löschen (1.40) -------------------------------------------------------------------
+def test_archive_cleanup(bid: str, other: str) -> None:
+    print("Board: Archiv leeren, archivierte einzeln löschen, automatisch nach X Tagen")
+    tasks.clear_archive()  # was frühere Tests archiviert haben
+    ok(http.get("/api/health", headers=H).json().get("task_archive_cleanup") is True, "Health meldet task_archive_cleanup")
+
+    def finished(chat: str, title: str) -> str:
+        r = http.post("/api/tasks", headers=H, json={"chat_id": chat, "prompt": f"{title}: kurzer Bericht.", "title": title})
+        tid = r.json()["id"]
+        wait_for(lambda: tasks.row(tid)["state"] == "done", msg=f"{title} fertig")
+        idle(chat)
+        return tid
+
+    a, b, c, d = finished(bid, "Archiv A"), finished(bid, "Archiv B"), finished(other, "Archiv C"), finished(bid, "Archiv D")
+    r = http.delete(f"/api/tasks/{d}", headers=H)
+    ok(r.status_code == 409, "nicht archivierte, erledigte Aufgabe lässt sich nicht löschen")
+    for tid in (a, b, c, d):
+        ok(http.post(f"/api/tasks/{tid}/archive", headers=H).status_code == 200, "archiviert")
+    files_before = db.one("SELECT COUNT(*) AS n FROM files WHERE chat_id=?", (bid,))["n"]
+    wd = Path(tasks.row(d)["workdir"])
+    ok(wd.exists(), "Arbeitsordner vorhanden")
+    events: list[tuple[str, dict]] = []
+    orig = service.publish
+    service.publish = lambda typ, data: (events.append((typ, data)) if typ.startswith("task.") else None, orig(typ, data))[1]
+    try:
+        r = http.delete(f"/api/tasks/{d}", headers=H)
+        ok(r.status_code == 200 and tasks.row(d) is None, "archivierte Aufgabe einzeln gelöscht")
+        ok(not wd.exists(), "Arbeitsordner mit gelöscht")
+        ok(("task.deleted", {"id": d}) in events, "Ereignis task.deleted")
+        ok(db.one("SELECT COUNT(*) AS n FROM files WHERE chat_id=?", (bid,))["n"] == files_before,
+           "Ergebnisdateien bleiben in der Bibliothek")
+
+        # automatisch: A ist 40 Tage archiviert, B und C frisch
+        old = (datetime.now(TZ) - timedelta(days=40)).isoformat(timespec="seconds")
+        db.q("UPDATE tasks SET archived_at=? WHERE id=?", (old, a))
+        ok(http.get("/api/tasks/settings", headers=H).json()["task_archive_days"] == 0, "Standard: nie automatisch löschen")
+        ok(tasks.purge_archived() == 0 and tasks.row(a), "ohne Einstellung bleibt alles")
+        for bad in (-1, 5000, "30", True, 1.5):
+            r = http.patch("/api/tasks/settings", headers=H, json={"task_archive_days": bad})
+            ok(r.status_code == 400, f"ungültige Tage abgelehnt ({bad!r})")
+        r = http.patch("/api/tasks/settings", headers=H, json={"task_archive_days": 30})
+        ok(r.status_code == 200 and r.json()["task_archive_days"] == 30, "Einstellung 30 Tage gespeichert")
+        ok(tasks.purge_archived() == 1 and tasks.row(a) is None and tasks.row(b) and tasks.row(c),
+           "nur die über 30 Tage alte Aufgabe gelöscht")
+        db.q("UPDATE tasks SET archived_at=NULL, updated_at=? WHERE id=?", (old, b))
+        ok(tasks.purge_archived() == 1 and tasks.row(b) is None, "ohne archived_at zählt die letzte Änderung")
+        ok(http.patch("/api/tasks/settings", headers=H, json={"task_archive_days": 0}).json()["task_archive_days"] == 0,
+           "wieder ausgeschaltet")
+
+        e = finished(bid, "Archiv E")
+        http.post(f"/api/tasks/{e}/archive", headers=H)
+        r = http.post("/api/tasks/archive/clear", headers=H, json={"bot": other})
+        ok(r.status_code == 200 and r.json() == {"deleted": 1} and tasks.row(c) is None and tasks.row(e),
+           "Archiv leeren nur für einen Scoop")
+        r = http.post("/api/tasks/archive/clear", headers=H)
+        ok(r.json() == {"deleted": 1} and tasks.row(e) is None, "Archiv leeren für alle")
+        ok(http.get("/api/tasks", headers=H, params={"column": "archived"}).json() == [], "Archiv ist leer")
+        ok(http.post("/api/tasks/archive/clear", headers=H).json() == {"deleted": 0}, "leeres Archiv: 0 gelöscht")
+    finally:
+        service.publish = orig
+
+
 if __name__ == "__main__":
     start_server()
     test_migration()
@@ -566,6 +628,7 @@ if __name__ == "__main__":
     test_task_waits_for_peer(bid)
     test_list_and_guests(bid, other)
     test_chat(bid)
+    test_archive_cleanup(bid, other)
     print(f"\nAlle {passed} Prüfungen bestanden.", flush=True)
     sys.stdout.flush()
     os._exit(0)

@@ -109,7 +109,7 @@ struct QuietHoursSheet: View {
                 }
                 if let primary = store.primaryBot {
                     GroupedSection {
-                        GroupedLabelRow(icon: "crown", title: "\(primary.name) wartet",
+                        GroupedLabelRow(icon: "star", title: "\(primary.name) wartet",
                                         subtitle: "Der Haupt-Scoop meldet sich in der Ruhezeit nicht von selbst. Fällt ein Check hinein, holt er ihn danach einmal nach.")
                     }
                 }

@@ -198,6 +198,7 @@ struct ServerSettingsView: View {
             Section("Dauerbetrieb") {
                 Toggle("Mac wach halten, solange der Server läuft", isOn: $controller.keepSystemAwake)
                 Toggle("Bildschirm anlassen", isOn: $controller.keepDisplayAwake)
+                if LidAwake.hasLid { LidAwakeRow(disabled: controller.test) }
                 Button("Weitere Tipps …") { openSetup(.awake) }
             }
 

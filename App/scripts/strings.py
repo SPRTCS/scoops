@@ -115,7 +115,7 @@ def build(out: Path) -> None:
         print(f"→ {name} …", flush=True)
         log = out / f"{name}.log"
         with log.open("w") as fh:
-            rc = subprocess.call(["xcodebuild", *args, "-derivedDataPath", str(out / name), "build"], cwd=APP,
+            rc = subprocess.call(["xcodebuild", "-project", "AISBot.xcodeproj", *args, "-derivedDataPath", str(out / name), "build"], cwd=APP,
                                  stdout=fh, stderr=subprocess.STDOUT)
         if rc:
             sys.exit(f"Build {name} fehlgeschlagen, siehe {log}")

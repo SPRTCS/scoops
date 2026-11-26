@@ -63,6 +63,24 @@ protocol TaskBoardService: AnyObject {
     /// Nur geplante Aufgaben
     func deleteTask(id: String) async throws
     func taskAction(id: String, action: TaskAction, message: String?) async throws -> BotTask
+    /// Server 1.40: Archiv leeren (mit `botID` nur die eines Scoops), liefert die Zahl gelöschter Aufgaben
+    func clearTaskArchive(botID: String?) async throws -> Int
+    /// Server 1.40: archivierte Aufgaben nach so vielen Tagen automatisch löschen (0 = nie)
+    func taskArchiveDays() async throws -> Int
+    func setTaskArchiveDays(_ days: Int) async throws -> Int
+}
+
+/// Auswahl „Automatisch löschen“ im Archiv (Tage, 0 = nie)
+enum TaskArchiveRetention {
+    static let choices = [0, 7, 30, 90, 365]
+
+    static func title(_ days: Int) -> String {
+        switch days {
+        case 0: String(localized: "Nie", comment: "Archiv: nie automatisch löschen")
+        case 365: String(localized: "Nach einem Jahr", comment: "Archiv: automatisch löschen")
+        default: String(localized: "Nach \(days) Tagen", comment: "Archiv: automatisch löschen nach X Tagen")
+        }
+    }
 }
 
 /// Formular „Aufgabe“ (Plus-Menü im Chat, Board, Bearbeiten einer geplanten Aufgabe).

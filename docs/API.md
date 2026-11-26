@@ -1,4 +1,4 @@
-# AIS Bot – Server-API (v1, Stand: Server 1.39, App 1.3)
+# AIS Bot – Server-API (v1, Stand: Server 1.40, App 1.3)
 
 Vertrag zwischen Bot-Server (Python, läuft auf dem Agenten-Air) und der App (SwiftUI, iPhone/iPad/Mac).
 
@@ -224,7 +224,7 @@ WebSocket: `group.created`, `group.updated` (`Group`), `group.deleted` (`{"id"}`
 ```
 - Passwörter liegen nur im Schlüsselbund des Air. Die API gibt sie **nie** zurück, nur `has_password`.
 - `GET /api/vault` · `POST /api/vault` `{title, url, username?, password?, note?}` · `PATCH /api/vault/{id}` (gleiche Felder; `password` nur senden, wenn es geändert werden soll) · `DELETE /api/vault/{id}`
-- Scoops sehen Titel, Domain und Benutzername und können mit dem Werkzeug `login_ausfuellen` Benutzername und Passwort direkt in den Bot-Rechner tippen lassen, nur wenn die geöffnete Seite zur Domain passt.
+- Scoops sehen Titel, Domain und Benutzername und können mit dem Werkzeug `login_ausfuellen` Benutzername und Passwort direkt in den Bot-Rechner tippen lassen, nur wenn vorne Safari, Chrome oder Dia mit einer Seite der Domain offen ist. In Claude-Aufgaben füllt der Bildschirm-Helfer (`bildschirm_aufgabe`) aus, weil nur er den Rechner belegt.
 
 ## v1.5 – T3 Code und Tempo
 
@@ -759,7 +759,7 @@ Scoop genau dort fort. Statuskarte: `meta.resumed = true`.
 | GET | `/api/tasks/{id}` | – | `Aufgabe` |
 | POST | `/api/tasks/{id}/stop` | – | `Aufgabe` |
 | POST | `/api/tasks/{id}/continue` | `{message?}` | `Aufgabe` (wartend/angehalten/fertig fortsetzen) |
-| GET | `/api/tasks/settings` | – | `{task_mode, task_max_parallel, task_budget_usd, task_max_minutes, task_openai_engine, task_effort, codex_available, codex_blocked_reason}` |
+| GET | `/api/tasks/settings` | – | `{task_mode, task_max_parallel, task_budget_usd, task_max_minutes, task_openai_engine, task_effort, task_archive_days, codex_available, codex_blocked_reason}` (`task_archive_days`: archivierte Aufgaben nach so vielen Tagen löschen, 0 = nie, ab 1.40) |
 | PATCH | `/api/tasks/settings` | Felder wie oben | Einstellungen |
 
 Nur der Inhaber (Gäste: 403). `POST /api/bots/{id}/stop` hält auch die Aufgaben des Chats an. `GET /api/health` hat
@@ -870,7 +870,8 @@ Fertige, fehlgeschlagene, gestoppte und am Limit angehaltene Aufgaben landen mit
 | POST | `/api/tasks` | Anlegen: `{chat_id, actor_id?, prompt, title?, model?, scheduled_at?}`; ohne Termin sofort, sonst geplant (Termin in der Vergangenheit = sofort). `origin = "board"` |
 | GET | `/api/tasks/{id}` | Detail mit `lines` (Schritt-Verlauf) und `file_items` (Dateien wie `/api/files`) |
 | PATCH | `/api/tasks/{id}` | Nur geplante: `title`, `prompt`, `model` (`null`/`"wie_scoop"` = wie Scoop), `scheduled_at` |
-| DELETE | `/api/tasks/{id}` | Nur geplante (sonst 409) |
+| DELETE | `/api/tasks/{id}` | Offene, geplante und (ab 1.40) archivierte (sonst 409) |
+| POST | `/api/tasks/archive/clear` | Archiv leeren (ab 1.40): `{bot?}` → `{deleted}`; löscht archivierte Aufgaben endgültig samt Arbeitsordner, Ergebnisdateien bleiben in der Bibliothek. `GET /api/health` meldet `task_archive_cleanup: true` |
 | POST | `/api/tasks/{id}/start` | Geplante sofort starten |
 | POST | `/api/tasks/{id}/accept` | „Erledigt“: → Abgeschlossen |
 | POST | `/api/tasks/{id}/rework` | „Nacharbeiten“ `{message}`: setzt fort, Abnahme zurückgesetzt |

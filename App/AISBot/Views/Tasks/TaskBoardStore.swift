@@ -23,12 +23,18 @@ final class TaskBoardStore {
     private(set) var details: [String: BotTask] = [:]
     /// Aktion läuft (Knöpfe sperren)
     private(set) var busyIDs: Set<String> = []
+    /// Archiv: archivierte Aufgaben nach so vielen Tagen automatisch löschen (0 = nie, `nil` = noch nicht geladen)
+    private(set) var archiveDays: Int?
+    /// „Archiv leeren“ läuft
+    private(set) var clearingArchive = false
 
     /// Setzt der AppStore (eigene Server-Verbindung, Fehleranzeige)
     @ObservationIgnored var service: () -> TaskBoardService? = { nil }
     @ObservationIgnored var onError: (Error) -> Void = { _ in }
     /// Namen zum Durchsuchen (Scoop mit Rolle, bei Gruppen der Chat); setzt der AppStore
     @ObservationIgnored var searchNames: (BotTask) -> [String] = { _ in [] }
+    /// Server kann das Archiv aufräumen (1.40, `task_archive_cleanup` in /api/health); setzt der AppStore
+    @ObservationIgnored var supportsArchiveCleanup: () -> Bool = { false }
     @ObservationIgnored private var detailReload: [String: Task<Void, Never>] = [:]
 
     /// Verbindung gewechselt: alles vergessen
@@ -39,6 +45,7 @@ final class TaskBoardStore {
         unavailable = nil
         filterBotID = nil
         searchText = ""
+        archiveDays = nil
     }
 
     // MARK: Abfragen
@@ -257,6 +264,37 @@ final class TaskBoardStore {
             onError(error)
             return false
         }
+    }
+
+    // MARK: Archiv aufräumen (Server 1.40)
+
+    func loadArchiveDays() async {
+        guard supportsArchiveCleanup(), let service = service() else { return }
+        if let days = try? await service.taskArchiveDays() { archiveDays = days }
+    }
+
+    func setArchiveDays(_ days: Int) async {
+        guard let service = service() else { return }
+        let previous = archiveDays
+        archiveDays = days
+        do {
+            archiveDays = try await service.setTaskArchiveDays(days)
+        } catch {
+            archiveDays = previous
+            onError(error)
+        }
+    }
+
+    /// „Archiv leeren“: alle archivierten Aufgaben, bei gesetztem Scoop-Filter nur die dieses Scoops.
+    func clearArchive() async {
+        guard let service = service() else { return }
+        clearingArchive = true
+        defer { clearingArchive = false }
+        let bot = filterBotID
+        do {
+            _ = try await service.clearTaskArchive(botID: bot)
+            tasks.removeAll { $0.boardColumn == .archived && (bot == nil || $0.botId == bot) }
+        } catch { onError(error) }
     }
 
     // MARK: Drag & Drop

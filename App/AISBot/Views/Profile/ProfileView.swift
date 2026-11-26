@@ -134,10 +134,11 @@ struct ProfileView: View {
     private func ownerOverview(_ bot: Bot) -> some View {
         GroupedStack {
             upcomingSection(bot)
-            standingSection(bot)
             computerSection(bot)
             // v1.29: Rechte-Modus und Standard-Bereich (nur Admin; ältere Server liefern das Feld nicht)
             if bot.computerAccess != nil { ComputerAccessSection(bot: bot) }
+            // Dauerhafte Freigaben: eine Zeile, Unterseiten nach Werkzeug (StandingApprovalsPages.swift)
+            StandingApprovalsNavSection(bot: bot)
             // Nach Häufigkeit: Bibliothek (Dateien wiederfinden), Modell (Wechsel für einzelne Aufgaben),
             // Persönlichkeit und Teilen (meist einmal eingerichtet)
             GroupedSection(dividerInset: 50) {
@@ -222,19 +223,6 @@ struct ProfileView: View {
                 if list.count > Self.upcomingLimit {
                     ProfileNavRow(page: .routines, value: "\(list.count)", title: String(localized: "Alle Routinen"))
                 }
-            }
-        }
-    }
-
-    /// v1.20: „Dauerhafte Freigaben“ (nur, wenn es welche gibt): Was der Scoop ohne Rückfrage darf, mit Entfernen.
-    @ViewBuilder
-    private func standingSection(_ bot: Bot) -> some View {
-        let list = store.standingApprovals[bot.id] ?? []
-        if !list.isEmpty {
-            GroupedSection("Dauerhafte Freigaben",
-                           footer: "Dafür fragt \(bot.name) nicht mehr, sondern meldet es nur im Chat. Entfernen heißt: wieder fragen.",
-                           dividerInset: 50) {
-                ForEach(list) { item in StandingApprovalRow(item: item) }
             }
         }
     }
@@ -331,11 +319,13 @@ enum ProfileSettle {
 
 struct StandingApprovalRow: View {
     let item: StandingApproval
+    /// Kürzere Beschriftung auf der Seite eines Werkzeugs (ohne Servernamen davor)
+    var title: String?
     @Environment(AppStore.self) private var store
     @Environment(\.theme) private var theme
 
     var body: some View {
-        GroupedLabelRow(icon: item.symbol, title: item.label,
+        GroupedLabelRow(icon: item.symbol, title: title ?? item.label,
                         subtitle: item.createdAt.map { date in
                             let day = date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(.app))
                             return String(localized: "Seit \(day)", comment: "Dauerhafte Freigabe besteht seit einem Datum")

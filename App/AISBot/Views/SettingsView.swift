@@ -141,7 +141,7 @@ struct SettingsView: View {
                         }
                         .frame(width: 30)
                     } else {
-                        Image(systemName: "crown").appFont(15).foregroundStyle(theme.textSecondary).scaledFrame(width: 30)
+                        Image(systemName: "star").appFont(15).foregroundStyle(theme.textSecondary).scaledFrame(width: 30)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Initiative").appFont(15).foregroundStyle(theme.textPrimary)

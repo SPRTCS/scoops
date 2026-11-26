@@ -474,6 +474,9 @@ def parent_watch(parent: int) -> None:
             os._exit(0)
 
 
+_archive_purged_at = 0.0
+
+
 def scheduler_loop() -> None:
     from .db import BACKUP_DIR, now
 
@@ -487,6 +490,14 @@ def scheduler_loop() -> None:
             tasks.start_due()  # geplante Aufgaben (Board, `termin`), übersteht Neustarts
         except Exception as e:  # noqa: BLE001
             print("Aufgaben-Planer-Fehler:", e, flush=True)
+        global _archive_purged_at
+        if time.time() - _archive_purged_at > 3600:  # Archiv aufräumen: höchstens stündlich
+            _archive_purged_at = time.time()
+            try:
+                if n := tasks.purge_archived():
+                    print(f"Archiv: {n} alte Aufgaben gelöscht", flush=True)
+            except Exception as e:  # noqa: BLE001
+                print("Archiv-Fehler:", e, flush=True)
         computers.release_if_idle()  # Übernahme endet nach 10 Minuten ohne Eingabe
         try:
             ruhe_tick()  # abgelaufene Stummschaltungen aufräumen (ruhe.py)
@@ -649,6 +660,8 @@ def health():
             # Scoop-Vorlagen (vorlagen.py, höchste lesbare Formatversion), Bilder über das ChatGPT-Abo (bilder.py)
             "search": True, "message_edit": True, "today": True,
             "mute": True, "quiet_hours": True, "templates": vorlagen.FORMAT, "images": _images_health(),
+            # Board 1.40: Archiv leeren, archivierte einzeln löschen, automatisch nach `task_archive_days`
+            "task_archive_cleanup": True,
             # Sprachen (docs/sprache.md): GET/PATCH /api/settings/language, Antworten nach Accept-Language
             "languages": list(i18n.LANGS), "language": i18n.current()}
 
@@ -1319,6 +1332,14 @@ def task_settings():
     return {**task_cfg(), "codex_available": not blocked, "codex_blocked_reason": tasks._codex_block_reason if blocked else None}
 
 
+@app.post("/api/tasks/archive/clear", dependencies=[Depends(auth)])
+def clear_task_archive(body: dict | None = None):
+    """Archiv leeren (1.40): alle archivierten Aufgaben endgültig löschen, mit `bot` nur die eines Scoops.
+    Ergebnisdateien bleiben in der Bibliothek. Antwort: `{"deleted": n}`."""
+    bot = str((body or {}).get("bot") or "").strip() or None
+    return {"deleted": tasks.clear_archive(bot)}
+
+
 @app.patch("/api/tasks/settings", dependencies=[Depends(auth)])
 def patch_task_settings(body: dict):
     from .tasks import DEFAULTS, settings as task_cfg
@@ -1330,6 +1351,8 @@ def patch_task_settings(body: dict):
                 raise HTTPException(400, tx("task_mode: \"all\", \"off\" oder Liste von Scoop-IDs"))
             if k == "task_openai_engine" and v not in ("auto", "codex", "responses"):
                 raise HTTPException(400, tx("task_openai_engine: auto, codex oder responses"))
+            if k == "task_archive_days" and (isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= 3650):
+                raise HTTPException(400, tx("task_archive_days: ganze Zahl von 0 (nie) bis 3650"))
             cfg[k] = v
     save_config(cfg)
     return task_cfg(cfg)
@@ -1363,7 +1386,7 @@ def patch_task(task_id: str, body: dict):
 
 @app.delete("/api/tasks/{task_id}", dependencies=[Depends(auth)])
 def delete_task(task_id: str):
-    """Nur offene oder geplante Aufgaben (erledigte archivieren)."""
+    """Offene, geplante oder archivierte Aufgaben (erledigte erst archivieren)."""
     _task_call(task_id, lambda: tasks.delete_planned(task_id))
     return {"ok": True}
 

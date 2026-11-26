@@ -247,6 +247,7 @@ TEXTS: dict = {
     "Der Scoop ist kein Mitglied dieser Gruppe": "The Scoop isn't a member of this group",
     "task_mode: \"all\", \"off\" oder Liste von Scoop-IDs": "task_mode: \"all\", \"off\", or a list of Scoop IDs",
     "task_openai_engine: auto, codex oder responses": "task_openai_engine: auto, codex, or responses",
+    "task_archive_days: ganze Zahl von 0 (nie) bis 3650": "task_archive_days: whole number from 0 (never) to 3650",
     "Aufgabe nicht gefunden": "Task not found",
     "codex_computer_use: true oder false": "codex_computer_use: true or false",
     "Anbieter claude oder openai": "Provider claude or openai",

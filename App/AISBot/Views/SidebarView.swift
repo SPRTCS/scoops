@@ -42,7 +42,7 @@ struct SidebarView: View {
                     if searching || standalone { searchField.padding(.horizontal, 12).padding(.bottom, 10) }
                     // Seite „Heute“ (Freigaben-Postfach) als fester erster Eintrag; bei der Suche nur Scoops
                     if store.today.available, store.searchText.isEmpty {
-                        TodaySidebarRow(standalone: standalone).padding(.bottom, standalone ? 4 : 8)
+                        TodaySidebarRow(standalone: standalone).padding(.bottom, 12)
                     }
                     if !store.pinnedEntries.isEmpty { pinnedGrid }
                     ForEach(store.pendingChats) { pending in pendingRow(pending) }
@@ -439,7 +439,7 @@ struct SidebarView: View {
                             ChatAvatar(chatID: entry.id, size: 58, animateWhenBusy: false, showsWaiting: true)
                             if entry.unread > 0 { UnreadDot(muted: store.isMuted(entry.id)).offset(x: 2, y: 4) }
                         }
-                        // Stumm: durchgestrichene Glocke unten links (rechts sitzt die Krone des Haupt-Scoops)
+                        // Stumm: durchgestrichene Glocke unten links (rechts sitzt der Stern des Haupt-Scoops)
                         .overlay(alignment: .bottomLeading) {
                             if store.isMuted(entry.id) {
                                 MutedBadge(size: 10)
@@ -448,7 +448,7 @@ struct SidebarView: View {
                                     .offset(x: -6, y: 2)
                             }
                         }
-                        // Krone unten rechts neben dem Körper (überdeckt weder Gesicht noch Accessoire)
+                        // Stern unten rechts neben dem Körper (überdeckt weder Gesicht noch Accessoire)
                         .overlay(alignment: .bottomTrailing) {
                             if entry.isPrimary { PrimaryBadge(size: 17).offset(x: 9, y: 1) }
                         }

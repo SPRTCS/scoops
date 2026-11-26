@@ -2642,12 +2642,11 @@ class BotService:
                 return f"Für diesen Eintrag ist kein Passwort hinterlegt. Bitte {self.user_name}, es in der App zu ergänzen."
             hub = self.hub_for(actor_id)
             if hub.holder != actor_id:
-                return "Dein Rechner ist für dich gerade nicht aktiv. Mach zuerst einen Screenshot, dann nochmal versuchen."
+                return vault.NOT_ACTIVE
             c = hub.computer
             app, url = vault.current_page(c)
-            if not vault.domain_matches(url, e["domain"]):
-                return (f"Nicht ausgefüllt: Die geöffnete Seite ({vault.domain_of(url) if url else 'unbekannt'}, {app or '?'}) "
-                        f"passt nicht zu „{e['title']}“ ({e['domain']}). Öffne die richtige Seite in Safari und versuch es erneut.")
+            if app not in vault.BROWSERS or not vault.domain_matches(url, e["domain"]):
+                return vault.mismatch_message(app, url, e["title"], e["domain"], self.user_name)
             feld = i["feld"]
             if feld in ("benutzername", "beides"):
                 c.type_text(e["username"] or "")
@@ -2757,7 +2756,7 @@ class BotService:
         tools.append(tool("login_ausfuellen",
                           "Füllt einen Login aus dem Tresor auf der gerade geöffneten Webseite deines Rechners aus, ohne dass du das "
                           "Passwort siehst. Vorher ins richtige Feld klicken (bei feld='beides' ins Benutzername-Feld). Funktioniert nur, "
-                          "wenn die Seite in Safari zur Domain des Eintrags passt. feld: 'benutzername', 'passwort' oder 'beides'.",
+                          f"wenn vorne {vault.BROWSER_NAMES} mit einer Seite der Domain des Eintrags offen ist. feld: 'benutzername', 'passwort' oder 'beides'.",
                           {"eintrag_id": s, "feld": {"type": "string", "enum": ["benutzername", "passwort", "beides"]},
                            "absenden": {"type": "boolean"}}, ["eintrag_id", "feld", "absenden"], login_ausfuellen,
                           "Füllt einen Login aus dem Tresor aus"))

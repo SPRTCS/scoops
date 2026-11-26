@@ -33,8 +33,8 @@ from typing import Callable
 from . import abos
 from .config import UsageBook
 from .i18n import tx
-from .engine import (HANDOFF_HINT, MAX_NUDGES, NUDGE, ComputerHub, Engine, ExtraTool, Outcome, announces_action,
-                     handoff_due, hands_off, mcp_line, status_line)
+from .engine import (HANDOFF_HINT, MAX_NUDGES, NUDGE, ComputerHub, Engine, ExtraTool, Outcome, after_nudges,
+                     announces_action, handoff_due, hands_off, mcp_line, status_line)
 
 IDLE_CLOSE = 600.0  # warme Prozesse nach 10 Minuten ohne Lauf beenden
 MAX_WARM = 4  # höchstens so viele warme Claude-Code-Prozesse gleichzeitig (je einige hundert MB)
@@ -567,7 +567,7 @@ class ClaudeCodeEngine:
         client = w.client
         sid = w.session_id
         final, stop = "", "end_turn"
-        nudges = 0
+        nudges, nudged = 0, []
         model_now = model
         msg: dict | str = {"type": "user", "message": {"role": "user", "content": content}, "parent_tool_use_id": None}
 
@@ -661,8 +661,10 @@ class ClaudeCodeEngine:
                     break
                 if (nudges < MAX_NUDGES and not ctx.handed_off and announces_action(final)):
                     nudges += 1
+                    nudged.append(final)
                     msg = NUDGE
                     continue
+                final = after_nudges(nudged, final)
                 break
         finally:
             watcher.cancel()
@@ -920,7 +922,7 @@ class CodexChatEngine:
                     items.append(ImageInput(f"data:{src.get('media_type', 'image/png')};base64,{src.get('data', '')}"))
                 else:
                     items.append(TextInput("(PDF-Anhang: mit datei_aus_bibliothek bzw. dem Anhang-Werkzeug lesen)"))
-            nudges = 0
+            nudges, nudged = 0, []
             while True:
                 text, err = self._turn(thread, items, work_effort or effort, ctx, usage, model, on_text, gate, images)
                 if err:
@@ -940,8 +942,10 @@ class CodexChatEngine:
                     break
                 if nudges < MAX_NUDGES and not ctx.handed_off and announces_action(final):
                     nudges += 1
+                    nudged.append(final)
                     items = [TextInput(NUDGE)]
                     continue
+                final = after_nudges(nudged, final)
                 break
             abos.clear_limit("openai")
         except abos.SubscriptionUnavailable:

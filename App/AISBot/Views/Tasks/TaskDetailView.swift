@@ -68,11 +68,15 @@ struct TaskDetailView: View {
         .background(theme.groupedBackground.ignoresSafeArea())
         .task { await board.loadDetail(taskID) }
         .onDisappear { board.closeDetail(taskID) }
-        .confirmationDialog(task?.isOpen == true ? "Offene Aufgabe löschen?" : "Geplante Aufgabe löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
+        .confirmationDialog(deleteQuestion, isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Löschen", role: .destructive) {
                 Task { await board.delete(taskID); dismiss() }
             }
             Button("Abbrechen", role: .cancel) {}
+        } message: {
+            if task?.boardColumn == .archived {
+                Text("Ergebnisdateien bleiben in der Bibliothek des Chats.")
+            }
         }
         #if os(macOS)
         .frame(minWidth: 520, idealWidth: 600, minHeight: 560, idealHeight: 720)
@@ -172,6 +176,14 @@ struct TaskDetailView: View {
         }
     }
 
+    private var deleteQuestion: String {
+        switch task?.boardColumn {
+        case .open: String(localized: "Offene Aufgabe löschen?")
+        case .archived: String(localized: "Archivierte Aufgabe löschen?")
+        default: String(localized: "Geplante Aufgabe löschen?")
+        }
+    }
+
     // MARK: Knöpfe
 
     private func actions(_ task: BotTask) -> some View {
@@ -204,6 +216,10 @@ struct TaskDetailView: View {
                 pill("Archivieren", "archivebox", .secondary) { await board.perform(task.id, .archive) }
             case .archived:
                 pill("Wiederherstellen", "arrow.uturn.backward.circle", .primary) { await board.perform(task.id, .restore) }
+                if board.supportsArchiveCleanup() {
+                    Button { confirmDelete = true } label: { Label("Löschen", systemImage: "trash") }
+                        .buttonStyle(PillButtonStyle(kind: .destructive))
+                }
             }
             Button { onOpenChat(task) } label: { Label("Zum Chat", systemImage: "bubble.left.and.bubble.right") }
                 .buttonStyle(PillButtonStyle(kind: .secondary))

@@ -816,4 +816,20 @@ extension APIClient: TaskBoardService {
     func taskAction(id: String, action: TaskAction, message: String?) async throws -> BotTask {
         try await request("POST", "/api/tasks/\(id)/\(action.rawValue)", body: TaskMessage(message: message), as: BotTask.self)
     }
+
+    private struct ArchiveClear: Codable { var bot: String?; var deleted: Int? }
+    private struct ArchiveDays: Codable { var taskArchiveDays: Int? }
+
+    func clearTaskArchive(botID: String?) async throws -> Int {
+        try await request("POST", "/api/tasks/archive/clear", body: ArchiveClear(bot: botID), as: ArchiveClear.self).deleted ?? 0
+    }
+
+    func taskArchiveDays() async throws -> Int {
+        try await request("GET", "/api/tasks/settings", as: ArchiveDays.self).taskArchiveDays ?? 0
+    }
+
+    func setTaskArchiveDays(_ days: Int) async throws -> Int {
+        try await request("PATCH", "/api/tasks/settings", body: ArchiveDays(taskArchiveDays: days), as: ArchiveDays.self)
+            .taskArchiveDays ?? days
+    }
 }
